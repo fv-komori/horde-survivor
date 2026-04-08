@@ -1,6 +1,17 @@
+/** オブジェクトを再帰的に凍結する */
+function deepFreeze<T extends object>(obj: T): T {
+  Object.freeze(obj);
+  for (const value of Object.values(obj)) {
+    if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+      deepFreeze(value);
+    }
+  }
+  return obj;
+}
+
 /** ゲーム全体の設定パラメータ（BR-CFG01: 外部設定化） */
 
-export const GAME_CONFIG = {
+export const GAME_CONFIG = deepFreeze({
   /** 画面仕様（NFR-05） */
   screen: {
     logicalWidth: 720,
@@ -98,4 +109,4 @@ export const GAME_CONFIG = {
 
   /** エラーログ接頭辞（NFR-08） */
   logPrefix: '[FV-GAME]',
-} as const;
+} as const);

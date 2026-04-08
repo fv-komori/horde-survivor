@@ -1,5 +1,16 @@
 /** 敵タイプ別パラメータ定義（FR-02, domain-entities EnemyType） */
 
+/** オブジェクトを再帰的に凍結する */
+function deepFreeze<T extends object>(obj: T): T {
+  Object.freeze(obj);
+  for (const value of Object.values(obj)) {
+    if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+      deepFreeze(value);
+    }
+  }
+  return obj;
+}
+
 export interface EnemyTypeConfig {
   hp: number;
   speed: number;         // px/秒
@@ -8,7 +19,7 @@ export interface EnemyTypeConfig {
   colliderRadius: number;
 }
 
-export const ENEMY_CONFIG: Record<string, EnemyTypeConfig> = {
+export const ENEMY_CONFIG: Record<string, EnemyTypeConfig> = deepFreeze({
   NORMAL: {
     hp: 20,
     speed: 80,
@@ -37,10 +48,10 @@ export const ENEMY_CONFIG: Record<string, EnemyTypeConfig> = {
     xpDrop: 200,
     colliderRadius: 40,
   },
-} as const;
+});
 
 /** ボススケーリング設定（BR-E03） */
-export const BOSS_SCALING = {
+export const BOSS_SCALING = deepFreeze({
   baseHp: 500,
   hpScalingPerSpawn: 0.5,      // 毎回+50%
   baseDamage: 30,
@@ -48,4 +59,4 @@ export const BOSS_SCALING = {
   xpDrop: 200,                 // 固定
   spawnInterval: 120,          // 秒（2分間隔）
   firstSpawnTime: 120,         // 秒（2分後）
-} as const;
+});

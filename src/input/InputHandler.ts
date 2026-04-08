@@ -1,4 +1,3 @@
-import { GAME_CONFIG } from '../config/gameConfig';
 
 /**
  * 入力ハンドラー
@@ -22,6 +21,9 @@ export class InputHandler {
   private scale: number = 1;
   private offsetX: number = 0;
   private offsetY: number = 0;
+
+  // イベントリスナー解除用AbortController
+  private abortController: AbortController = new AbortController();
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -49,6 +51,8 @@ export class InputHandler {
   }
 
   private setupKeyboardListeners(): void {
+    const signal = this.abortController.signal;
+
     window.addEventListener('keydown', (e: KeyboardEvent) => {
       switch (e.key) {
         case 'ArrowLeft':
@@ -63,7 +67,7 @@ export class InputHandler {
           break;
       }
       this.updateDirection();
-    });
+    }, { signal });
 
     window.addEventListener('keyup', (e: KeyboardEvent) => {
       switch (e.key) {
@@ -79,10 +83,12 @@ export class InputHandler {
           break;
       }
       this.updateDirection();
-    });
+    }, { signal });
   }
 
   private setupTouchListeners(): void {
+    const signal = this.abortController.signal;
+
     this.canvas.addEventListener('touchstart', (e: TouchEvent) => {
       e.preventDefault();
       for (let i = 0; i < e.changedTouches.length; i++) {
@@ -103,7 +109,7 @@ export class InputHandler {
         }
       }
       this.updateDirection();
-    }, { passive: false });
+    }, { passive: false, signal });
 
     this.canvas.addEventListener('touchmove', (e: TouchEvent) => {
       e.preventDefault();
@@ -124,7 +130,7 @@ export class InputHandler {
         }
       }
       this.updateDirection();
-    }, { passive: false });
+    }, { passive: false, signal });
 
     this.canvas.addEventListener('touchend', (e: TouchEvent) => {
       e.preventDefault();
@@ -145,7 +151,7 @@ export class InputHandler {
         this.swipeDirection = 0;
       }
       this.updateDirection();
-    }, { passive: false });
+    }, { passive: false, signal });
   }
 
   private updateDirection(): void {
@@ -229,6 +235,13 @@ export class InputHandler {
   }
 
   private _uiHandler: EventListener | null = null;
+
+  /** 全イベントリスナーを解除してリソースを解放 */
+  destroy(): void {
+    this.abortController.abort();
+    this.disableUITapListener();
+    this.reset();
+  }
 
   /** リセット */
   reset(): void {

@@ -24,7 +24,6 @@ import { CleanupSystem } from '../systems/CleanupSystem';
 import { RenderSystem } from '../systems/RenderSystem';
 
 // Components
-import { PlayerComponent } from '../components/PlayerComponent';
 import { HealthComponent } from '../components/HealthComponent';
 
 import { GAME_CONFIG } from '../config/gameConfig';
@@ -55,6 +54,7 @@ export class GameService {
   private previousTimestamp: number = 0;
   private running: boolean = false;
   private animationFrameId: number = 0;
+  private debugEnabled: boolean = false;
 
   // LEVEL_UP state
   private currentChoices: UpgradeChoice[] = [];
@@ -84,10 +84,12 @@ export class GameService {
     // アセットロード
     await this.assetManager.loadAll();
 
-    // デバッグモード判定
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('debug') === '1') {
-      (GAME_CONFIG as { debug: { enabled: boolean; fpsHistorySize: number } }).debug.enabled = true;
+    // デバッグモード判定（開発環境のみ有効化）
+    if (import.meta.env.DEV) {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('debug') === '1') {
+        this.debugEnabled = true;
+      }
     }
 
     // ECSシステム登録
@@ -164,7 +166,9 @@ export class GameService {
         this.update(dt);
       }
     } catch (error) {
-      console.error(`${GAME_CONFIG.logPrefix}[ERROR][GameService] Fatal error in game loop:`, error);
+      if (import.meta.env.DEV) {
+        console.error(`${GAME_CONFIG.logPrefix}[ERROR][GameService] Fatal error in game loop:`, error);
+      }
       this.stop();
       this.showErrorScreen(error instanceof Error ? error : new Error(String(error)));
       return;
@@ -201,17 +205,7 @@ export class GameService {
         }
 
         // HUD描画
-        const xpProgress = this.levelUpManager.getXPProgress();
-        this.uiManager.renderHUD(ctx, {
-          hp: this.getPlayerHP(),
-          maxHp: this.getPlayerMaxHP(),
-          xpCurrent: xpProgress.current,
-          xpRequired: xpProgress.required,
-          level: this.levelUpManager.getCurrentLevel(),
-          elapsedTime: this.scoreService.getElapsedTime(),
-          killCount: this.scoreService.getKillCount(),
-          wave: this.waveManager.getCurrentWave(),
-        });
+        this.renderHUD(ctx);
         break;
 
       case GameState.LEVEL_UP:
@@ -219,17 +213,7 @@ export class GameService {
         this.renderSystem.update(this.world, 0); // 描画のみ（dt=0）
 
         // HUD + レベルアップ画面
-        const xpProg2 = this.levelUpManager.getXPProgress();
-        this.uiManager.renderHUD(ctx, {
-          hp: this.getPlayerHP(),
-          maxHp: this.getPlayerMaxHP(),
-          xpCurrent: xpProg2.current,
-          xpRequired: xpProg2.required,
-          level: this.levelUpManager.getCurrentLevel(),
-          elapsedTime: this.scoreService.getElapsedTime(),
-          killCount: this.scoreService.getKillCount(),
-          wave: this.waveManager.getCurrentWave(),
-        });
+        this.renderHUD(ctx);
         this.uiManager.renderLevelUpScreen(ctx, this.currentChoices);
         this.handleLevelUpInput();
         break;
@@ -275,6 +259,20 @@ export class GameService {
     }
   }
 
+  private renderHUD(ctx: CanvasRenderingContext2D): void {
+    const xpProgress = this.levelUpManager.getXPProgress();
+    this.uiManager.renderHUD(ctx, {
+      hp: this.getPlayerHP(),
+      maxHp: this.getPlayerMaxHP(),
+      xpCurrent: xpProgress.current,
+      xpRequired: xpProgress.required,
+      level: this.levelUpManager.getCurrentLevel(),
+      elapsedTime: this.scoreService.getElapsedTime(),
+      killCount: this.scoreService.getKillCount(),
+      wave: this.waveManager.getCurrentWave(),
+    });
+  }
+
   private getPlayerHP(): number {
     const health = this.world.getComponent(this.playerId, HealthComponent);
     return health?.hp ?? 0;
@@ -288,13 +286,17 @@ export class GameService {
   /** エラーハンドラー設定（NFR-08） */
   private setupErrorHandlers(): void {
     window.onerror = (_msg, _source, _line, _col, error) => {
-      console.error(`${GAME_CONFIG.logPrefix}[ERROR][Global] Unhandled error:`, error);
+      if (import.meta.env.DEV) {
+        console.error(`${GAME_CONFIG.logPrefix}[ERROR][Global] Unhandled error:`, error);
+      }
       this.stop();
       this.showErrorScreen(error ?? new Error('Unknown error'));
     };
 
     window.addEventListener('unhandledrejection', (event) => {
-      console.error(`${GAME_CONFIG.logPrefix}[ERROR][Global] Unhandled rejection:`, event.reason);
+      if (import.meta.env.DEV) {
+        console.error(`${GAME_CONFIG.logPrefix}[ERROR][Global] Unhandled rejection:`, event.reason);
+      }
       this.stop();
       this.showErrorScreen(new Error(String(event.reason)));
     });
@@ -320,7 +322,10 @@ export class GameService {
 
     ctx.fillStyle = '#FFFFFF';
     ctx.font = '14px monospace';
-    ctx.fillText(error.message.slice(0, 50), centerX, centerY);
+    const displayMessage = this.debugEnabled
+      ? error.message.slice(0, 50)
+      : 'An unexpected error occurred.';
+    ctx.fillText(displayMessage, centerX, centerY);
 
     ctx.fillStyle = '#AAAAAA';
     ctx.font = '16px monospace';

@@ -46,6 +46,7 @@ export class RenderSystem implements System {
   private offsetX: number = 0;
   private offsetY: number = 0;
   private inputHandler: InputHandler | null = null;
+  private abortController: AbortController;
 
   // デバッグ
   private fpsHistory: number[] = [];
@@ -56,6 +57,7 @@ export class RenderSystem implements System {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Failed to get 2D context');
     this.ctx = ctx;
+    this.abortController = new AbortController();
 
     this.initCanvas();
     this.setupResizeObserver();
@@ -104,7 +106,12 @@ export class RenderSystem implements System {
   }
 
   private setupResizeObserver(): void {
-    window.addEventListener('resize', () => this.handleResize());
+    window.addEventListener('resize', () => this.handleResize(), { signal: this.abortController.signal });
+  }
+
+  /** リソース解放: resizeリスナーを解除 */
+  destroy(): void {
+    this.abortController.abort();
   }
 
   update(world: World, dt: number): void {
@@ -327,7 +334,7 @@ export class RenderSystem implements System {
   /** モバイル操作UI描画（business-logic-model 15.8） */
   private renderMobileUI(ctx: CanvasRenderingContext2D): void {
     const alpha = 0.3;
-    const pressedAlpha = 0.5;
+    // TODO: pressedAlpha (0.5) — ボタン押下フィードバック未実装（要InputHandler連携）
 
     // 左移動ボタン
     ctx.fillStyle = `rgba(255,255,255,${alpha})`;

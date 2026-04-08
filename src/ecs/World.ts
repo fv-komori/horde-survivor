@@ -34,7 +34,8 @@ export class World {
   addComponent<T extends Component>(entityId: EntityId, component: T): void {
     const entity = this.entities.get(entityId);
     if (!entity) return;
-    entity.components.set(component.constructor, component);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    entity.components.set(component.constructor as new (...args: any[]) => Component, component);
   }
 
   /** コンポーネントを削除 */
@@ -54,7 +55,8 @@ export class World {
   }
 
   /** 指定コンポーネントを全て持つエンティティIDのリストを返す */
-  query(...componentClasses: Function[]): EntityId[] {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  query(...componentClasses: (new (...args: any[]) => Component)[]): EntityId[] {
     const result: EntityId[] = [];
     for (const [id, entity] of this.entities) {
       if (this.entitiesToDestroy.has(id)) continue;

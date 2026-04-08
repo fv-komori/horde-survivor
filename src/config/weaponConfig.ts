@@ -1,5 +1,16 @@
 /** 武器タイプ別・レベル別パラメータ定義（business-logic-model セクション4） */
 
+/** オブジェクトを再帰的に凍結する */
+function deepFreeze<T extends object>(obj: T): T {
+  Object.freeze(obj);
+  for (const value of Object.values(obj)) {
+    if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+      deepFreeze(value);
+    }
+  }
+  return obj;
+}
+
 export interface WeaponLevelConfig {
   damage: number;
   fireInterval: number;  // 秒
@@ -50,8 +61,8 @@ const PIERCING_CONFIG: WeaponTypeConfig = {
   ],
 };
 
-export const WEAPON_CONFIG: Record<string, WeaponTypeConfig> = {
+export const WEAPON_CONFIG: Record<string, WeaponTypeConfig> = deepFreeze({
   FORWARD: FORWARD_CONFIG,
   SPREAD: SPREAD_CONFIG,
   PIERCING: PIERCING_CONFIG,
-} as const;
+});

@@ -2,7 +2,6 @@ import type { World } from '../ecs/World';
 import { EnemyComponent } from '../components/EnemyComponent';
 import { EntityFactory } from '../factories/EntityFactory';
 import { WaveManager } from './WaveManager';
-import { ScoreService } from '../game/ScoreService';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { EnemyType } from '../types';
 

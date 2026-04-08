@@ -3,7 +3,6 @@ import type { EntityId } from '../ecs/Entity';
 import { HealthComponent } from '../components/HealthComponent';
 import { WeaponInventoryComponent } from '../components/WeaponInventoryComponent';
 import { PassiveSkillsComponent } from '../components/PassiveSkillsComponent';
-import { PlayerComponent } from '../components/PlayerComponent';
 import { EntityFactory } from '../factories/EntityFactory';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { XP_TABLE, XP_TABLE_OVERFLOW_INCREMENT } from '../config/waveConfig';
@@ -136,9 +135,12 @@ export class LevelUpManager {
       });
     }
 
-    // 6. ランダムに3つ選択（重複なし）
-    const shuffled = candidates.sort(() => Math.random() - 0.5);
-    const choices = shuffled.slice(0, count);
+    // 6. ランダムに3つ選択（重複なし）— Fisher-Yatesシャッフル
+    for (let i = candidates.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+    }
+    const choices = candidates.slice(0, count);
 
     // 7. ユニークID付与
     this.generatedChoiceIds.clear();
