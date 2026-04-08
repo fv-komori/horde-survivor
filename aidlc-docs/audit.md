@@ -105,3 +105,43 @@
 **Context**: INCEPTION - Application Design自動レビュー完了（PASS）
 
 ---
+
+## Functional Design - Session Resumption
+**Timestamp**: 2026-04-08T00:00:00Z
+**User Input**: "続きから再開"
+**AI Response**: セッション再開。前回のアーティファクト（要件、設計、ストーリー）を読み込み、Functional Designステージを開始。
+**Context**: CONSTRUCTION - Functional Design開始
+
+---
+
+## Functional Design - Q&A Phase 1
+**Timestamp**: 2026-04-08T00:01:00Z
+**User Input**: 敵の移動="真下に直進" / XP曲線="どの曲線のタイプがゲームバランス的に最適でしょうか" / 無敵時間="無敵時間あり（推奨）" / 仲間選択="どちらが実装しやすい？"
+**AI Response**: 敵は真下直進、XP曲線は緩やかな指数増加（ゲームバランス最適）、無敵時間1秒あり、仲間追加は独立カテゴリ（実装容易）と回答・確定。
+**Context**: CONSTRUCTION - Functional Design Q&A Phase 1完了
+
+---
+
+## Functional Design - Q&A Phase 2
+**Timestamp**: 2026-04-08T00:02:00Z
+**User Input**: 武器バランス="概要だけ指定"（前方=高速発射、拡散=広範囲、貫通=高ダメージ、詳細はAI設計）/ 射程="画面全体"
+**AI Response**: 武器パラメータをレベル別に詳細設計。射程制限なし（画面全体）で確定。
+**Context**: CONSTRUCTION - Functional Design Q&A Phase 2完了
+
+---
+
+## Functional Design - Artifacts Generation
+**Timestamp**: 2026-04-08T00:03:00Z
+**User Input**: N/A（自動実行）
+**AI Response**: 3つの機能設計成果物を生成: domain-entities.md（6エンティティ、6値オブジェクト、5列挙型）、business-logic-model.md（11セクション: ゲームループ、移動、武器、衝突、防衛ライン、XP/レベルアップ、ウェーブ、仲間、クリーンアップ）、business-rules.md（10カテゴリ、38ルール）
+**Context**: CONSTRUCTION - Functional Design成果物生成完了
+
+---
+
+## Functional Design - Auto Review
+**Timestamp**: 2026-04-08T00:10:00Z
+**User Input**: "/dlc-review:dlc-review-auto"（自動レビュースキル起動）
+**AI Response**: 6ロールによる自動レビュー+スコアリング実施。2イテレーション+追加修正4件。iter1: FAIL(O-保守性=6)→自動修正14件適用。iter2: FAIL(F-正確性=6, モバイルUI未定義)→追加修正4件(モバイルUI,点滅仕様,衝突最適化,レターボックスクリア)。最終判定: PASS(全体平均7.67)。解決33件、未解決4件(minor/medium)。
+**Context**: CONSTRUCTION - Functional Design自動レビュー完了（PASS）
+
+---
