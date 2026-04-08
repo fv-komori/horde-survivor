@@ -145,3 +145,35 @@
 **Context**: CONSTRUCTION - Functional Design自動レビュー完了（PASS）
 
 ---
+
+## Code Generation - Session Resumption
+**Timestamp**: 2026-04-08T12:00:00Z
+**User Input**: "/aidlc:start"（セッション再開）
+**AI Response**: セッション再開。前回のアーティファクト（要件、ユーザーストーリー、アプリケーション設計、機能設計）を全読み込み。Code Generationステージ Part 1（Planning）を開始。
+**Context**: CONSTRUCTION - Code Generation開始
+
+---
+
+## Code Generation - Plan Approval Prompt
+**Timestamp**: 2026-04-08T12:05:00Z
+**User Input**: N/A（承認待ち）
+**AI Response**: Code Generation計画を作成。21ステップ、約50ファイル生成。計画ドキュメントをaidlc-docs/construction/plans/game-app-code-generation-plan.mdに保存。ユーザー承認を待機。
+**Context**: CONSTRUCTION - Code Generation Part 1（Planning）完了、承認待ち
+
+---
+
+## Code Generation - Plan Approval
+**Timestamp**: 2026-04-08T12:10:00Z
+**User Input**: "承認します。"
+**AI Response**: 計画承認確認。Code Generation Part 2（実装）を開始。Step 1から順次実装。
+**Context**: CONSTRUCTION - Code Generation Part 2（Generation）開始
+
+---
+
+## Code Generation - Completion
+**Timestamp**: 2026-04-08T12:30:00Z
+**User Input**: N/A（自動実行）
+**AI Response**: Code Generation全21ステップ完了。ソースコード35ファイル、テスト5ファイル(46テスト全PASS)、設定7ファイルを生成。TypeScript型チェックPASS。aidlc-docs/construction/game-app/code/code-generation-summary.mdにサマリーを出力。
+**Context**: CONSTRUCTION - Code Generation完了
+
+---
