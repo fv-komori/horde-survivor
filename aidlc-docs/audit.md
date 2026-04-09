@@ -326,3 +326,22 @@
 **Context**: Post-Construction ビジュアル・ゲームプレイ改修完了
 
 ---
+
+## Iteration 2 - Functional Design Session Resumption
+**Timestamp**: 2026-04-09T13:00:00Z
+**User Input**: "/aidlc:start"（セッション再開）→ 「続きから再開」
+**AI Response**: セッション再開。Inception成果物（要件v2、ユーザーストーリーv2、アプリケーション設計v2）および既存の機能設計（Iteration 1版）を全読み込み。Functional Designステージ（Iteration 2版の更新）を開始。
+**Context**: CONSTRUCTION - Functional Design開始（Iteration 2）
+
+---
+
+## Iteration 2 - Functional Design Completion + Auto Review
+**Timestamp**: 2026-04-09T13:30:00Z
+**User Input**: Q&A回答（無敵時間: 削除、バフ演出: シンプル、仲間化演出: 色変化+縮小+再出現）→ FD成果物承認後 "/dlc-review:dlc-review-auto"
+**AI Response**: 3成果物（domain-entities/business-rules/business-logic-model）をIteration 2用に全面更新。自動レビュー2イテレーション実施。
+- イテレーション1: FAIL（A/正確性=5, F/正確性=6, B/正確性=6）。主因: fireRateBonus計算式のcritical問題。自動修正14件適用（計算式修正、撃破キュー消費明確化、Zオーダー追加、DPR対応、描画800内訳、バリデーションフォールバック、SPREAD弾数統一、ボスドロップ例外、Allyライフサイクル、アダプティブ戦略等）
+- イテレーション2: PASS（全体平均8.13、全ロール×全軸≥7）
+- 最終レポート: aidlc-docs/reviews/construction/game-app/functional-design-auto-review-v2.md
+**Context**: CONSTRUCTION - Functional Design完了（Iteration 2）+ 自動レビューPASS
+
+---
