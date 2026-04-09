@@ -24,8 +24,8 @@ export const GAME_CONFIG = deepFreeze({
     baseHp: 100,
     baseSpeed: 200, // px/秒
     startX: 360,
-    startY: 1200,
-    colliderRadius: 16,
+    startY: 1100,
+    colliderRadius: 72,
     invincibleDuration: 1.0, // 秒（BR-P03）
   },
 
@@ -40,7 +40,9 @@ export const GAME_CONFIG = deepFreeze({
 
   /** XP回収（BR-G01） */
   xpCollection: {
-    collectionRadius: 48, // px
+    collectionRadius: 80,   // px: 即座に回収する距離
+    magnetRadius: 1500,      // px: 引き寄せ開始距離（画面全体カバー）
+    magnetSpeed: 500,        // px/秒: 引き寄せ速度
   },
 
   /** 防衛ライン（BR-S02） */
@@ -51,10 +53,10 @@ export const GAME_CONFIG = deepFreeze({
   /** 仲間設定（BR-A01, BR-A02） */
   ally: {
     maxCount: 4,
-    offsetUnit: 32, // px
-    /** 配置順: 右+32, 左-32, 右+64, 左-64 */
-    offsets: [32, -32, 64, -64],
-    spriteHalfWidth: 12,
+    offsetUnit: 110, // px
+    /** 配置順: 右+110, 左-110, 右+220, 左-220 */
+    offsets: [110, -110, 220, -220],
+    spriteHalfWidth: 75,
   },
 
   /** 武器共通（BR-W01） */
@@ -91,7 +93,7 @@ export const GAME_CONFIG = deepFreeze({
 
   /** 弾丸設定 */
   bullet: {
-    colliderRadius: 4,
+    colliderRadius: 8,
     screenMargin: 50, // 画面外マージン（px）
   },
 
@@ -99,6 +101,7 @@ export const GAME_CONFIG = deepFreeze({
   enemySpawn: {
     minY: -50,
     maxY: -10,
+    marginX: 100, // 左右マージン（弾の到達範囲に収める）
   },
 
   /** デバッグ設定（NFR-09） */

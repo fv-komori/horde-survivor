@@ -48,8 +48,10 @@ export class SpawnManager {
 
   /** ランダムなスポーン位置を生成 */
   getRandomSpawnPosition(): { x: number; y: number } {
-    const margin = 20; // コリジョン半径分のマージン
-    const x = margin + Math.random() * (GAME_CONFIG.screen.logicalWidth - margin * 2);
+    // プレイヤーの移動範囲+銃口オフセットを考慮し、弾が届く範囲内にスポーン
+    const minX = GAME_CONFIG.enemySpawn.marginX;
+    const maxX = GAME_CONFIG.screen.logicalWidth - GAME_CONFIG.enemySpawn.marginX;
+    const x = minX + Math.random() * (maxX - minX);
     const y = GAME_CONFIG.enemySpawn.minY + Math.random() * (GAME_CONFIG.enemySpawn.maxY - GAME_CONFIG.enemySpawn.minY);
     return { x, y };
   }

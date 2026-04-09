@@ -25,28 +25,28 @@ export const ENEMY_CONFIG: Record<string, EnemyTypeConfig> = deepFreeze({
     speed: 80,
     breachDamage: 10,
     xpDrop: 10,
-    colliderRadius: 12,
+    colliderRadius: 60,
   },
   FAST: {
     hp: 10,
     speed: 160,
     breachDamage: 8,
     xpDrop: 15,
-    colliderRadius: 12,
+    colliderRadius: 60,
   },
   TANK: {
     hp: 60,
     speed: 40,
     breachDamage: 15,
     xpDrop: 25,
-    colliderRadius: 20,
+    colliderRadius: 80,
   },
   BOSS: {
     hp: 500,
     speed: 30,
     breachDamage: 30,
     xpDrop: 200,
-    colliderRadius: 40,
+    colliderRadius: 110,
   },
 });
 

@@ -64,9 +64,9 @@ GAME_OVER → [リトライボタン押下] → TITLE
 ```
 
 ### 2.2 画面境界制限
-- 左端: `x >= colliderRadius`（16px）
-- 右端: `x <= 720 - colliderRadius`（704px）
-- Y座標は固定（1200px）
+- 左端: `x >= colliderRadius`（72px）
+- 右端: `x <= 720 - colliderRadius`（648px）
+- Y座標は固定（1100px）
 
 ---
 
@@ -80,7 +80,7 @@ newY = position.y + speed × deltaTime
 ```
 
 ### 3.2 スポーン位置
-- X座標: 画面幅内でランダム（colliderRadius 〜 720 - colliderRadius）
+- X座標: 弾の到達範囲内でランダム（100px 〜 620px）
 - Y座標: 画面上端外（-50 〜 -10px）
 
 ---
@@ -99,7 +99,7 @@ newY = position.y + speed × deltaTime
 | 貫通 | なし | なし | なし | なし | なし |
 
 - 弾数2以上: 弾丸間を20px水平にオフセットして並列発射
-- ターゲティング: 画面内の最近接敵に向けて発射。敵がいない場合は真上（-Y方向）
+- 射撃方向: 常に真上（-Y方向）に発射（敵のターゲティングは行わない）
 
 #### 拡散射撃（SPREAD）- 広範囲型
 | パラメータ | Lv1 | Lv2 | Lv3 | Lv4 | Lv5 |
@@ -112,7 +112,7 @@ newY = position.y + speed × deltaTime
 | 貫通 | なし | なし | なし | なし | なし |
 
 - 弾丸は扇状に均等配置して発射
-- 発射方向: 中央弾は最近接敵方向、他は等角度分散
+- 発射方向: 中央弾は真上方向、他は等角度分散
 - 例: Lv1は3発を60度の扇内（-30度、0度、+30度）に発射
 
 #### 貫通弾（PIERCING）- 高ダメージ型
@@ -144,15 +144,15 @@ newY = position.y + speed × deltaTime
 毎フレーム、武器ごとに:
   1. 発射間隔チェック: currentTime - lastFiredAt >= fireInterval ?
   2. 弾丸数上限チェック: 現在の弾丸総数 < 100 ?
-  3. ターゲット選定:
-     - 画面内の全敵を走査
-     - 最も距離が近い敵を選択
-     - 敵がいない場合: 真上方向をターゲット
+  3. 銃口位置の計算:
+     - プレイヤー: (x + spriteHalf × 0.45, y - spriteHalf × 0.91)
+     - 仲間:      (x + spriteHalf × 0.42, y - spriteHalf × 0.78)
   4. 弾丸生成:
-     - 発射位置: プレイヤー/仲間の中心座標
-     - 速度ベクトル: ターゲット方向に正規化 × 弾速
+     - 発射位置: 銃口座標（上記で計算した位置）
+     - 速度ベクトル: 常に真上（vx=0, vy=-弾速）
      - 武器タイプに応じた弾数分を生成
   5. lastFiredAt を更新
+  6. マズルフラッシュエフェクトを銃口位置に生成
 ```
 
 ---
@@ -182,7 +182,7 @@ newY = position.y + speed × deltaTime
 ```
 
 ### 5.2 弾丸の衝突判定半径
-- 全弾丸共通: 半径 4px
+- 全弾丸共通: 半径 8px
 
 ---
 
@@ -223,14 +223,24 @@ newY = position.y + speed × deltaTime
 
 ## 7. XP・レベルアップロジック
 
-### 7.1 XP回収
+### 7.1 XP回収（マグネット方式）
 ```
 毎フレーム、全XPドロップに対して:
   distance = sqrt((drop.x - player.x)^2 + (drop.y - player.y)^2)
-  if distance <= 48:  // 回収半径
+
+  // 即座回収
+  if distance <= 80:  // 回収半径
     actualXP = drop.xpAmount × (1 + xpGainLevel × 0.20)
     player.xp += actualXP
     XPドロップエンティティを破棄
+    continue
+
+  // マグネット引き寄せ
+  if distance <= 1500:  // マグネット半径（画面全体カバー）
+    moveAmount = 500 × deltaTime  // 引き寄せ速度 500px/秒
+    ratio = min(moveAmount / distance, 1)
+    drop.x -= (drop.x - player.x) × ratio
+    drop.y -= (drop.y - player.y) × ratio
 ```
 
 ### 7.2 レベルアップ判定
@@ -350,7 +360,7 @@ applyChoice(choice):
       player.allyCount += 1
       // 新しい仲間エンティティを生成
       // 配置: プレイヤーからの左右オフセット計算
-      // 1体目: +32px, 2体目: -32px, 3体目: +64px, 4体目: -64px
+      // 1体目: +110px, 2体目: -110px, 3体目: +220px, 4体目: -220px
 
     case HEAL:
       healAmount = floor(player.maxHp × 0.30)

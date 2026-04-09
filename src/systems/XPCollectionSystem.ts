@@ -19,7 +19,7 @@ export class XPCollectionSystem implements System {
     this.levelUpManager = levelUpManager;
   }
 
-  update(world: World, _dt: number): void {
+  update(world: World, dt: number): void {
     const playerIds = world.query(PlayerComponent, PositionComponent);
     if (playerIds.length === 0) return;
 
@@ -27,8 +27,9 @@ export class XPCollectionSystem implements System {
     const playerPos = world.getComponent(playerId, PositionComponent)!;
     const passives = world.getComponent(playerId, PassiveSkillsComponent);
     const xpGainMultiplier = 1 + (passives?.xpGainLevel ?? 0) * GAME_CONFIG.passiveSkills.xpGain.perLevel;
-    const collectionRadius = GAME_CONFIG.xpCollection.collectionRadius;
-    const radiusSq = collectionRadius * collectionRadius;
+    const collectionRadiusSq = GAME_CONFIG.xpCollection.collectionRadius ** 2;
+    const magnetRadiusSq = GAME_CONFIG.xpCollection.magnetRadius ** 2;
+    const magnetSpeed = GAME_CONFIG.xpCollection.magnetSpeed;
 
     const xpIds = world.query(XPDropComponent, PositionComponent);
     for (const xpId of xpIds) {
@@ -37,11 +38,22 @@ export class XPCollectionSystem implements System {
       const dy = xpPos.y - playerPos.y;
       const distSq = dx * dx + dy * dy;
 
-      if (distSq <= radiusSq) {
+      // 即座に回収
+      if (distSq <= collectionRadiusSq) {
         const xpDrop = world.getComponent(xpId, XPDropComponent)!;
         const actualXP = Math.round(xpDrop.xpAmount * xpGainMultiplier);
         this.levelUpManager.addXP(actualXP);
         world.destroyEntity(xpId);
+        continue;
+      }
+
+      // 引き寄せ（マグネット範囲内）
+      if (distSq <= magnetRadiusSq && distSq > 0) {
+        const dist = Math.sqrt(distSq);
+        const moveAmount = magnetSpeed * dt;
+        const ratio = Math.min(moveAmount / dist, 1);
+        xpPos.x -= dx * ratio;
+        xpPos.y -= dy * ratio;
       }
     }
   }

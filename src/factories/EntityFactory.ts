@@ -32,7 +32,7 @@ export class EntityFactory {
     const cfg = GAME_CONFIG.player;
 
     world.addComponent(id, new PositionComponent(cfg.startX, cfg.startY));
-    world.addComponent(id, new SpriteComponent('player', 32, 32, '#00FF00'));
+    world.addComponent(id, new SpriteComponent('player', 192, 192, '#00FF00'));
     world.addComponent(id, new HealthComponent(cfg.baseHp, cfg.baseHp));
     world.addComponent(id, new ColliderComponent(cfg.colliderRadius, ColliderType.PLAYER));
     world.addComponent(id, new PlayerComponent(cfg.baseSpeed));
@@ -66,7 +66,7 @@ export class EntityFactory {
       [EnemyType.BOSS]: 'enemy_boss',
     };
     const spriteType = spriteMap[type] ?? 'enemy_normal';
-    const size = type === EnemyType.BOSS ? 80 : type === EnemyType.TANK ? 40 : 24;
+    const size = type === EnemyType.BOSS ? 280 : type === EnemyType.TANK ? 200 : 150;
     const colors: Record<string, string> = {
       [EnemyType.NORMAL]: '#FF4444',
       [EnemyType.FAST]: '#FFAA00',
@@ -88,7 +88,7 @@ export class EntityFactory {
     world.addComponent(id, new HealthComponent(hp, hp));
     world.addComponent(id, new ColliderComponent(cfg.colliderRadius, ColliderType.ENEMY));
     world.addComponent(id, new EnemyComponent(EnemyType.BOSS, damage, xpDrop));
-    world.addComponent(id, new SpriteComponent('enemy_boss', 80, 80, '#FF0000'));
+    world.addComponent(id, new SpriteComponent('enemy_boss', 280, 280, '#FF0000'));
 
     return id;
   }
@@ -108,7 +108,7 @@ export class EntityFactory {
     world.addComponent(id, new VelocityComponent(velocity.vx, velocity.vy));
     world.addComponent(id, new BulletComponent(damage, piercing, ownerId));
     world.addComponent(id, new ColliderComponent(GAME_CONFIG.bullet.colliderRadius, ColliderType.BULLET));
-    world.addComponent(id, new SpriteComponent('bullet', 8, 8, '#FFFF00'));
+    world.addComponent(id, new SpriteComponent('bullet', 16, 16, '#FFFF00'));
 
     return id;
   }
@@ -130,7 +130,7 @@ export class EntityFactory {
 
     world.addComponent(id, new PositionComponent(0, 0)); // AllyFollowSystemで更新
     world.addComponent(id, new AllyComponent(offsetX, playerEntity));
-    world.addComponent(id, new SpriteComponent('ally', 24, 24, '#00CC00'));
+    world.addComponent(id, new SpriteComponent('ally', 150, 150, '#00CC00'));
 
     // 仲間の武器: 前方射撃Lv1固定（BR-A03）
     const weaponCfg = WEAPON_CONFIG[WeaponType.FORWARD].levels[0];

@@ -8,6 +8,7 @@ import { BulletComponent } from '../components/BulletComponent';
 import { XPDropComponent } from '../components/XPDropComponent';
 import { AllyComponent } from '../components/AllyComponent';
 import { EffectComponent } from '../components/EffectComponent';
+import { WeaponInventoryComponent } from '../components/WeaponInventoryComponent';
 import { GAME_CONFIG } from '../config/gameConfig';
 import type { InputHandler } from '../input/InputHandler';
 
@@ -224,9 +225,12 @@ export class RenderSystem implements System {
     const hh = item.height / 2;
 
     switch (item.spriteType) {
-      case 'player':
-        this.drawPlayer(ctx, item.x, item.y, hw);
+      case 'player': {
+        const inventory = world.getComponent(item.entityId, WeaponInventoryComponent);
+        const weaponType = inventory?.weaponSlots[0]?.weaponType ?? 'FORWARD';
+        this.drawPlayer(ctx, item.x, item.y, hw, weaponType);
         break;
+      }
       case 'ally':
         this.drawAlly(ctx, item.x, item.y, hw);
         break;
@@ -239,7 +243,7 @@ export class RenderSystem implements System {
       case 'bullet':
         ctx.fillStyle = item.color;
         ctx.beginPath();
-        ctx.arc(item.x, item.y, 4, 0, Math.PI * 2);
+        ctx.arc(item.x, item.y, 8, 0, Math.PI * 2);
         ctx.fill();
         break;
       case 'xp_drop':
@@ -266,52 +270,278 @@ export class RenderSystem implements System {
     ctx.restore();
   }
 
-  /** プレイヤーのドット絵描画 */
-  private drawPlayer(ctx: CanvasRenderingContext2D, x: number, y: number, half: number): void {
-    // 体
-    ctx.fillStyle = '#00CC00';
-    ctx.fillRect(x - half * 0.6, y - half * 0.8, half * 1.2, half * 1.6);
-    // 頭
-    ctx.fillStyle = '#00FF00';
-    ctx.fillRect(x - half * 0.4, y - half, half * 0.8, half * 0.4);
-    // 武器（銃口）
-    ctx.fillStyle = '#AAAAAA';
-    ctx.fillRect(x - 2, y - half - 6, 4, 8);
+  /** プレイヤーのドット絵描画（武器タイプ表示付き） */
+  private drawPlayer(ctx: CanvasRenderingContext2D, x: number, y: number, half: number, weaponType: string): void {
+    const s = half;
+
+    // 足（ブーツ）
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(x - s * 0.45, y + s * 0.4, s * 0.3, s * 0.3);
+    ctx.fillRect(x + s * 0.15, y + s * 0.4, s * 0.3, s * 0.3);
+
+    // 武器描画（体の後ろに描画して腕が上に来るように）
+    this.drawWeapon(ctx, x, y, s, weaponType);
+
+    // 体（ボディアーマー）
+    ctx.fillStyle = '#1565C0';
+    ctx.fillRect(x - s * 0.5, y - s * 0.3, s * 1.0, s * 0.75);
+    // 胴体ハイライト
+    ctx.fillStyle = '#1E88E5';
+    ctx.fillRect(x - s * 0.3, y - s * 0.25, s * 0.6, s * 0.6);
+
+    // 左腕（下げている）
+    ctx.fillStyle = '#1565C0';
+    ctx.fillRect(x - s * 0.65, y - s * 0.2, s * 0.18, s * 0.5);
+    // 左手
+    ctx.fillStyle = '#FFCCAA';
+    ctx.fillRect(x - s * 0.63, y + s * 0.25, s * 0.14, s * 0.1);
+
+    // 右腕（銃を構えて前方へ伸ばす）
+    ctx.fillStyle = '#1565C0';
+    ctx.fillRect(x + s * 0.5, y - s * 0.25, s * 0.2, s * 0.35);
+    // 右前腕（前方＝上方向に曲げる）
+    ctx.fillRect(x + s * 0.52, y - s * 0.55, s * 0.16, s * 0.35);
+    // 右手（銃を握る）
+    ctx.fillStyle = '#FFCCAA';
+    ctx.fillRect(x + s * 0.53, y - s * 0.58, s * 0.14, s * 0.1);
+
+    // ヘルメット
+    ctx.fillStyle = '#0D47A1';
+    ctx.beginPath();
+    ctx.arc(x, y - s * 0.52, s * 0.4, Math.PI, 0);
+    ctx.fill();
+    ctx.fillRect(x - s * 0.4, y - s * 0.52, s * 0.8, s * 0.25);
+
+    // 顔（バイザー）
+    ctx.fillStyle = '#B0BEC5';
+    ctx.fillRect(x - s * 0.28, y - s * 0.48, s * 0.56, s * 0.2);
+
+    // 目（バイザー越し）
+    ctx.fillStyle = '#00E5FF';
+    ctx.fillRect(x - s * 0.18, y - s * 0.44, s * 0.12, s * 0.1);
+    ctx.fillRect(x + s * 0.06, y - s * 0.44, s * 0.12, s * 0.1);
+  }
+
+  /** 武器描画（タイプ別・右手に構えるポーズ） */
+  private drawWeapon(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, weaponType: string): void {
+    // 銃の基準位置: 右腕の先端あたり
+    const gunX = x + s * 0.45;
+    const gunTopY = y - s * 0.55;
+
+    switch (weaponType) {
+      case 'FORWARD': {
+        // アサルトライフル（右手で構え、銃身が上方へ）
+        // ストック（肩付近）
+        ctx.fillStyle = '#6D4C41';
+        ctx.fillRect(gunX - s * 0.06, y - s * 0.15, s * 0.18, s * 0.12);
+        // 本体
+        ctx.fillStyle = '#555555';
+        ctx.fillRect(gunX - s * 0.04, gunTopY, s * 0.14, s * 0.5);
+        // レシーバー
+        ctx.fillStyle = '#666666';
+        ctx.fillRect(gunX - s * 0.07, gunTopY + s * 0.15, s * 0.2, s * 0.12);
+        // 銃身
+        ctx.fillStyle = '#444444';
+        ctx.fillRect(gunX, gunTopY - s * 0.3, s * 0.08, s * 0.35);
+        // マズル
+        ctx.fillStyle = '#333333';
+        ctx.fillRect(gunX - s * 0.02, gunTopY - s * 0.36, s * 0.12, s * 0.08);
+        break;
+      }
+      case 'SPREAD': {
+        // ショットガン（太い銃身）
+        ctx.fillStyle = '#6D4C41';
+        ctx.fillRect(gunX - s * 0.06, y - s * 0.15, s * 0.2, s * 0.14);
+        // 本体（太め）
+        ctx.fillStyle = '#555555';
+        ctx.fillRect(gunX - s * 0.06, gunTopY, s * 0.2, s * 0.5);
+        // 銃身（太い）
+        ctx.fillStyle = '#444444';
+        ctx.fillRect(gunX - s * 0.04, gunTopY - s * 0.3, s * 0.16, s * 0.35);
+        // ワイドマズル
+        ctx.fillStyle = '#333333';
+        ctx.fillRect(gunX - s * 0.08, gunTopY - s * 0.36, s * 0.24, s * 0.08);
+        break;
+      }
+      case 'PIERCING': {
+        // スナイパーライフル（長い銃身＋スコープ）
+        ctx.fillStyle = '#6D4C41';
+        ctx.fillRect(gunX - s * 0.05, y - s * 0.15, s * 0.16, s * 0.14);
+        // 本体
+        ctx.fillStyle = '#37474F';
+        ctx.fillRect(gunX - s * 0.03, gunTopY - s * 0.05, s * 0.12, s * 0.55);
+        // 長い銃身
+        ctx.fillStyle = '#444444';
+        ctx.fillRect(gunX, gunTopY - s * 0.5, s * 0.08, s * 0.5);
+        // スコープ
+        ctx.fillStyle = '#00BCD4';
+        ctx.fillRect(gunX - s * 0.06, gunTopY + s * 0.05, s * 0.06, s * 0.12);
+        ctx.fillStyle = '#00ACC1';
+        ctx.beginPath();
+        ctx.arc(gunX - s * 0.03, gunTopY + s * 0.03, s * 0.04, 0, Math.PI * 2);
+        ctx.fill();
+        // マズル
+        ctx.fillStyle = '#333333';
+        ctx.fillRect(gunX - s * 0.01, gunTopY - s * 0.56, s * 0.1, s * 0.08);
+        break;
+      }
+      default:
+        ctx.fillStyle = '#555555';
+        ctx.fillRect(gunX - s * 0.04, gunTopY, s * 0.12, s * 0.5);
+    }
   }
 
   /** 仲間のドット絵描画 */
   private drawAlly(ctx: CanvasRenderingContext2D, x: number, y: number, half: number): void {
-    ctx.fillStyle = '#00AA00';
-    ctx.fillRect(x - half * 0.5, y - half * 0.7, half, half * 1.4);
-    ctx.fillStyle = '#00CC00';
-    ctx.fillRect(x - half * 0.3, y - half * 0.9, half * 0.6, half * 0.3);
-    ctx.fillStyle = '#888888';
-    ctx.fillRect(x - 1.5, y - half - 4, 3, 6);
+    const s = half;
+    const gunX = x + s * 0.42;
+    const gunTopY = y - s * 0.5;
+
+    // 足
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(x - s * 0.4, y + s * 0.4, s * 0.28, s * 0.25);
+    ctx.fillRect(x + s * 0.12, y + s * 0.4, s * 0.28, s * 0.25);
+
+    // 武器（体の後ろに描画）
+    ctx.fillStyle = '#6D4C41';
+    ctx.fillRect(gunX - s * 0.05, y - s * 0.1, s * 0.15, s * 0.1);
+    ctx.fillStyle = '#555555';
+    ctx.fillRect(gunX - s * 0.03, gunTopY, s * 0.12, s * 0.45);
+    ctx.fillStyle = '#444444';
+    ctx.fillRect(gunX, gunTopY - s * 0.25, s * 0.07, s * 0.3);
+    ctx.fillStyle = '#333333';
+    ctx.fillRect(gunX - s * 0.02, gunTopY - s * 0.3, s * 0.1, s * 0.07);
+
+    // 体
+    ctx.fillStyle = '#2E7D32';
+    ctx.fillRect(x - s * 0.45, y - s * 0.25, s * 0.9, s * 0.7);
+    ctx.fillStyle = '#43A047';
+    ctx.fillRect(x - s * 0.28, y - s * 0.2, s * 0.56, s * 0.55);
+
+    // 左腕（下げる）
+    ctx.fillStyle = '#2E7D32';
+    ctx.fillRect(x - s * 0.6, y - s * 0.15, s * 0.18, s * 0.45);
+    ctx.fillStyle = '#FFCCAA';
+    ctx.fillRect(x - s * 0.58, y + s * 0.25, s * 0.14, s * 0.08);
+
+    // 右腕（銃を構える）
+    ctx.fillStyle = '#2E7D32';
+    ctx.fillRect(x + s * 0.45, y - s * 0.2, s * 0.18, s * 0.3);
+    ctx.fillRect(x + s * 0.47, y - s * 0.5, s * 0.14, s * 0.35);
+    ctx.fillStyle = '#FFCCAA';
+    ctx.fillRect(x + s * 0.48, y - s * 0.53, s * 0.12, s * 0.08);
+
+    // ヘルメット
+    ctx.fillStyle = '#1B5E20';
+    ctx.beginPath();
+    ctx.arc(x, y - s * 0.48, s * 0.36, Math.PI, 0);
+    ctx.fill();
+    ctx.fillRect(x - s * 0.36, y - s * 0.48, s * 0.72, s * 0.22);
+
+    // バイザー
+    ctx.fillStyle = '#A5D6A7';
+    ctx.fillRect(x - s * 0.23, y - s * 0.43, s * 0.46, s * 0.16);
+
+    // 目
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(x - s * 0.14, y - s * 0.4, s * 0.1, s * 0.08);
+    ctx.fillRect(x + s * 0.04, y - s * 0.4, s * 0.1, s * 0.08);
   }
 
   /** 敵のドット絵描画 */
   private drawEnemy(ctx: CanvasRenderingContext2D, x: number, y: number, half: number, color: string, type: string): void {
-    ctx.fillStyle = color;
+    const s = half;
+
     if (type === 'enemy_boss') {
-      // ボス: 大きな菱形
+      // ボス: 大型の装甲兵
+      // 体
+      ctx.fillStyle = color;
+      ctx.fillRect(x - s * 0.7, y - s * 0.5, s * 1.4, s * 1.0);
+      ctx.fillStyle = '#CC0000';
+      ctx.fillRect(x - s * 0.55, y - s * 0.4, s * 1.1, s * 0.8);
+
+      // 肩アーマー
+      ctx.fillStyle = color;
+      ctx.fillRect(x - s * 0.85, y - s * 0.5, s * 0.3, s * 0.4);
+      ctx.fillRect(x + s * 0.55, y - s * 0.5, s * 0.3, s * 0.4);
+
+      // 頭（角付きヘルメット）
+      ctx.fillStyle = '#880000';
+      ctx.fillRect(x - s * 0.35, y - s * 0.8, s * 0.7, s * 0.35);
+      // 角
+      ctx.fillStyle = '#FFCC00';
       ctx.beginPath();
-      ctx.moveTo(x, y - half);
-      ctx.lineTo(x + half, y);
-      ctx.lineTo(x, y + half);
-      ctx.lineTo(x - half, y);
-      ctx.closePath();
+      ctx.moveTo(x - s * 0.35, y - s * 0.8);
+      ctx.lineTo(x - s * 0.25, y - s * 1.0);
+      ctx.lineTo(x - s * 0.15, y - s * 0.8);
       ctx.fill();
-      // 目
+      ctx.beginPath();
+      ctx.moveTo(x + s * 0.15, y - s * 0.8);
+      ctx.lineTo(x + s * 0.25, y - s * 1.0);
+      ctx.lineTo(x + s * 0.35, y - s * 0.8);
+      ctx.fill();
+
+      // 目（赤く光る）
+      ctx.fillStyle = '#FF0000';
+      ctx.fillRect(x - s * 0.25, y - s * 0.7, s * 0.18, s * 0.12);
+      ctx.fillRect(x + s * 0.07, y - s * 0.7, s * 0.18, s * 0.12);
       ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(x - half * 0.3, y - half * 0.2, half * 0.2, half * 0.2);
-      ctx.fillRect(x + half * 0.1, y - half * 0.2, half * 0.2, half * 0.2);
-    } else {
-      // 通常敵: 四角
-      ctx.fillRect(x - half * 0.7, y - half * 0.7, half * 1.4, half * 1.4);
-      // 目
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(x - half * 0.3, y - half * 0.2, 3, 3);
-      ctx.fillRect(x + half * 0.1, y - half * 0.2, 3, 3);
+      ctx.fillRect(x - s * 0.2, y - s * 0.68, s * 0.08, s * 0.06);
+      ctx.fillRect(x + s * 0.12, y - s * 0.68, s * 0.08, s * 0.06);
+
+      // 足
+      ctx.fillStyle = '#660000';
+      ctx.fillRect(x - s * 0.5, y + s * 0.5, s * 0.35, s * 0.3);
+      ctx.fillRect(x + s * 0.15, y + s * 0.5, s * 0.35, s * 0.3);
+      return;
+    }
+
+    // 通常敵キャラ共通
+    // 足
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(x - s * 0.4, y + s * 0.35, s * 0.28, s * 0.22);
+    ctx.fillRect(x + s * 0.12, y + s * 0.35, s * 0.28, s * 0.22);
+
+    // 体
+    ctx.fillStyle = color;
+    ctx.fillRect(x - s * 0.5, y - s * 0.3, s * 1.0, s * 0.7);
+
+    // 体のハイライト
+    const lighter = type === 'enemy_fast' ? '#FFcc44' : type === 'enemy_tank' ? '#9966AA' : '#FF6666';
+    ctx.fillStyle = lighter;
+    ctx.fillRect(x - s * 0.3, y - s * 0.25, s * 0.6, s * 0.55);
+
+    // 腕
+    ctx.fillStyle = color;
+    ctx.fillRect(x - s * 0.65, y - s * 0.2, s * 0.18, s * 0.4);
+    ctx.fillRect(x + s * 0.47, y - s * 0.2, s * 0.18, s * 0.4);
+
+    // ヘルメット（赤系）
+    const helmetColor = type === 'enemy_fast' ? '#CC8800' : type === 'enemy_tank' ? '#663366' : '#CC2222';
+    ctx.fillStyle = helmetColor;
+    ctx.beginPath();
+    ctx.arc(x, y - s * 0.48, s * 0.36, Math.PI, 0);
+    ctx.fill();
+    ctx.fillRect(x - s * 0.36, y - s * 0.48, s * 0.72, s * 0.2);
+
+    // 顔
+    ctx.fillStyle = '#FFCCAA';
+    ctx.fillRect(x - s * 0.22, y - s * 0.4, s * 0.44, s * 0.18);
+
+    // 目
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(x - s * 0.15, y - s * 0.38, s * 0.1, s * 0.1);
+    ctx.fillRect(x + s * 0.05, y - s * 0.38, s * 0.1, s * 0.1);
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(x - s * 0.12, y - s * 0.36, s * 0.05, s * 0.06);
+    ctx.fillRect(x + s * 0.08, y - s * 0.36, s * 0.05, s * 0.06);
+
+    // タンクは盾を持つ
+    if (type === 'enemy_tank') {
+      ctx.fillStyle = '#444444';
+      ctx.fillRect(x - s * 0.75, y - s * 0.35, s * 0.18, s * 0.6);
+      ctx.fillStyle = '#666666';
+      ctx.fillRect(x - s * 0.73, y - s * 0.3, s * 0.14, s * 0.5);
     }
   }
 

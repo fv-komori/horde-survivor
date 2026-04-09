@@ -9,6 +9,7 @@ import { AllyComponent } from '../components/AllyComponent';
 import { BulletComponent } from '../components/BulletComponent';
 import { EnemyComponent } from '../components/EnemyComponent';
 import { PassiveSkillsComponent } from '../components/PassiveSkillsComponent';
+import { SpriteComponent } from '../components/SpriteComponent';
 import { EntityFactory } from '../factories/EntityFactory';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { WEAPON_CONFIG } from '../config/weaponConfig';
@@ -72,17 +73,20 @@ export class WeaponSystem implements System {
     // 弾丸数上限チェック（BR-W04）
     if (this.getBulletCount(world) >= GAME_CONFIG.limits.maxBullets) return;
 
-    // ターゲット選定
-    const target = this.findNearestEnemy(world, pos);
     const damage = Math.round(levelConfig.damage * attackMultiplier);
 
+    // 銃口位置を計算（描画と合わせる）
+    const sprite = world.getComponent(ownerId, SpriteComponent);
+    const half = sprite ? sprite.width / 2 : 32;
+    const muzzle = { x: pos.x + half * 0.45, y: pos.y - half * 0.91 };
+
     // 弾丸生成
-    this.fireBullets(world, ownerId, pos, target, slot.weaponType, levelConfig, damage, config.bulletOffset);
+    this.fireBullets(world, ownerId, muzzle, slot.weaponType, levelConfig, damage, config.bulletOffset);
 
     slot.lastFiredAt = this.gameTime;
 
     // 射撃エフェクト
-    this.entityFactory.createEffect(world, EffectType.MUZZLE_FLASH, { x: pos.x, y: pos.y - 16 });
+    this.entityFactory.createEffect(world, EffectType.MUZZLE_FLASH, muzzle);
   }
 
   private processAllyWeapon(
@@ -100,9 +104,13 @@ export class WeaponSystem implements System {
     if (this.gameTime - weapon.lastFiredAt < levelConfig.fireInterval) return;
     if (this.getBulletCount(world) >= GAME_CONFIG.limits.maxBullets) return;
 
-    const target = this.findNearestEnemy(world, pos);
+    // 銃口位置を計算
+    const sprite = world.getComponent(allyId, SpriteComponent);
+    const half = sprite ? sprite.width / 2 : 24;
+    const muzzle = { x: pos.x + half * 0.42, y: pos.y - half * 0.78 };
+
     // 仲間は攻撃力UPパッシブ適用なし（BR-W07, BR-A03）
-    this.fireBullets(world, allyId, pos, target, weapon.weaponType, levelConfig, levelConfig.damage, config.bulletOffset);
+    this.fireBullets(world, allyId, muzzle, weapon.weaponType, levelConfig, levelConfig.damage, config.bulletOffset);
 
     weapon.lastFiredAt = this.gameTime;
   }
@@ -110,8 +118,7 @@ export class WeaponSystem implements System {
   private fireBullets(
     world: World,
     ownerId: EntityId,
-    origin: PositionComponent,
-    target: { x: number; y: number } | null,
+    origin: { x: number; y: number },
     weaponType: WeaponType,
     levelConfig: { bulletCount: number; bulletSpeed: number; piercing: boolean; spreadAngle?: number },
     damage: number,
@@ -119,18 +126,9 @@ export class WeaponSystem implements System {
   ): void {
     const count = levelConfig.bulletCount;
 
-    // ターゲット方向の計算
-    let targetDirX = 0;
-    let targetDirY = -1; // デフォルト: 真上（BR-W06）
-    if (target) {
-      const dx = target.x - origin.x;
-      const dy = target.y - origin.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist > 0) {
-        targetDirX = dx / dist;
-        targetDirY = dy / dist;
-      }
-    }
+    // 発射方向: 常に真上（BR-W06）
+    const targetDirX = 0;
+    const targetDirY = -1;
 
     if (weaponType === WeaponType.SPREAD && levelConfig.spreadAngle) {
       // 拡散射撃: 扇状に均等配置
