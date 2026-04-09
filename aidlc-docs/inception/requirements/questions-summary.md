@@ -1,56 +1,56 @@
 # Requirements Analysis Questions and Answers
 
+## Iteration 1 (2026-04-07)
+
 **Date**: 2026-04-07T00:05:00Z
 
-## Question 1
+### Question 1
 **Question**: どのようなソフトウェア・アプリケーションを開発したいですか？
-**Answer**: インスタグラムの広告で見るような、敵の大群を打ちまくって避けるタイプのゲーム。ポイントなどをゲットすると武器が強くなったり、仲間が増えたりする。
-**Reasoning**: ホードサバイバル系ゲーム（Vampire Survivors/Survivor.io型）
+**Answer**: インスタグラムの広告で見るような、敵の大群を打ちまくって避けるタイプのゲーム。
+**Reasoning**: Last War型ミニゲーム
 
-## Question 2
-**Question**: プロジェクトの規模感はどの程度ですか？
-**Answer**: 今後の要件で判断してください
-**Reasoning**: ユーザーはAIの判断に委ねる
-
-## Question 3
-**Question**: ゲームのプラットフォームは？
-**Answer**: Webブラウザゲーム
-**Reasoning**: HTML5/Canvasで環境構築不要、すぐ開発開始可能
-
-## Question 4
-**Question**: プレイヤーの操作方法は？
-**Answer**: 左右移動のみ（攻撃はオート）。Last War型ミニゲームのため左右移動に限定。
-**Reasoning**: Last War型ミニゲームの操作（左右移動のみ＋オート攻撃）
-
-## Question 5
-**Question**: ゲームの視点（カメラ）は？
-**Answer**: 見下ろし（トップダウン）
-**Reasoning**: Vampire Survivors型の視点
-
-## Question 6
-**Question**: 成長・強化システムで重視したい要素は？
-**Answer**: 武器強化、仲間追加、パッシブスキル
-**Reasoning**: 複数の成長要素を組み合わせ
-
-## Question 7
-**Question**: 敵のタイプやバリエーションは？
-**Answer**: 基本的な数種類から始めて、後から追加したい
-**Reasoning**: 段階的に拡張する方針
-
-## Question 8
-**Question**: ステージ構成は？
-**Answer**: エンドレスサバイバル
-**Reasoning**: 時間経過で敵が強くなる、死ぬまで生き残る形式
-
-## Question 9
-**Question**: グラフィックスのスタイルは？
-**Answer**: 2Dカラフルドット絵
-**Reasoning**: カラフルな2Dキャラ、見た目が良く開発も現実的
-
-## Question 10
-**Question**: データの保存（セーブ機能）は？
-**Answer**: 後で検討
-**Reasoning**: まずはコアゲームプレイを先に作る
+### Question 2-10: (Iteration 1 Q&A省略 — 前回で確定済み)
 
 ---
-**Summary**: ユーザーはLast War型のホードサバイバルWebブラウザゲームを希望。トップダウン視点、左右移動＋オート攻撃、2Dカラフルドット絵スタイル。武器強化・仲間追加・パッシブスキルの成長システム。エンドレスサバイバルモード。
+
+## Iteration 2 (2026-04-09)
+
+**Date**: 2026-04-09T10:00:00Z
+
+### Question 1
+**Question**: 爽快感向上のためのテンポ調整について、どの程度の変更を想定していますか？
+**Answer**: 大量敵+強射撃
+**Reasoning**: 敵の数を大幅増加、射撃も強化してなぎ倒し感を出す
+
+### Question 2
+**Question**: 敵を倒したら仲間になる仕組みについて、全敵が対象ですか？それとも確率ベースですか？
+**Answer**: 確率で仲間化
+**Reasoning**: 一定確率で仲間に転換する仕組み
+
+### Question 3
+**Question**: アイテムドロップによる一時強化のイメージを具体的に教えてください。
+**Answer**: 攻撃力・速度UP系
+**Reasoning**: 一定時間攻撃力・移動速度が大幅アップするバフアイテム
+
+### Question 4
+**Question**: 現行のXP/レベルアップシステムは完全に廃止しますか？
+**Answer**: XP制度を廃止
+**Reasoning**: レベルアップ選択画面も全て廃止、アイテムドロップのみに
+
+### Question 5
+**Question**: 仲間化した敵の最大数に上限を設けますか？
+**Answer**: 最大10体（推奨）
+**Reasoning**: 爽快感とパフォーマンスのバランス。左右各最大5体配置
+
+### Question 6
+**Question**: 一時強化アイテムの効果時間はどの程度を想定していますか？
+**Answer**: 短め（5秒程度）
+**Reasoning**: 短いが頻繁に出現、テンポよく拾い続ける感覚
+
+### Question 7
+**Question**: 現行の武器強化・パッシブスキルの仕組みはどうしますか？
+**Answer**: 武器切替もアイテム化
+**Reasoning**: 武器変更・スキルも全てアイテムドロップに統合。レベルアップ選択画面完全廃止
+
+---
+**Summary**: Iteration 2ではXP/レベルアップシステムを全面廃止し、アイテムドロップ制に置き換え。パワーアップバフ（5秒持続）、武器切替アイテム、敵仲間化（確率ベース、最大10体）を導入。テンポは大量敵+強射撃で爽快感を大幅向上。
