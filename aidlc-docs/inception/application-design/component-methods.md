@@ -7,7 +7,6 @@
 ---
 
 ## ECS コア
-
 ### World
 ```typescript
 class World {
@@ -35,118 +34,164 @@ interface Entity {
 
 ## システムメソッド
 
-### S-01: InputSystem
-```typescript
+### S-01: InputSystem```typescript
 class InputSystem implements System {
   update(world: World, dt: number): void
-  // キーボード・タッチ入力を読み取り、PlayerComponentの移動意図を更新
-  // 入力値を -1, 0, +1 に正規化し、NaN/Infinity等の不正値は無視
   private setupKeyboardListeners(): void
   private setupTouchListeners(canvas: HTMLCanvasElement): void
-  // モバイルタッチUI: 左右ボタン（タップ長押し対応）、水平スワイプ（画面下半分）
   private validateInput(value: number): number
-  // 入力バリデーション: フレームあたり最大移動量制限チェック
   private isMobileDevice(): boolean
-  // デバイスタイプ判定でタッチUI表示を切替
 }
 ```
 
-### S-02: MovementSystem
-```typescript
+### S-02: MovementSystem```typescript
 class MovementSystem implements System {
   update(world: World, dt: number): void
-  // Velocity × dt で Position を更新
 }
 ```
 
-### S-03: PlayerMovementSystem
-```typescript
+### S-03: PlayerMovementSystem```typescript
 class PlayerMovementSystem implements System {
   update(world: World, dt: number): void
-  // 入力方向 × 移動速度 × パッシブ補正で Player を移動。画面境界制限
+  // 入力方向 × 移動速度 × バフ補正(移動速度UP時1.5倍)で移動。画面境界制限
+  // BuffComponentから移動速度UPバフを参照
 }
 ```
 
-### S-04: AllyFollowSystem
-```typescript
+### S-04: AllyFollowSystem```typescript
 class AllyFollowSystem implements System {
   update(world: World, dt: number): void
-  // プレイヤー位置からオフセットを計算し仲間位置を更新
+  // プレイヤー位置からオフセットを動的計算し仲間位置を更新
+  private calculateAllyOffset(allyIndex: number, totalAllies: number): number
+  // 1〜4体: 110px固定、5体以上: min(110, 配置可能幅/仲間数)、最小40px
 }
 ```
 
-### S-05: WeaponSystem
-```typescript
+### S-05: WeaponSystem```typescript
 class WeaponSystem implements System {
   update(world: World, dt: number): void
-  // プレイヤーはWeaponInventoryComponentの全武器を順に処理
-  // 発射間隔チェック → 弾丸数上限チェック → ターゲット選定 → 弾丸エンティティ生成
-  findNearestEnemy(world: World, position: Position, range: number): EntityId | null
+  // 単一WeaponComponentを処理（WeaponInventory廃止）
+  // 常に真上方向へ発射（ターゲティング廃止）
+  // BuffComponent参照: 発射速度UP→間隔0.5倍、弾幕モード→弾数3倍+拡散
+  // 仲間のAllyComponent.fireRateBonus適用
+  private getEffectiveFireInterval(baseInterval: number, buff: BuffComponent | null, ally: AllyComponent | null): number
   private getBulletCount(world: World): number
-  // 現在の弾丸数を取得。上限100発を超える場合は弾丸生成をスキップ
+  // 弾丸上限200発チェック
+  static readonly MAX_BULLETS = 200
 }
 ```
 
-### S-06: CollisionSystem
-```typescript
+### S-06: CollisionSystem```typescript
 class CollisionSystem implements System {
+  private spatialGrid: SpatialHashGrid  // 空間ハッシュグリッド（NFR-01最適化）
+  private defeatedEnemies: Entity[]     // 撃破キュー（責務分離用）
+
   update(world: World, dt: number): void
-  // 弾丸-敵の円形衝突判定。命中時：敵HP減少、HP0なら破棄＋XPドロップ生成
+  // 1. spatialGrid.clear() + 全コライダーを登録
+  // 2. 弾丸ごとにグリッドセル近傍の敵のみ衝突判定
+  // 3. 命中時: HitCountComponent.currentHits -= bullet.hitCountReduction
+  //    - 貫通弾(piercing=true): 弾丸を破棄せず、hitEntitiesに命中敵IDを記録し重複ヒット防止
+  //    - 通常弾: 命中後に弾丸を破棄
+  // 4. currentHits <= 0 で撃破 → defeatedEnemiesキューに追加
+  // 5. キュー消費: ItemDropManager.determineDrops() + AllyConversionSystem通知 + ScoreService.incrementKills()
   checkCircleCollision(a: {x,y,r}, b: {x,y,r}): boolean
+  private onEnemyDefeated(world: World, enemyEntity: Entity): void
+  private buildSpatialGrid(world: World): void
+  private getNearbyEntities(x: number, y: number, radius: number): Entity[]
+}
+
+// 空間ハッシュグリッド（衝突判定最適化）
+class SpatialHashGrid {
+  constructor(cellSize: number)  // cellSize = 最大コライダー径 × 2
+  clear(): void
+  insert(entity: Entity, x: number, y: number, radius: number): void
+  query(x: number, y: number, radius: number): Entity[]
 }
 ```
 
-### S-07: DefenseLineSystem
-```typescript
+### S-07: DefenseLineSystem```typescript
 class DefenseLineSystem implements System {
   update(world: World, dt: number): void
-  // 敵のY座標が防衛ライン以下かチェック。到達時：プレイヤーHP減少、敵破棄
 }
 ```
 
-### S-08: HealthSystem
-```typescript
+### S-08: HealthSystem```typescript
 class HealthSystem implements System {
   update(world: World, dt: number): void
-  // 無敵時間カウントダウン、HP0判定→ゲームオーバーイベント発火
+  // プレイヤーHP0判定→ゲームオーバーイベント発火
+  // 無敵時間を削除
 }
 ```
 
-### S-09: XPCollectionSystem
-```typescript
-class XPCollectionSystem implements System {
+### S-09: ItemCollectionSystem```typescript
+class ItemCollectionSystem implements System {
   update(world: World, dt: number): void
-  // XPアイテムとプレイヤーの距離チェック（48px以内で回収）
+  // 1. マグネット引き寄せ: 半径1500px内のアイテムをプレイヤー方向に速度500px/秒で移動
+  // 2. 回収判定: 半径80px内で回収
+  // 3. 効果適用: パワーアップ→BuffComponentに追加、武器→WeaponComponent差替
+  // 4. 消滅管理: 残存時間減算、10秒で消滅、残り3秒で点滅
+  private applyItemEffect(world: World, playerEntity: Entity, item: ItemDropComponent): void
+  private applyBuff(buff: BuffComponent, buffType: BuffType): void
+  // 同種バフは残り時間を5秒にリセット
+  private switchWeapon(world: World, playerEntity: Entity, weaponType: WeaponType): void
 }
 ```
 
-### S-10: RenderSystem
-```typescript
+### S-10: BuffSystem```typescript
+class BuffSystem implements System {
+  update(world: World, dt: number): void
+  // 全アクティブバフのremainingTimeをdt減算
+  // remainingTime <= 0 のバフを削除
+  // バフの効果はWeaponSystem/PlayerMovementSystemが各自参照
+}
+```
+
+### S-11: AllyConversionSystem```typescript
+class AllyConversionSystem implements System {
+  // CollisionSystemの撃破イベントから呼び出される
+  tryConvertToAlly(world: World, enemyEntity: Entity, defeatPosition: Position): boolean
+  // 1. 現在の仲間数チェック（10体上限）
+  // 2. 仲間化率に基づき判定（Math.random() < conversionRate）
+  // 3. 成功時: 仲間エンティティ生成 + 演出エフェクト
+  private getAllyCount(world: World): number
+  static readonly MAX_ALLIES = 10
+}
+```
+
+### S-12: AllyFireRateSystem```typescript
+class AllyFireRateSystem implements System {
+  update(world: World, dt: number): void
+  // 各仲間のjoinTimeからの経過時間を計算
+  // 10秒ごとにfireRateBonus += 10（最大100）
+}
+```
+
+### S-13: EffectSystem```typescript
+class EffectSystem implements System {
+  update(world: World, dt: number): void
+}
+```
+
+### S-14: CleanupSystem```typescript
+class CleanupSystem implements System {
+  update(world: World, dt: number): void
+  // 画面外弾丸、消滅アイテム（残存時間切れ）の破棄
+}
+```
+
+### S-15: RenderSystem```typescript
 class RenderSystem implements System {
   constructor(canvas: HTMLCanvasElement)
   update(world: World, dt: number): void
-  // Canvas 2D contextでSpriteComponent + PositionComponent描画
-  // レイヤー順: 背景 → XPアイテム → 敵 → 弾丸 → 仲間 → プレイヤー → エフェクト
+  // レイヤー順: 背景 → アイテム → 敵(+ヒットカウント数字) → 弾丸 → 仲間 → プレイヤー → エフェクト → HUD
   initCanvas(): void
-  // Canvas初期化: 論理解像度720x1280設定、devicePixelRatio適用
   handleResize(): void
-  // リサイズ時: アスペクト比9:16維持、レターボックス（黒帯）描画、スケーリング係数再算出
   private isInViewport(pos: Position, margin: number): boolean
-  // カリング判定: 画面外エンティティの描画スキップ
+  private renderHitCount(ctx: CanvasRenderingContext2D, pos: Position, hitCount: number, isBoss: boolean): void
+  // ビットマップフォント使用。画面外の敵は描画スキップ
+  private renderBuffIcons(ctx: CanvasRenderingContext2D, buffs: BuffComponent): void
+  // HPバー下にバフアイコン+残り時間バーを表示
   private renderDebugOverlay(fps: number, entityCount: number): void
-  // デバッグモード時: FPSカウンター、エンティティ数等を左上に表示
-}
-```
-
-### S-12: EffectSystem
-```typescript
-class EffectSystem implements System {
-  update(world: World, dt: number): void
-  // EffectComponentのelapsedをdt加算し、duration超過でエンティティ破棄
-  // アニメーションフレーム進行: elapsed / frameInterval でcurrentFrameを更新
-  // 同時エフェクト上限（50個）チェック: 超過時は最古のエフェクトを破棄
-  private getEffectCount(world: World): number
-  private removeOldestEffect(world: World): void
 }
 ```
 
@@ -154,71 +199,53 @@ class EffectSystem implements System {
 
 ## マネージャーメソッド
 
-### M-01: GameStateManager
-```typescript
+### M-01: GameStateManager```typescript
 class GameStateManager {
   getCurrentState(): GameState
   changeState(newState: GameState): void
   onStateChange(callback: (oldState, newState) => void): void
-  // GameState: 'TITLE' | 'PLAYING' | 'LEVEL_UP' | 'GAME_OVER'
+  // GameState: 'TITLE' | 'PLAYING' | 'GAME_OVER'（LEVEL_UP廃止）
 }
 ```
 
-### M-02: WaveManager
-```typescript
+### M-02: WaveManager```typescript
 class WaveManager {
   update(elapsedTime: number): void
   getCurrentWave(): number
   getSpawnConfig(): SpawnConfig
   shouldSpawnBoss(): boolean
-  // SpawnConfig: { interval, enemyTypes, hpMultiplier, damageMultiplier }
+  getHitCountMultiplier(): number
+  // 30秒ごとに+10%（ベース値比率）。端数切り上げ
+  // SpawnConfig: { interval, enemyTypes, simultaneousCount, hitCountMultiplier }
 }
 ```
 
-### M-03: SpawnManager
-```typescript
+### M-03: SpawnManager```typescript
 class SpawnManager {
   update(world: World, dt: number): void
-  // 敵数上限チェック（200体）後にスポーン実行。上限時はスキップ
-  spawnEnemy(world: World, type: EnemyType): EntityId | null
-  // 上限超過時はnullを返しスポーンを抑制
+  spawnEnemies(world: World, count: number): EntityId[]
+  // 複数体同時スポーン対応
   getRandomSpawnPosition(): {x: number, y: number}
+  // X: 100〜620px範囲
   private getEnemyCount(world: World): number
-  // 現在の敵エンティティ数を取得
-  static readonly MAX_ENEMIES = 200
+  static readonly MAX_ENEMIES = 300
+  static readonly MAX_SIMULTANEOUS_SPAWN = 5
 }
 ```
 
-### M-04: LevelUpManager
-```typescript
-class LevelUpManager {
-  private generatedChoiceIds: Set<string> = new Set()
-  // 直近のgenerateChoices()で生成した選択肢IDを保持（不正選択防止用）
-
-  addXP(amount: number): void
-  checkLevelUp(): boolean
-  // レベルアップ判定後、レベルアップ成立時にHP回復処理を実行:
-  //   - 通常レベルアップ: プレイヤーHP を最大HPの10%回復（FR-01）
-  //   - 全強化取得済みの場合: プレイヤーHP を最大HPの30%回復（FR-03）
-  //   - 回復後のHPは最大HPを超えない（Math.min適用）
-
-  generateChoices(count: number): UpgradeChoice[]
-  // 生成した選択肢のIDをgeneratedChoiceIdsに記録
-
-  applyChoice(world: World, choice: UpgradeChoice): void
-  // 選択肢の有効性検証（NFR-07）:
-  //   1. choice.id が generatedChoiceIds に含まれるかチェック（不正IDの拒否）
-  //   2. 対象スキル/武器の現在レベルが最大レベル未満かチェック（最大レベル超過防止）
-  //   3. 検証失敗時はエラーログ出力し、選択を無視してレベルアップ画面を再表示
-  // 検証通過後に強化を適用し、generatedChoiceIdsをクリア
-
-  getCurrentLevel(): number
-  getXPProgress(): { current: number, required: number }
-
-  private healOnLevelUp(world: World): void
-  // HP回復処理: 全強化取得済みフラグに応じて10%または30%回復
-  private areAllUpgradesMaxed(): boolean
-  // 全武器・全パッシブスキルが最大レベルに到達しているか判定
+### M-04: ItemDropManager```typescript
+class ItemDropManager {
+  determineDrops(enemyType: EnemyType): ItemDrop[]
+  // 1. 現在のアイテム数がMAX_ITEMSに達している場合はドロップ抑制
+  // 2. 武器アイテム判定（5%）
+  // 3. パワーアップアイテム判定（通常30%, 高速35%, タンク50%, ボス100%×2〜3個）
+  // 両方成立時は両方ドロップ
+  private selectPowerUpType(): ItemType
+  // ドロップウェイト: 攻撃UP 30%, 発射速度UP 30%, 移動速度UP 20%, 弾幕 20%
+  private selectWeaponType(): WeaponType
+  // 現在装備以外からランダム選択
+  private getItemCount(world: World): number
+  static readonly MAX_ITEMS = 50  // NFR-01: アイテム同時表示上限
 }
 ```
 
@@ -226,15 +253,15 @@ class LevelUpManager {
 ```typescript
 class UIManager {
   updateHUD(state: HUDState): void
+  // HUDState: { hp, maxHp, activeBuffs, wave, elapsedTime, allyCount, maxAllies, weaponType }
   showTitleScreen(): void
-  showLevelUpScreen(choices: UpgradeChoice[]): Promise<UpgradeChoice>
   showGameOverScreen(score: ScoreData): void
+  // ScoreData: { survivalTime, killCount, allyCount }（level削除）
   handleResize(): void
 }
 ```
 
-### M-06: AssetManager
-```typescript
+### M-06: AssetManager```typescript
 class AssetManager {
   loadAll(): Promise<void>
   getSprite(key: string): ImageBitmap | null
