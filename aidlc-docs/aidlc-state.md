@@ -4,7 +4,7 @@
 - **Project Type**: Brownfield
 - **Start Date**: 2026-04-09T00:00:00Z
 - **Original Start**: 2026-04-07T00:00:00Z
-- **Current Stage**: INCEPTION - Units Generation COMPLETED
+- **Current Stage**: CONSTRUCTION - Unit-01 Functional Design COMPLETED, Code Generation NEXT
 - **Iteration**: 2+（サウンド・設定画面・ヘルプ Unit追加）
 
 ## Workspace State

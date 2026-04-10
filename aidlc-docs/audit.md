@@ -402,3 +402,44 @@
 **Context**: INCEPTION - Units Generation完了
 
 ---
+
+## Unit-01: サウンドシステム Functional Design
+**Timestamp**: 2026-04-10T11:00:00Z
+**User Input**: Unit-01のFunctional Designを作成→自動レビュー実施
+**AI Response**: サウンドシステムの機能設計3成果物を作成。
+
+### Q&A決定事項
+- 連携方式: 直接呼び出し（AudioManager.playSE()）
+- SE同時再生: 同種SE最大3〜4音、超過分は無視
+- 射撃SE: 間引き再生（プレイヤー0.1秒/仲間0.2秒クールダウン、独立管理）
+
+### 設計書作成
+1. **domain-entities.md** — 3エンティティ（AudioManager, BGMTrack, SEChannel）、6値オブジェクト
+2. **business-rules.md** — 8カテゴリ・25ルール（AudioContext管理、BGM lookahead、SE制限、ログ設計等）
+3. **business-logic-model.md** — 9セクション（初期化、BGM先読みスケジューラ、SE再生/解放、音生成、統合ポイント等）
+
+### 自動レビュー（2イテレーション）
+- イテレーション1: FAIL（全体平均6.80）— 主因: setTimeoutベースBGMスケジューラ(critical)
+- 自動修正17件適用:
+  - FIX-1: BGMスケジューラ→Web Audio API lookaheadパターンに全面改修
+  - FIX-2: AE-01にmasterGain/bgmGain/seGain等の属性追加
+  - FIX-3: fadeOutBGM競合防止（fadeTimerId管理）
+  - FIX-4: 射撃SEクールダウンのプレイヤー/仲間独立管理
+  - FIX-5: BR-AU04追加（AudioContext失敗時の無音続行）
+  - FIX-6〜17: SE解放onended化、ログ設計、CSP整合性、ハードリミット等
+- イテレーション2: PASS（全体平均8.00）+ 残存medium4件も追加修正
+
+### 変更ファイル
+- aidlc-docs/construction/audio-system/functional-design/domain-entities.md（新規）
+- aidlc-docs/construction/audio-system/functional-design/business-rules.md（新規）
+- aidlc-docs/construction/audio-system/functional-design/business-logic-model.md（新規）
+- aidlc-docs/construction/plans/audio-system-functional-design-plan.md（新規）
+- aidlc-docs/inception/application-design/unit-of-work*.md（新規3件）
+- aidlc-docs/inception/plans/unit-of-work-plan.md（新規）
+- aidlc-docs/reviews/construction/audio-system/（新規2件）
+- aidlc-docs/aidlc-state.md, audit.md（更新）
+
+**決定理由**: Unit-01サウンドシステムのConstruction開始。Web Audio APIのlookaheadスケジューリングパターン採用はレビューでのcritical指摘により改修。
+**Context**: CONSTRUCTION - Unit-01 Functional Design完了（自動レビューPASS）
+
+---
