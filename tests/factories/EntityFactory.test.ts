@@ -164,6 +164,8 @@ describe('EntityFactory', () => {
       const id = factory.createItemDrop(world, { x: 300, y: 500 }, ItemType.ATTACK_UP);
 
       expect(world.getComponent(id, PositionComponent)).toBeDefined();
+      expect(world.getComponent(id, VelocityComponent)).toBeDefined();
+      expect(world.getComponent(id, HitCountComponent)).toBeDefined();
       expect(world.getComponent(id, ItemDropComponent)).toBeDefined();
       expect(world.getComponent(id, SpriteComponent)).toBeDefined();
       expect(world.getComponent(id, ColliderComponent)).toBeDefined();
@@ -175,10 +177,21 @@ describe('EntityFactory', () => {
       expect(item.itemType).toBe(ItemType.FIRE_RATE_UP);
     });
 
-    it('should set lifetime from config', () => {
+    it('should have downward velocity and hit count from itemSpawn config', () => {
+      const id = factory.createItemDrop(world, { x: 300, y: 500 }, ItemType.ATTACK_UP);
+      const vel = world.getComponent(id, VelocityComponent)!;
+      expect(vel.vx).toBe(0);
+      expect(vel.vy).toBe(GAME_CONFIG.itemSpawn.speed);
+
+      const hitCount = world.getComponent(id, HitCountComponent)!;
+      expect(hitCount.currentHits).toBe(8);
+      expect(hitCount.maxHits).toBe(8);
+    });
+
+    it('should set remainingTime to Infinity (no lifetime timer)', () => {
       const id = factory.createItemDrop(world, { x: 300, y: 500 }, ItemType.ATTACK_UP);
       const item = world.getComponent(id, ItemDropComponent)!;
-      expect(item.remainingTime).toBe(GAME_CONFIG.itemDrop.lifetime);
+      expect(item.remainingTime).toBe(Infinity);
     });
   });
 

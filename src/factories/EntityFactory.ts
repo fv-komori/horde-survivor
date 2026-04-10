@@ -97,16 +97,19 @@ export class EntityFactory {
     return id;
   }
 
-  /** アイテムドロップエンティティを生成（E-04） */
+  /** アイテムドロップエンティティを生成（E-04: 画面上部から降下、射撃で破壊） */
   createItemDrop(world: World, position: Position, itemType: ItemType): EntityId {
     const id = world.createEntity();
+    const cfg = GAME_CONFIG.itemSpawn;
 
     world.addComponent(id, new PositionComponent(position.x, position.y));
-    world.addComponent(id, new ItemDropComponent(itemType, GAME_CONFIG.itemDrop.lifetime));
-    world.addComponent(id, new ColliderComponent(12, ColliderType.ITEM));
+    world.addComponent(id, new VelocityComponent(0, cfg.speed));
+    world.addComponent(id, new HitCountComponent(cfg.hitCount, cfg.hitCount));
+    world.addComponent(id, new ItemDropComponent(itemType, Infinity));
+    world.addComponent(id, new ColliderComponent(cfg.colliderRadius, ColliderType.ITEM));
 
     const color = ITEM_COLORS[itemType] ?? '#FFFFFF';
-    world.addComponent(id, new SpriteComponent('item_drop', 24, 24, color));
+    world.addComponent(id, new SpriteComponent('item_drop', cfg.spriteSize, cfg.spriteSize, color));
 
     return id;
   }

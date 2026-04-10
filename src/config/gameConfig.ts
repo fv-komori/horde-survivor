@@ -38,11 +38,13 @@ export const GAME_CONFIG = deepFreeze({
     maxSimultaneousSpawn: 5,
   },
 
-  /** アイテム回収（BR-ID06） */
-  itemCollection: {
-    collectionRadius: 80,    // px: 即座回収距離
-    magnetRadius: 1500,      // px: 引き寄せ開始距離
-    magnetSpeed: 500,        // px/秒: 引き寄せ速度
+  /** アイテムスポーン設定（画面上部から降ってくるアイテム） */
+  itemSpawn: {
+    interval: 15,            // 秒: スポーン間隔
+    hitCount: 8,             // 破壊に必要なヒット数
+    speed: 70,               // px/秒: 下方向への移動速度
+    colliderRadius: 20,      // px: 衝突判定半径
+    spriteSize: 36,          // px: 描画サイズ
   },
 
   /** 防衛ライン（BR-S02） */
@@ -83,12 +85,6 @@ export const GAME_CONFIG = deepFreeze({
     maxMs: 100,
   },
 
-  /** アイテムドロップ設定（BR-ID01〜ID05） */
-  itemDrop: {
-    lifetime: 10.0,          // 秒
-    blinkStartTime: 3.0,     // 残り3秒で点滅開始
-    blinkInterval: 0.2,      // 200ms ON/OFF
-  },
 
   /** 弾丸設定 */
   bullet: {

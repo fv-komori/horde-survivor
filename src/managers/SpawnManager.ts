@@ -1,19 +1,31 @@
 import type { World } from '../ecs/World';
 import { EnemyComponent } from '../components/EnemyComponent';
+import { ItemDropComponent } from '../components/ItemDropComponent';
 import { EntityFactory } from '../factories/EntityFactory';
 import { WaveManager } from './WaveManager';
 import { GAME_CONFIG } from '../config/gameConfig';
-import { EnemyType } from '../types';
+import { EnemyType, ItemType } from '../types';
+
+/** 全ItemTypeの配列（スポーン時のランダム選択用） */
+const ALL_ITEM_TYPES: ItemType[] = [
+  ItemType.ATTACK_UP,
+  ItemType.FIRE_RATE_UP,
+  ItemType.SPEED_UP,
+  ItemType.BARRAGE,
+  ItemType.WEAPON_SPREAD,
+  ItemType.WEAPON_PIERCING,
+];
 
 /**
  * M-03: スポーンマネージャー
- * 敵エンティティの生成とスポーン間隔管理
- * Iteration 2: 同時スポーン・ヒットカウントスケーリング・ボスもcreateEnemy統一
+ * 敵エンティティ・アイテムエンティティの生成とスポーン間隔管理
+ * Iteration 2: 同時スポーン・ヒットカウントスケーリング・ボスもcreateEnemy統一・アイテムスポーン
  */
 export class SpawnManager {
   static readonly MAX_ENEMIES = GAME_CONFIG.limits.maxEnemies; // 300
 
   private spawnTimer: number = 0;
+  private itemSpawnTimer: number = GAME_CONFIG.itemSpawn.interval;
   private entityFactory: EntityFactory;
   private waveManager: WaveManager;
 
@@ -52,6 +64,18 @@ export class SpawnManager {
         this.entityFactory.createEnemy(world, EnemyType.BOSS, position, spawnConfig.hitCountMultiplier);
       }
     }
+
+    // アイテムスポーン（画面上部から降下するアイテム）
+    this.itemSpawnTimer -= dt;
+    if (this.itemSpawnTimer <= 0) {
+      const currentItemCount = world.query(ItemDropComponent).length;
+      if (currentItemCount < GAME_CONFIG.limits.maxItems) {
+        const itemType = ALL_ITEM_TYPES[Math.floor(Math.random() * ALL_ITEM_TYPES.length)];
+        const position = this.getRandomSpawnPosition();
+        this.entityFactory.createItemDrop(world, position, itemType);
+      }
+      this.itemSpawnTimer = GAME_CONFIG.itemSpawn.interval;
+    }
   }
 
   /** ランダムなスポーン位置を生成 */
@@ -70,5 +94,6 @@ export class SpawnManager {
 
   reset(): void {
     this.spawnTimer = 0;
+    this.itemSpawnTimer = GAME_CONFIG.itemSpawn.interval;
   }
 }

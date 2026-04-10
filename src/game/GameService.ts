@@ -4,7 +4,6 @@ import { ScoreService } from './ScoreService';
 import { EntityFactory } from '../factories/EntityFactory';
 import { WaveManager } from '../managers/WaveManager';
 import { SpawnManager } from '../managers/SpawnManager';
-import { ItemDropManager } from '../managers/ItemDropManager';
 import { AssetManager } from '../managers/AssetManager';
 import { InputHandler } from '../input/InputHandler';
 import { UIManager } from '../ui/UIManager';
@@ -48,7 +47,6 @@ export class GameService {
   private entityFactory: EntityFactory;
   private waveManager: WaveManager;
   private spawnManager: SpawnManager;
-  private itemDropManager: ItemDropManager;
   private assetManager: AssetManager;
   private inputHandler: InputHandler;
   private uiManager: UIManager;
@@ -71,7 +69,6 @@ export class GameService {
     this.entityFactory = new EntityFactory();
     this.waveManager = new WaveManager();
     this.spawnManager = new SpawnManager(this.entityFactory, this.waveManager);
-    this.itemDropManager = new ItemDropManager();
     this.assetManager = new AssetManager();
     this.inputHandler = new InputHandler(canvas);
     this.uiManager = new UIManager();
@@ -107,7 +104,6 @@ export class GameService {
     this.world.addSystem(new CollisionSystem(
       this.entityFactory,
       this.scoreService,
-      this.itemDropManager,
       this.allyConversionSystem,
     ));
     this.world.addSystem(new DefenseLineSystem());

@@ -22,7 +22,7 @@ export interface EnemyTypeConfig {
 
 export const ENEMY_CONFIG: Record<string, EnemyTypeConfig> = deepFreeze({
   NORMAL: {
-    hitCount: 5,
+    hitCount: 20,
     speed: 100,
     breachDamage: 10,
     itemDropRate: 0.30,
@@ -31,7 +31,7 @@ export const ENEMY_CONFIG: Record<string, EnemyTypeConfig> = deepFreeze({
     colliderRadius: 60,
   },
   FAST: {
-    hitCount: 2,
+    hitCount: 10,
     speed: 200,
     breachDamage: 8,
     itemDropRate: 0.35,
@@ -40,7 +40,7 @@ export const ENEMY_CONFIG: Record<string, EnemyTypeConfig> = deepFreeze({
     colliderRadius: 60,
   },
   TANK: {
-    hitCount: 15,
+    hitCount: 60,
     speed: 50,
     breachDamage: 15,
     itemDropRate: 0.50,
@@ -49,7 +49,7 @@ export const ENEMY_CONFIG: Record<string, EnemyTypeConfig> = deepFreeze({
     colliderRadius: 80,
   },
   BOSS: {
-    hitCount: 100,
+    hitCount: 500,
     speed: 30,
     breachDamage: 30,
     itemDropRate: 1.0,
@@ -61,7 +61,7 @@ export const ENEMY_CONFIG: Record<string, EnemyTypeConfig> = deepFreeze({
 
 /** ボス設定（BR-E03） */
 export const BOSS_CONFIG = deepFreeze({
-  baseHitCount: 100,
+  baseHitCount: 500,
   spawnInterval: 90,       // 秒（1分30秒間隔）
   firstSpawnTime: 90,      // 秒（1分30秒後）
   bossDropCount: { min: 2, max: 3 }, // ボス撃破時のドロップ数

@@ -361,3 +361,31 @@
 **Context**: CONSTRUCTION - Code Generation Part 2（Generation）開始
 
 ---
+
+## Iteration 2 - Code Generation + バランス調整
+**Timestamp**: 2026-04-10T00:00:00Z
+**User Input**: 動作確認中にバランス問題を指摘: (1)仲間が広範囲に広がり移動不要 (2)敵が柔らかすぎ (3)アイテムドロップが多すぎ
+**AI Response**: 3つのバランス調整を実施:
+1. 仲間の密集追従型配置（間隔110→40px）
+2. 敵ヒット数4-5倍（通常5→20、高速2→10、タンク15→60、ボス100→500）
+3. アイテムシステム全面変更: 敵ドロップ廃止→上方スポーン(15秒間隔)+射撃破壊制(8ヒット)
+4. 序盤ウェーブ間隔緩和（W1: 1.0→2.5秒、W2: 0.7→1.5秒）
+設計書3点も同期更新。
+**Context**: CONSTRUCTION - Code Generation完了（バランス調整込み）
+
+---
+
+## Iteration 2 - Build and Test
+**Timestamp**: 2026-04-10T01:00:00Z
+**User Input**: "そうします。"（Build & Testへ進行）
+**AI Response**: Build and Testを実行。
+- TypeScript型チェック: PASS（0エラー）
+- ESLint: PASS（0エラー/0警告）
+- テスト: 86テスト全PASS（7スイート）
+- 本番ビルド: PASS（47.25kB / gzip 13.45kB）
+- npm audit: PASS（high以上なし）
+**Build Status**: Success
+**Test Status**: Pass (86/86)
+**Context**: CONSTRUCTION - Build and Test完了
+
+---

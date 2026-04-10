@@ -6,32 +6,32 @@ import { BulletComponent } from '../../src/components/BulletComponent';
 import { EnemyComponent } from '../../src/components/EnemyComponent';
 import { HitCountComponent } from '../../src/components/HitCountComponent';
 import { ItemDropComponent } from '../../src/components/ItemDropComponent';
+import { PlayerComponent } from '../../src/components/PlayerComponent';
+import { BuffComponent } from '../../src/components/BuffComponent';
+import { WeaponComponent } from '../../src/components/WeaponComponent';
 import { EntityFactory } from '../../src/factories/EntityFactory';
 import { ScoreService } from '../../src/game/ScoreService';
-import { ItemDropManager } from '../../src/managers/ItemDropManager';
 import { AllyConversionSystem } from '../../src/systems/AllyConversionSystem';
-import { EnemyType, ColliderType } from '../../src/types';
+import { EnemyType, ItemType, ColliderType, WeaponType } from '../../src/types';
+import { WEAPON_CONFIG } from '../../src/config/weaponConfig';
 
 describe('CollisionSystem', () => {
   let world: World;
   let system: CollisionSystem;
   let scoreService: ScoreService;
   let entityFactory: EntityFactory;
-  let itemDropManager: ItemDropManager;
   let allyConversionSystem: AllyConversionSystem;
 
   beforeEach(() => {
     world = new World();
     entityFactory = new EntityFactory();
     scoreService = new ScoreService();
-    itemDropManager = new ItemDropManager();
     allyConversionSystem = new AllyConversionSystem(entityFactory);
 
-    // Mock itemDropManager and allyConversionSystem to avoid randomness
-    jest.spyOn(itemDropManager, 'determineDrops').mockReturnValue([]);
+    // Mock allyConversionSystem to avoid randomness
     jest.spyOn(allyConversionSystem, 'tryConvertToAlly').mockReturnValue(false);
 
-    system = new CollisionSystem(entityFactory, scoreService, itemDropManager, allyConversionSystem);
+    system = new CollisionSystem(entityFactory, scoreService, allyConversionSystem);
   });
 
   afterEach(() => {
@@ -52,6 +52,25 @@ describe('CollisionSystem', () => {
     world.addComponent(id, new ColliderComponent(60, ColliderType.ENEMY));
     world.addComponent(id, new HitCountComponent(hitCount, hitCount));
     world.addComponent(id, new EnemyComponent(EnemyType.NORMAL, 10, 0.3, 0.05, 0.1));
+    return id;
+  }
+
+  function createItem(x: number, y: number, itemType: ItemType, hitCount: number): number {
+    const id = world.createEntity();
+    world.addComponent(id, new PositionComponent(x, y));
+    world.addComponent(id, new ColliderComponent(20, ColliderType.ITEM));
+    world.addComponent(id, new HitCountComponent(hitCount, hitCount));
+    world.addComponent(id, new ItemDropComponent(itemType, Infinity));
+    return id;
+  }
+
+  function createPlayer(): number {
+    const id = world.createEntity();
+    world.addComponent(id, new PositionComponent(360, 1100));
+    world.addComponent(id, new PlayerComponent(200));
+    world.addComponent(id, new BuffComponent());
+    const weaponCfg = WEAPON_CONFIG[WeaponType.FORWARD];
+    world.addComponent(id, new WeaponComponent(WeaponType.FORWARD, weaponCfg.fireInterval));
     return id;
   }
 
@@ -128,18 +147,39 @@ describe('CollisionSystem', () => {
       expect(hitCount!.currentHits).toBe(3);
     });
 
-    it('should process defeat queue with drops and score', () => {
+    it('should process defeat queue with score and ally conversion', () => {
       createBullet(100, 100, 10);
       createEnemy(100, 100, 5);
 
       system.update(world, 0.016);
       world.update(0);
 
-      // itemDropManager.determineDrops should have been called
-      expect(itemDropManager.determineDrops).toHaveBeenCalled();
       // allyConversionSystem.tryConvertToAlly should have been called
       expect(allyConversionSystem.tryConvertToAlly).toHaveBeenCalled();
       expect(scoreService.getKillCount()).toBe(1);
+    });
+  });
+
+  describe('bullet-item collision', () => {
+    it('should reduce item hit count on bullet hit', () => {
+      createBullet(200, 200, 1);
+      const itemId = createItem(200, 200, ItemType.ATTACK_UP, 8);
+
+      system.update(world, 0.016);
+
+      const hitCount = world.getComponent(itemId, HitCountComponent);
+      expect(hitCount!.currentHits).toBe(7);
+    });
+
+    it('should destroy item and apply buff when hit count reaches 0', () => {
+      createPlayer();
+      createBullet(200, 200, 8);
+      const itemId = createItem(200, 200, ItemType.ATTACK_UP, 8);
+
+      system.update(world, 0.016);
+      world.update(0);
+
+      expect(world.hasEntity(itemId)).toBe(false);
     });
   });
 });

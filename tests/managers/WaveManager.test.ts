@@ -41,7 +41,7 @@ describe('WaveManager', () => {
       manager.update(10);
       const config = manager.getSpawnConfig(10);
       expect(config.enemyTypes).toEqual(['NORMAL']);
-      expect(config.interval).toBe(1.0);
+      expect(config.interval).toBe(2.5);
       expect(config.simultaneousCount).toBe(1);
     });
 
@@ -49,16 +49,16 @@ describe('WaveManager', () => {
       manager.update(50);
       const config = manager.getSpawnConfig(50);
       expect(config.enemyTypes).toEqual(['NORMAL', 'FAST']);
-      expect(config.interval).toBe(0.7);
-      expect(config.simultaneousCount).toBe(2);
+      expect(config.interval).toBe(1.5);
+      expect(config.simultaneousCount).toBe(1);
     });
 
     it('should return NORMAL+FAST+TANK for wave 3', () => {
       manager.update(100);
       const config = manager.getSpawnConfig(100);
       expect(config.enemyTypes).toEqual(['NORMAL', 'FAST', 'TANK']);
-      expect(config.interval).toBe(0.5);
-      expect(config.simultaneousCount).toBe(3);
+      expect(config.interval).toBe(1.0);
+      expect(config.simultaneousCount).toBe(2);
     });
 
     it('should include hitCountMultiplier in spawn config', () => {

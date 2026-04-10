@@ -250,6 +250,7 @@ export class RenderSystem implements System {
         break;
       case 'item_drop':
         this.drawItemDrop(ctx, world, item);
+        this.drawItemHitCount(ctx, world, item);
         break;
       case 'effect_muzzle':
       case 'effect_destroy':
@@ -303,36 +304,83 @@ export class RenderSystem implements System {
     ctx.restore();
   }
 
-  /** アイテムドロップ描画（タイプ別色・点滅対応） */
+  /** アイテムドロップ描画（射撃破壊方式: 大きめの宝石風、被弾フラッシュ対応） */
   private drawItemDrop(ctx: CanvasRenderingContext2D, world: World, item: RenderItem): void {
     const itemDrop = world.getComponent(item.entityId, ItemDropComponent);
     if (!itemDrop) return;
 
-    // 点滅処理: isBlinkingの場合、blinkIntervalで表示/非表示を切り替え
-    if (itemDrop.isBlinking) {
-      const blinkPhase = Math.floor(itemDrop.remainingTime / GAME_CONFIG.itemDrop.blinkInterval);
-      if (blinkPhase % 2 === 0) return; // 非表示フレーム
-    }
-
+    const hitCount = world.getComponent(item.entityId, HitCountComponent);
     const color = ITEM_COLORS[itemDrop.itemType] ?? item.color;
     const x = item.x;
     const y = item.y;
+    const s = item.width / 2; // half-size
 
-    // 光る宝石風（アイテムタイプの色で描画）
+    // 被弾フラッシュ
+    if (hitCount && hitCount.flashTimer > 0) {
+      ctx.fillStyle = '#FFFFFF';
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath();
+      ctx.arc(x, y, s + 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1.0;
+    }
+
+    // 外枠（白い縁取りでアイテムを強調）
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, y - s);
+    ctx.lineTo(x + s, y);
+    ctx.lineTo(x, y + s);
+    ctx.lineTo(x - s, y);
+    ctx.closePath();
+    ctx.stroke();
+
+    // 本体（宝石風ダイヤ形状）
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.moveTo(x, y - 8);
-    ctx.lineTo(x + 7, y);
-    ctx.lineTo(x, y + 8);
-    ctx.lineTo(x - 7, y);
+    ctx.moveTo(x, y - s);
+    ctx.lineTo(x + s, y);
+    ctx.lineTo(x, y + s);
+    ctx.lineTo(x - s, y);
     ctx.closePath();
     ctx.fill();
 
-    // ハイライト
+    // 上部ハイライト
     ctx.fillStyle = '#FFFFFF';
-    ctx.globalAlpha = 0.6;
-    ctx.fillRect(x - 1, y - 4, 3, 3);
+    ctx.globalAlpha = 0.4;
+    ctx.beginPath();
+    ctx.moveTo(x, y - s);
+    ctx.lineTo(x + s * 0.4, y - s * 0.2);
+    ctx.lineTo(x - s * 0.4, y - s * 0.2);
+    ctx.closePath();
+    ctx.fill();
     ctx.globalAlpha = 1.0;
+  }
+
+  /** アイテムのヒットカウント表示 */
+  private drawItemHitCount(ctx: CanvasRenderingContext2D, world: World, item: RenderItem): void {
+    const hitCount = world.getComponent(item.entityId, HitCountComponent);
+    if (!hitCount) return;
+
+    const fontSize = 16;
+    const yOffset = item.height / 2 + fontSize + 2;
+
+    ctx.save();
+    ctx.font = `bold ${fontSize}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+
+    const textColor = hitCount.flashTimer > 0 ? '#FF0000' : '#FFFFFF';
+
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 3;
+    ctx.strokeText(`${hitCount.currentHits}`, item.x, item.y - yOffset + fontSize);
+
+    ctx.fillStyle = textColor;
+    ctx.fillText(`${hitCount.currentHits}`, item.x, item.y - yOffset + fontSize);
+
+    ctx.restore();
   }
 
   /** プレイヤーのドット絵描画（武器タイプ表示付き） */

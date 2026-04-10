@@ -18,28 +18,28 @@ export interface WaveDefinition {
   simultaneousCount: number;  // 同時スポーン数
 }
 
-/** ウェーブ定義テーブル（FR-02-C） */
+/** ウェーブ定義テーブル（FR-02-C: 序盤は緩やかに、徐々に激化） */
 export const WAVE_DEFINITIONS: readonly WaveDefinition[] = deepFreeze([
   {
     startTime: 0,
     endTime: 45,
     enemyTypes: ['NORMAL'],
-    spawnInterval: 1.0,
+    spawnInterval: 2.5,       // 2.5秒間隔（敵ヒット数20に対応して緩和）
     simultaneousCount: 1,
   },
   {
     startTime: 45,
     endTime: 90,
     enemyTypes: ['NORMAL', 'FAST'],
-    spawnInterval: 0.7,
-    simultaneousCount: 2,
+    spawnInterval: 1.5,       // 仲間が増え始める頃に加速
+    simultaneousCount: 1,
   },
   {
     startTime: 90,
     endTime: 180,
     enemyTypes: ['NORMAL', 'FAST', 'TANK'],
-    spawnInterval: 0.5,
-    simultaneousCount: 3,
+    spawnInterval: 1.0,       // 本格的な戦闘開始
+    simultaneousCount: 2,
   },
 ]);
 

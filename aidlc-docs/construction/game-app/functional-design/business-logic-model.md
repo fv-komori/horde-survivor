@@ -1,8 +1,8 @@
 # ビジネスロジックモデル
 
 ## 概要
-ゲームの主要ビジネスロジック（Iteration 2）を技術非依存で詳細設計する。
-ヒットカウント制、アイテムドロップ/バフシステム、仲間化システムの詳細ロジックを定義。
+ゲームの主要ビジネスロジックを技術非依存で詳細設計する。
+ヒットカウント制、アイテムスポーン/バフシステム、仲間化システムの詳細ロジックを定義。
 
 ---
 
@@ -17,17 +17,16 @@
  3. 敵・弾丸・アイテム移動 → 全エンティティの位置更新
  4. 仲間追従           → プレイヤー位置に追従（動的間隔）
  5. 武器発射           → オート射撃判定・弾丸生成（バフ効果適用）
- 6. 衝突判定           → 弾丸-敵の命中判定（ヒットカウント減算）。撃破時は撃破キュー(defeatedEnemies)に追加
- 6b. 撃破キュー消費     → 撃破キューを順に消費し、各撃破敵に対して: (a)アイテムドロップ判定 (b)仲間化判定 (c)スコア加算 (d)敵エンティティ破棄。消費後キューをクリア
- 7. 防衛ライン判定      → 敵の防衛ライン到達チェック
+ 6. 衝突判定           → 弾丸-敵の命中判定（ヒットカウント減算）、弾丸-アイテムの命中判定（アイテムヒットカウント減算→破壊時バフ/武器適用）。撃破時は撃破キュー(defeatedEnemies)に追加
+ 6b. 撃破キュー消費     → 撃破キューを順に消費し、各撃破敵に対して: (a)仲間化判定 (b)スコア加算 (c)敵エンティティ破棄。消費後キューをクリア
+ 7. 防衛ライン判定      → 敵の防衛ライン到達チェック、アイテムの防衛ライン通過チェック（ダメージなし、消滅）
  8. HP管理            → HP0判定
- 9. アイテム回収        → マグネット引き寄せ・回収・バフ適用・武器切替
-10. バフ管理           → バフ時間減算・失効処理
-11. 仲間化判定         → 撃破敵の仲間化判定・仲間エンティティ生成
-12. 仲間連射速度更新    → 時間経過強化
-13. エフェクト更新      → アニメーション進行
-14. クリーンアップ      → 不要エンティティの破棄
-15. 描画              → 全エンティティの描画
+ 9. バフ管理           → バフ時間減算・失効処理
+10. 仲間化判定         → 撃破敵の仲間化判定・仲間エンティティ生成
+11. 仲間連射速度更新    → 時間経過強化
+12. エフェクト更新      → アニメーション進行
+13. クリーンアップ      → 不要エンティティの破棄
+14. 描画              → 全エンティティの描画
 ```
 
 ### 1.2 状態遷移ロジック
@@ -46,8 +45,6 @@ GAME_OVER → [リトライボタン押下] → TITLE
   - 全エンティティを破棄
   - スコアをリセット
 ```
-
-**Iteration 1からの変更**: LEVEL_UP状態を完全廃止。PLAYING→GAME_OVERのみ。
 
 ---
 
@@ -126,8 +123,6 @@ newY = position.y + speed × deltaTime
 - FORWARD と同じパラメータ
 - プレイヤーのバフは適用されない
 - fireRateBonus による連射速度強化のみ適用
-
-**Iteration 1からの変更**: 武器レベル(1-5)を全廃。各武器タイプは固定パラメータ。ダメージ値→不要（ヒットカウント制で1弾=1カウント固定）。
 
 ### 4.2 バフの武器への影響
 ```
@@ -223,13 +218,32 @@ newY = position.y + speed × deltaTime
      - 貫通弾: hitEntitiesに敵IDを追加、弾丸は存続
      - 非貫通弾: 弾丸エンティティを破棄予約
 
+弾丸-アイテム衝突判定（弾丸-敵判定の後に実行）:
+  全弾丸 × 全アイテムの円-円判定:
+    dx = bullet.x - item.x
+    dy = bullet.y - item.y
+    distanceSq = dx * dx + dy * dy
+    radiusSum = bullet.colliderRadius + item.colliderRadius
+    isHit = distanceSq < (radiusSum * radiusSum)
+
+  命中時:
+    1. アイテムのヒットカウント減算:
+       item.hitCount -= bullet.hitCountReduction
+
+    2. 破壊判定:
+       if item.hitCount <= 0:
+         a. applyItemEffect(item) → バフ適用または武器切替
+         b. アイテムエンティティを破棄
+
+    3. 弾丸処理:
+       - 非貫通弾: 弾丸エンティティを破棄予約
+       - 貫通弾: 弾丸は存続
+
 撃破キュー消費（メインループ ステップ6bで実行。撃破された敵ごとに順次処理）:
-  1. ItemDropManager.determineDrops(enemyType) → アイテムドロップ生成
-  2. AllyConversionSystem.tryConvertToAlly() → 仲間化判定
-     ※ アイテムドロップ判定と仲間化判定は独立して両方実行される（仲間化成功時もアイテムはドロップする）
-  3. ScoreService.incrementKills() → スコア加算
-  4. 敵エンティティを破棄
-  5. キュー内の全エントリ処理後、撃破キューをクリア
+  1. AllyConversionSystem.tryConvertToAlly() → 仲間化判定
+  2. ScoreService.incrementKills() → スコア加算
+  3. 敵エンティティを破棄
+  4. キュー内の全エントリ処理後、撃破キューをクリア
 ```
 
 ### 5.2 弾丸の衝突判定半径
@@ -250,38 +264,23 @@ newY = position.y + speed × deltaTime
     2. 敵エンティティを破棄
 ```
 
-**Iteration 1からの変更**: 無敵時間を完全削除。防衛ライン突破のたびに即座にダメージ。
-
 ---
 
-## 7. アイテム回収・バフ・武器切替・仲間化ロジック
+## 7. アイテム・バフ・武器切替・仲間化ロジック
 
-### 7.1 アイテムマグネット回収
+### 7.1 アイテム移動
 ```
 毎フレーム、全アイテムに対して:
-  // 消滅時間管理
-  item.remainingTime -= deltaTime
-  if item.remainingTime <= 3.0:
-    item.isBlinking = true
-  if item.remainingTime <= 0:
-    destroy(item)
+  // 下方向に移動
+  item.position.y += item.speed × deltaTime  // speed = 70 px/秒
+
+  // 防衛ライン通過判定
+  if item.position.y >= 1248:  // 防衛ラインY
+    destroy(item)  // ダメージなし、消滅するのみ
     continue
-
-  distance = sqrt((item.x - player.x)^2 + (item.y - player.y)^2)
-
-  // 即座回収
-  if distance <= 80:  // 回収半径
-    applyItemEffect(item)
-    destroy(item)
-    continue
-
-  // マグネット引き寄せ
-  if distance <= 1500:  // マグネット半径
-    moveAmount = 500 × deltaTime  // 引き寄せ速度
-    ratio = min(moveAmount / distance, 1)
-    item.x -= (item.x - player.x) × ratio
-    item.y -= (item.y - player.y) × ratio
 ```
+
+アイテムの破壊（弾丸命中による）は衝突判定ロジック（セクション5.1）で処理される。
 
 ### 7.2 アイテム効果適用
 ```
@@ -311,33 +310,29 @@ applyItemEffect(item):
       player.activeBuffs.delete(buffType)
 ```
 
-### 7.4 アイテムドロップ判定
+### 7.4 アイテムスポーン（SpawnManagerによる独立スポーン）
 ```
-determineDrops(enemyType):
-  drops = []
-  
-  // アイテム上限チェック（ボスは上限チェックの例外: 100%ドロップ保証を優先）
-  if currentItemCount >= 50 AND enemyType != BOSS:
-    return drops  // ドロップ抑制
-  
-  // 武器アイテム判定（別枠5%）
-  if random() < 0.05:
-    weaponType = selectWeaponType()  // 現在装備以外からランダム
-    drops.push({ type: weaponType })
-  
-  // パワーアップアイテム判定
-  dropRate = enemyDropRates[enemyType]  // 通常30%, 高速35%, タンク50%, ボス100%
-  if random() < dropRate:
-    powerUpType = selectPowerUpByWeight()  // ウェイトランダム
-    drops.push({ type: powerUpType })
-  
-  // ボスの追加ドロップ
-  if enemyType == BOSS:
-    extraCount = randomInt(1, 2)  // 追加1〜2個（合計2〜3個）
-    for i in range(extraCount):
-      drops.push({ type: selectPowerUpByWeight() })
-  
-  return drops
+アイテムスポーンはSpawnManagerのタイマーで管理される（セクション8.5参照）。
+
+spawnItem():
+  // アイテム上限チェック
+  if currentItemCount >= 50:
+    return  // スポーン抑制
+
+  // アイテムタイプ選択（パワーアップまたは武器）
+  itemType = selectItemType()
+    // パワーアップウェイト: ATTACK_UP 30%, FIRE_RATE_UP 30%, SPEED_UP 20%, BARRAGE 20%
+    // 武器アイテムは現在装備以外からランダム選択
+
+  // スポーン位置
+  spawnX = random(100, 620)  // 敵と同じX範囲
+  spawnY = -30  // 画面上部外
+
+  // アイテムエンティティ生成
+  item = createItem(spawnX, spawnY, itemType)
+  item.hitCount = 8
+  item.speed = 70  // px/秒（下方向）
+  item.colliderRadius = 20
 ```
 
 ### 7.5 仲間化判定
@@ -385,12 +380,10 @@ tryConvertToAlly(enemyEntity, defeatPosition):
 
 | ウェーブ | 時間範囲 | 出現敵タイプ | スポーン間隔 | 同時スポーン数 |
 |---------|---------|------------|------------|-------------|
-| 1 | 0:00〜0:45 | NORMAL | 1.0秒 | 1体/回 |
-| 2 | 0:45〜1:30 | NORMAL, FAST | 0.7秒 | 1〜2体/回 |
-| 3 | 1:30〜3:00 | NORMAL, FAST, TANK | 0.5秒 | 2〜3体/回 |
+| 1 | 0:00〜0:45 | NORMAL | 2.5秒 | 1体/回 |
+| 2 | 0:45〜1:30 | NORMAL, FAST | 1.5秒 | 1体/回 |
+| 3 | 1:30〜3:00 | NORMAL, FAST, TANK | 1.0秒 | 2体/回 |
 | 4+ | 3:00以降 | NORMAL, FAST, TANK | 30秒ごとに-0.05秒(最小0.15秒) | 最大5体/回 |
-
-**Iteration 1からの変更**: ウェーブ時間範囲・スポーン間隔を大幅短縮。同時スポーン数を追加。
 
 ### 8.2 敵タイプ出現確率（ウェーブ2以降）
 | 敵タイプ | ウェーブ2 | ウェーブ3以降 |
@@ -442,6 +435,12 @@ bossTimer初期値 = 90
   if bossTimer <= 0:
     spawnBoss(hitCountMultiplier)
     bossTimer = 90
+
+  // --- アイテムスポーン ---
+  itemSpawnTimer -= deltaTime
+  if itemSpawnTimer <= 0:
+    spawnItem()  // セクション7.4参照
+    itemSpawnTimer = 15  // 15秒間隔
 ```
 
 ### 8.6 高負荷時のアダプティブ戦略
@@ -463,10 +462,10 @@ bossTimer初期値 = 90
 calculateAllyOffset(allyIndex, totalAllies):
   // 間隔算出
   if totalAllies <= 4:
-    spacing = 110  // 固定
+    spacing = 40  // 固定（密集配置）
   else:
-    availableWidth = 500  // 概算: 720 - プレイヤー幅 - マージン
-    spacing = max(40, min(110, availableWidth / totalAllies))
+    availableWidth = 250  // 密集のため縮小（画面幅の約1/3）
+    spacing = max(20, min(40, availableWidth / totalAllies))
   
   // 交互配置（右→左→右→左...）
   side = (allyIndex % 2 == 0) ? +1 : -1  // 偶数=右、奇数=左
@@ -504,7 +503,7 @@ calculateAllyOffset(allyIndex, totalAllies):
 
   // 敵: 防衛ライン通過済み（DefenseLineSystemで処理済み）
 
-  // アイテム: 消滅時間切れ（ItemCollectionSystemで処理済み）
+  // アイテム: 防衛ライン通過済み（セクション7.1で処理済み）、または弾丸で破壊済み（セクション5.1で処理済み）
 
   // エフェクト: 表示時間超過（EffectSystemで処理済み）
 ```
@@ -535,9 +534,9 @@ dt > 0.1 の場合: 0.1秒として処理（タブ復帰時の大ジャンプ防
 | 敵 | ヒット数、速度、突破ダメージ、ドロップ率、仲間化率（タイプ別） | `enemies.normal.hitCount` |
 | ウェーブ | スポーン間隔、同時スポーン数、出現確率、ヒット数スケーリング | `waves[n].spawnInterval` |
 | ボス | 基本ヒット数、出現間隔 | `boss.baseHitCount`, `boss.spawnInterval` |
-| アイテム | ドロップウェイト、バフ効果値、効果時間、消滅時間 | `items.buff.duration`, `items.dropWeights` |
+| アイテム | スポーン間隔、ヒットカウント、移動速度、ドロップウェイト、バフ効果値 | `itemSpawn.interval`, `itemSpawn.hitCount`, `items.dropWeights` |
 | 仲間 | 最大数、連射ボーナス間隔、最大ボーナス | `allies.maxCount`, `allies.fireRateInterval` |
-| プレイヤー | 基本HP、基本速度、回収半径、マグネット半径 | `player.baseHp`, `player.magnetRadius` |
+| プレイヤー | 基本HP、基本速度 | `player.baseHp`, `player.baseSpeed` |
 | エンティティ上限 | 敵数上限、弾丸上限、アイテム上限 | `limits.maxEnemies` |
 
 ### 12.3 設定ファイル形式
@@ -567,7 +566,7 @@ dt > 0.1 の場合: 0.1秒として処理（タブ復帰時の大ジャンプ防
 debugMode有効時、毎フレーム:
   for each system in [InputSystem, PlayerMovementSystem, MovementSystem,
                        AllyFollowSystem, WeaponSystem, CollisionSystem,
-                       DefenseLineSystem, HealthSystem, ItemCollectionSystem,
+                       DefenseLineSystem, HealthSystem,
                        BuffSystem, AllyConversionSystem, AllyFireRateSystem,
                        EffectSystem, CleanupSystem, RenderSystem]:
     startTime = performance.now()
@@ -737,5 +736,3 @@ if logicalX < 0 OR logicalX > 720 OR logicalY < 0 OR logicalY > 1280:
 | 通常表示 | 白文字+黒縁、フォントサイズ20px（ボス28px） |
 | 被弾フラッシュ | flashTimer > 0の間、数字を赤色で表示 |
 | 画面外省略 | ビューポート外の敵のヒット数は描画スキップ |
-
-**Iteration 1からの変更**: XPバー(15.2)、レベル表示(15.3)、レベルアップ選択画面(15.6)を廃止。アクティブバフ表示、仲間数表示、武器アイコン表示、ヒットカウント数字表示を追加。
