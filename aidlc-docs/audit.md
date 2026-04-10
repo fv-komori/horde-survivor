@@ -389,3 +389,16 @@
 **Context**: CONSTRUCTION - Build and Test完了
 
 ---
+
+## Units Generation - 機能Unit分割
+**Timestamp**: 2026-04-10T10:00:00Z
+**User Input**: "新しくUnitを作るドキュメントを作りたい。サウンドシステムとチュートリアルと設定画面の3つを進めたい。"
+**AI Response**: Units Generationプロセスを実施。
+- Q&A: サウンド範囲=BGM+SE フル、アセット=Web Audio API生成（無料）、チュートリアル=設定画面から常時閲覧可能な静的ヘルプ、設定項目=BGM/SE音量・操作タイプ・遊び方
+- 当初3 Unit→ユーザー承認でUnit-03（遊び方ヘルプ）をUnit-02に統合→最終2 Unit構成
+- Unit-01: サウンドシステム（US-23〜25）
+- Unit-02: 設定画面 & 遊び方ヘルプ（US-26〜27）
+- 成果物: unit-of-work.md, unit-of-work-dependency.md, unit-of-work-story-map.md, unit-of-work-plan.md
+**Context**: INCEPTION - Units Generation完了
+
+---
