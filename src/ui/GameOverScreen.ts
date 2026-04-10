@@ -2,7 +2,7 @@ import { GAME_CONFIG } from '../config/gameConfig';
 import type { ScoreData } from '../types';
 
 /**
- * ゲームオーバー画面（business-logic-model 15.7）
+ * ゲームオーバー画面（Iteration 2: allyCount表示）
  */
 export class GameOverScreen {
   private retryButtonRect = { x: 260, y: 800, w: 200, h: 48 };
@@ -30,7 +30,7 @@ export class GameOverScreen {
     const seconds = Math.floor(score.survivalTime % 60);
     ctx.fillText(`Time: ${minutes}:${seconds.toString().padStart(2, '0')}`, w / 2, 550);
     ctx.fillText(`Kills: ${score.killCount}`, w / 2, 590);
-    ctx.fillText(`Level: ${score.level}`, w / 2, 630);
+    ctx.fillText(`Allies: ${score.allyCount}`, w / 2, 630);
 
     // リトライボタン
     const btn = this.retryButtonRect;

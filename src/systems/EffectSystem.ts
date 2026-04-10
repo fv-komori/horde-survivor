@@ -6,6 +6,7 @@ import { GAME_CONFIG } from '../config/gameConfig';
 /**
  * S-12: エフェクトシステム（優先度97）
  * エフェクトのライフサイクル管理とアニメーション更新
+ * Iteration 2: BUFF_ACTIVATE, ALLY_CONVERT対応（汎用処理で対応済み）
  */
 export class EffectSystem implements System {
   readonly priority = 97;

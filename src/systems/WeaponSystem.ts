@@ -2,23 +2,22 @@ import type { System } from '../ecs/System';
 import type { World } from '../ecs/World';
 import { PositionComponent } from '../components/PositionComponent';
 import { WeaponComponent } from '../components/WeaponComponent';
-import { WeaponInventoryComponent } from '../components/WeaponInventoryComponent';
-import type { WeaponSlot } from '../components/WeaponInventoryComponent';
 import { PlayerComponent } from '../components/PlayerComponent';
 import { AllyComponent } from '../components/AllyComponent';
 import { BulletComponent } from '../components/BulletComponent';
+import { BuffComponent } from '../components/BuffComponent';
 import { EnemyComponent } from '../components/EnemyComponent';
-import { PassiveSkillsComponent } from '../components/PassiveSkillsComponent';
 import { SpriteComponent } from '../components/SpriteComponent';
 import { EntityFactory } from '../factories/EntityFactory';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { WEAPON_CONFIG } from '../config/weaponConfig';
-import { WeaponType, EffectType } from '../types';
+import { WeaponType, BuffType, EffectType } from '../types';
 import type { EntityId } from '../ecs/Entity';
 
 /**
  * S-05: 武器システム（優先度4）
  * business-logic-model セクション4
+ * Iteration 2: 単一WeaponComponent・バフ適用・ヒットカウント減算
  */
 export class WeaponSystem implements System {
   readonly priority = 4;
@@ -32,17 +31,13 @@ export class WeaponSystem implements System {
   update(world: World, dt: number): void {
     this.gameTime += dt;
 
-    // プレイヤーの武器処理（WeaponInventoryComponent経由）
-    const playerIds = world.query(PlayerComponent, PositionComponent, WeaponInventoryComponent);
+    // プレイヤーの武器処理（単一WeaponComponent）
+    const playerIds = world.query(PlayerComponent, PositionComponent, WeaponComponent);
     for (const playerId of playerIds) {
       const pos = world.getComponent(playerId, PositionComponent)!;
-      const inventory = world.getComponent(playerId, WeaponInventoryComponent)!;
-      const passives = world.getComponent(playerId, PassiveSkillsComponent);
-      const attackMultiplier = 1 + (passives?.attackLevel ?? 0) * GAME_CONFIG.passiveSkills.attack.perLevel;
-
-      for (const slot of inventory.weaponSlots) {
-        this.processWeaponSlot(world, playerId, pos, slot, attackMultiplier);
-      }
+      const weapon = world.getComponent(playerId, WeaponComponent)!;
+      const buffs = world.getComponent(playerId, BuffComponent);
+      this.processPlayerWeapon(world, playerId, pos, weapon, buffs);
     }
 
     // 仲間の武器処理（WeaponComponent直接）
@@ -50,30 +45,43 @@ export class WeaponSystem implements System {
     for (const allyId of allyIds) {
       const pos = world.getComponent(allyId, PositionComponent)!;
       const weapon = world.getComponent(allyId, WeaponComponent)!;
-      this.processAllyWeapon(world, allyId, pos, weapon);
+      const ally = world.getComponent(allyId, AllyComponent)!;
+      this.processAllyWeapon(world, allyId, pos, weapon, ally);
     }
   }
 
-  private processWeaponSlot(
+  private processPlayerWeapon(
     world: World,
     ownerId: EntityId,
     pos: PositionComponent,
-    slot: WeaponSlot,
-    attackMultiplier: number,
+    weapon: WeaponComponent,
+    buffs: BuffComponent | undefined,
   ): void {
-    const config = WEAPON_CONFIG[slot.weaponType];
+    const config = WEAPON_CONFIG[weapon.weaponType];
     if (!config) return;
 
-    const levelConfig = config.levels[slot.level - 1];
-    if (!levelConfig) return;
+    // バフ適用: 発射間隔
+    let fireInterval = config.fireInterval;
+    if (buffs?.hasBuff(BuffType.FIRE_RATE_UP)) {
+      fireInterval *= GAME_CONFIG.buff.fireRateMultiplier;
+    }
 
     // 発射間隔チェック
-    if (this.gameTime - slot.lastFiredAt < levelConfig.fireInterval) return;
+    if (this.gameTime - weapon.lastFiredAt < fireInterval) return;
 
     // 弾丸数上限チェック（BR-W04）
     if (this.getBulletCount(world) >= GAME_CONFIG.limits.maxBullets) return;
 
-    const damage = Math.round(levelConfig.damage * attackMultiplier);
+    // バフ適用: 弾数
+    let bulletCount = config.bulletCount;
+    if (buffs?.hasBuff(BuffType.BARRAGE)) {
+      bulletCount *= GAME_CONFIG.buff.barrageBulletMultiplier;
+    }
+
+    // バフ適用: ヒットカウント減算（ATTACK_UP: 2, 通常: 1）
+    const hitCountReduction = buffs?.hasBuff(BuffType.ATTACK_UP)
+      ? GAME_CONFIG.buff.attackUpReduction
+      : 1;
 
     // 銃口位置を計算（描画と合わせる）
     const sprite = world.getComponent(ownerId, SpriteComponent);
@@ -81,9 +89,15 @@ export class WeaponSystem implements System {
     const muzzle = { x: pos.x + half * 0.45, y: pos.y - half * 0.91 };
 
     // 弾丸生成
-    this.fireBullets(world, ownerId, muzzle, slot.weaponType, levelConfig, damage, config.bulletOffset);
+    const useBarrageSpread = buffs?.hasBuff(BuffType.BARRAGE) ?? false;
+    this.fireBullets(
+      world, ownerId, muzzle, weapon.weaponType,
+      bulletCount, config.bulletSpeed, config.isPiercing,
+      config.spreadAngle, config.bulletOffset,
+      hitCountReduction, useBarrageSpread,
+    );
 
-    slot.lastFiredAt = this.gameTime;
+    weapon.lastFiredAt = this.gameTime;
 
     // 射撃エフェクト
     this.entityFactory.createEffect(world, EffectType.MUZZLE_FLASH, muzzle);
@@ -94,14 +108,15 @@ export class WeaponSystem implements System {
     allyId: EntityId,
     pos: PositionComponent,
     weapon: WeaponComponent,
+    ally: AllyComponent,
   ): void {
     const config = WEAPON_CONFIG[weapon.weaponType];
     if (!config) return;
 
-    const levelConfig = config.levels[weapon.level - 1];
-    if (!levelConfig) return;
+    // 仲間の連射ボーナス適用（BR-AL04）
+    const fireInterval = config.fireInterval / (1 + ally.fireRateBonus / 100);
 
-    if (this.gameTime - weapon.lastFiredAt < levelConfig.fireInterval) return;
+    if (this.gameTime - weapon.lastFiredAt < fireInterval) return;
     if (this.getBulletCount(world) >= GAME_CONFIG.limits.maxBullets) return;
 
     // 銃口位置を計算
@@ -109,8 +124,13 @@ export class WeaponSystem implements System {
     const half = sprite ? sprite.width / 2 : 24;
     const muzzle = { x: pos.x + half * 0.42, y: pos.y - half * 0.78 };
 
-    // 仲間は攻撃力UPパッシブ適用なし（BR-W07, BR-A03）
-    this.fireBullets(world, allyId, muzzle, weapon.weaponType, levelConfig, levelConfig.damage, config.bulletOffset);
+    // 仲間弾丸は常にhitCountReduction = 1（BR-AL03）
+    this.fireBullets(
+      world, allyId, muzzle, weapon.weaponType,
+      config.bulletCount, config.bulletSpeed, config.isPiercing,
+      config.spreadAngle, config.bulletOffset,
+      1, false,
+    );
 
     weapon.lastFiredAt = this.gameTime;
   }
@@ -120,19 +140,28 @@ export class WeaponSystem implements System {
     ownerId: EntityId,
     origin: { x: number; y: number },
     weaponType: WeaponType,
-    levelConfig: { bulletCount: number; bulletSpeed: number; piercing: boolean; spreadAngle?: number },
-    damage: number,
+    bulletCount: number,
+    bulletSpeed: number,
+    isPiercing: boolean,
+    spreadAngle: number,
     bulletOffset: number,
+    hitCountReduction: number,
+    useBarrageSpread: boolean,
   ): void {
-    const count = levelConfig.bulletCount;
+    const count = bulletCount;
 
     // 発射方向: 常に真上（BR-W06）
     const targetDirX = 0;
     const targetDirY = -1;
 
-    if (weaponType === WeaponType.SPREAD && levelConfig.spreadAngle) {
-      // 拡散射撃: 扇状に均等配置
-      const angleRad = (levelConfig.spreadAngle * Math.PI) / 180;
+    // BARRAGE時は扇状発射に切り替え
+    const effectiveSpreadAngle = useBarrageSpread
+      ? (GAME_CONFIG.buff.barrageSpread[weaponType] ?? 30)
+      : spreadAngle;
+
+    if (effectiveSpreadAngle > 0 || (weaponType === WeaponType.SPREAD && spreadAngle > 0)) {
+      // 拡散射撃 / BARRAGE: 扇状に均等配置
+      const angleRad = (effectiveSpreadAngle * Math.PI) / 180;
       const baseAngle = Math.atan2(targetDirY, targetDirX);
 
       for (let i = 0; i < count; i++) {
@@ -140,9 +169,9 @@ export class WeaponSystem implements System {
 
         const t = count === 1 ? 0 : (i / (count - 1)) - 0.5;
         const angle = baseAngle + t * angleRad;
-        const vx = Math.cos(angle) * levelConfig.bulletSpeed;
-        const vy = Math.sin(angle) * levelConfig.bulletSpeed;
-        this.entityFactory.createBullet(world, { x: origin.x, y: origin.y }, { vx, vy }, damage, levelConfig.piercing, ownerId);
+        const vx = Math.cos(angle) * bulletSpeed;
+        const vy = Math.sin(angle) * bulletSpeed;
+        this.entityFactory.createBullet(world, { x: origin.x, y: origin.y }, { vx, vy }, hitCountReduction, isPiercing, ownerId);
       }
     } else {
       // 前方射撃 / 貫通弾: 水平オフセット並列発射
@@ -151,9 +180,9 @@ export class WeaponSystem implements System {
 
         const offsetIndex = i - (count - 1) / 2;
         const ox = offsetIndex * bulletOffset;
-        const vx = targetDirX * levelConfig.bulletSpeed;
-        const vy = targetDirY * levelConfig.bulletSpeed;
-        this.entityFactory.createBullet(world, { x: origin.x + ox, y: origin.y }, { vx, vy }, damage, levelConfig.piercing, ownerId);
+        const vx = targetDirX * bulletSpeed;
+        const vy = targetDirY * bulletSpeed;
+        this.entityFactory.createBullet(world, { x: origin.x + ox, y: origin.y }, { vx, vy }, hitCountReduction, isPiercing, ownerId);
       }
     }
   }

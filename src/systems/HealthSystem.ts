@@ -7,7 +7,7 @@ import { GameState } from '../types';
 
 /**
  * S-08: HPシステム（優先度7）
- * 無敵時間カウントダウン、HP0判定
+ * Iteration 2: 無敵時間廃止、HP0判定のみ
  */
 export class HealthSystem implements System {
   readonly priority = 7;
@@ -17,22 +17,12 @@ export class HealthSystem implements System {
     this.gameStateManager = gameStateManager;
   }
 
-  update(world: World, dt: number): void {
+  update(world: World, _dt: number): void {
     const playerIds = world.query(PlayerComponent, HealthComponent);
     if (playerIds.length === 0) return;
 
     const id = playerIds[0];
-    const player = world.getComponent(id, PlayerComponent)!;
     const health = world.getComponent(id, HealthComponent)!;
-
-    // 無敵時間カウントダウン（BR-P03）
-    if (player.isInvincible) {
-      player.invincibleTimer -= dt;
-      if (player.invincibleTimer <= 0) {
-        player.isInvincible = false;
-        player.invincibleTimer = 0;
-      }
-    }
 
     // HP0判定 → ゲームオーバー（BR-P02）
     if (health.hp <= 0) {

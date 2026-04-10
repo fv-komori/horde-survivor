@@ -5,20 +5,22 @@ import { SpriteComponent } from '../components/SpriteComponent';
 import { PlayerComponent } from '../components/PlayerComponent';
 import { EnemyComponent } from '../components/EnemyComponent';
 import { BulletComponent } from '../components/BulletComponent';
-import { XPDropComponent } from '../components/XPDropComponent';
+import { ItemDropComponent } from '../components/ItemDropComponent';
 import { AllyComponent } from '../components/AllyComponent';
 import { EffectComponent } from '../components/EffectComponent';
-import { WeaponInventoryComponent } from '../components/WeaponInventoryComponent';
+import { HitCountComponent } from '../components/HitCountComponent';
+import { WeaponComponent } from '../components/WeaponComponent';
 import { GAME_CONFIG } from '../config/gameConfig';
+import { ITEM_COLORS } from '../types';
 import type { InputHandler } from '../input/InputHandler';
 
-/** 描画レイヤー定義 */
+/** 描画レイヤー定義（Z-order: 小さい方が先に描画される） */
 enum RenderLayer {
-  XP_DROP = 0,
+  ITEM_DROP = 0,
   ENEMY = 1,
-  BULLET = 2,
-  ALLY = 3,
-  PLAYER = 4,
+  ALLY = 2,
+  PLAYER = 3,
+  BULLET = 4,
   EFFECT = 5,
 }
 
@@ -36,7 +38,7 @@ interface RenderItem {
 /**
  * S-10: 描画システム（優先度99）
  * Canvas 2D描画、レターボックス、devicePixelRatio対応
- * business-logic-model セクション14-15
+ * Iteration 2: ヒットカウント表示・アイテムドロップ描画
  */
 export class RenderSystem implements System {
   readonly priority = 99;
@@ -94,7 +96,7 @@ export class RenderSystem implements System {
     this.offsetX = (physW - logicalW * this.scale) / 2;
     this.offsetY = (physH - logicalH * this.scale) / 2;
 
-    // Canvas物理サイズ設定
+    // Canvas物理サイズ設定（DPR対応）
     this.canvas.width = physW * dpr;
     this.canvas.height = physH * dpr;
     this.canvas.style.width = `${physW}px`;
@@ -119,14 +121,14 @@ export class RenderSystem implements System {
     const dpr = window.devicePixelRatio || 1;
     const ctx = this.ctx;
 
-    // 全体クリア（レターボックス含む）（business-logic-model 14.4）
+    // 全体クリア（レターボックス含む）
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     ctx.restore();
 
-    // ゲーム用変換を設定
+    // ゲーム用変換を設定（DPR対応）
     ctx.setTransform(
       this.scale * dpr, 0,
       0, this.scale * dpr,
@@ -150,11 +152,10 @@ export class RenderSystem implements System {
 
     // カリング（NFR-01）: 描画上限チェック
     if (items.length > GAME_CONFIG.limits.maxDrawObjects) {
-      // 優先度低いもの（XPアイテム等）を先にスキップするためソート済みを逆から削���
       items.length = GAME_CONFIG.limits.maxDrawObjects;
     }
 
-    // レイヤー順に描画
+    // レイヤー順に描画: background → items → enemies → allies → player → bullets → effects
     items.sort((a, b) => a.layer - b.layer);
     for (const item of items) {
       this.renderItem(ctx, world, item);
@@ -191,7 +192,7 @@ export class RenderSystem implements System {
       if (world.getComponent(id, PlayerComponent)) layer = RenderLayer.PLAYER;
       else if (world.getComponent(id, AllyComponent)) layer = RenderLayer.ALLY;
       else if (world.getComponent(id, BulletComponent)) layer = RenderLayer.BULLET;
-      else if (world.getComponent(id, XPDropComponent)) layer = RenderLayer.XP_DROP;
+      else if (world.getComponent(id, ItemDropComponent)) layer = RenderLayer.ITEM_DROP;
       else if (world.getComponent(id, EffectComponent)) layer = RenderLayer.EFFECT;
 
       items.push({
@@ -212,7 +213,7 @@ export class RenderSystem implements System {
   private renderItem(ctx: CanvasRenderingContext2D, world: World, item: RenderItem): void {
     ctx.save();
 
-    // プレイヤー無敵時点滅（business-logic-model 15.9）
+    // プレイヤー無敵時点滅
     if (item.layer === RenderLayer.PLAYER) {
       const player = world.getComponent(item.entityId, PlayerComponent);
       if (player?.isInvincible) {
@@ -226,8 +227,8 @@ export class RenderSystem implements System {
 
     switch (item.spriteType) {
       case 'player': {
-        const inventory = world.getComponent(item.entityId, WeaponInventoryComponent);
-        const weaponType = inventory?.weaponSlots[0]?.weaponType ?? 'FORWARD';
+        const weapon = world.getComponent(item.entityId, WeaponComponent);
+        const weaponType = weapon?.weaponType ?? 'FORWARD';
         this.drawPlayer(ctx, item.x, item.y, hw, weaponType);
         break;
       }
@@ -239,6 +240,7 @@ export class RenderSystem implements System {
       case 'enemy_tank':
       case 'enemy_boss':
         this.drawEnemy(ctx, item.x, item.y, hw, item.color, item.spriteType);
+        this.drawHitCount(ctx, world, item);
         break;
       case 'bullet':
         ctx.fillStyle = item.color;
@@ -246,11 +248,13 @@ export class RenderSystem implements System {
         ctx.arc(item.x, item.y, 8, 0, Math.PI * 2);
         ctx.fill();
         break;
-      case 'xp_drop':
-        this.drawXPDrop(ctx, item.x, item.y);
+      case 'item_drop':
+        this.drawItemDrop(ctx, world, item);
         break;
       case 'effect_muzzle':
-      case 'effect_destroy': {
+      case 'effect_destroy':
+      case 'effect_buff':
+      case 'effect_ally_convert': {
         const effect = world.getComponent(item.entityId, EffectComponent);
         if (effect) {
           const progress = effect.elapsed / effect.duration;
@@ -268,6 +272,67 @@ export class RenderSystem implements System {
     }
 
     ctx.restore();
+  }
+
+  /** ヒットカウント表示（敵の上に残りヒット数を描画） */
+  private drawHitCount(ctx: CanvasRenderingContext2D, world: World, item: RenderItem): void {
+    const hitCount = world.getComponent(item.entityId, HitCountComponent);
+    if (!hitCount) return;
+
+    const isBoss = item.spriteType === 'enemy_boss';
+    const fontSize = isBoss ? 28 : 20;
+    const yOffset = item.height / 2 + fontSize + 4;
+
+    ctx.save();
+    ctx.font = `bold ${fontSize}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+
+    // 被弾フラッシュ中は赤色
+    const textColor = hitCount.flashTimer > 0 ? '#FF0000' : '#FFFFFF';
+
+    // 黒アウトライン
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 3;
+    ctx.strokeText(`${hitCount.currentHits}`, item.x, item.y - yOffset + fontSize);
+
+    // テキスト本体
+    ctx.fillStyle = textColor;
+    ctx.fillText(`${hitCount.currentHits}`, item.x, item.y - yOffset + fontSize);
+
+    ctx.restore();
+  }
+
+  /** アイテムドロップ描画（タイプ別色・点滅対応） */
+  private drawItemDrop(ctx: CanvasRenderingContext2D, world: World, item: RenderItem): void {
+    const itemDrop = world.getComponent(item.entityId, ItemDropComponent);
+    if (!itemDrop) return;
+
+    // 点滅処理: isBlinkingの場合、blinkIntervalで表示/非表示を切り替え
+    if (itemDrop.isBlinking) {
+      const blinkPhase = Math.floor(itemDrop.remainingTime / GAME_CONFIG.itemDrop.blinkInterval);
+      if (blinkPhase % 2 === 0) return; // 非表示フレーム
+    }
+
+    const color = ITEM_COLORS[itemDrop.itemType] ?? item.color;
+    const x = item.x;
+    const y = item.y;
+
+    // 光る宝石風（アイテムタイプの色で描画）
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x, y - 8);
+    ctx.lineTo(x + 7, y);
+    ctx.lineTo(x, y + 8);
+    ctx.lineTo(x - 7, y);
+    ctx.closePath();
+    ctx.fill();
+
+    // ハイライト
+    ctx.fillStyle = '#FFFFFF';
+    ctx.globalAlpha = 0.6;
+    ctx.fillRect(x - 1, y - 4, 3, 3);
+    ctx.globalAlpha = 1.0;
   }
 
   /** プレイヤーのドット絵描画（武器タイプ表示付き） */
@@ -545,26 +610,9 @@ export class RenderSystem implements System {
     }
   }
 
-  /** XPドロップのドット絵描画 */
-  private drawXPDrop(ctx: CanvasRenderingContext2D, x: number, y: number): void {
-    // 光る宝石風
-    ctx.fillStyle = '#00FFFF';
-    ctx.beginPath();
-    ctx.moveTo(x, y - 6);
-    ctx.lineTo(x + 5, y);
-    ctx.lineTo(x, y + 6);
-    ctx.lineTo(x - 5, y);
-    ctx.closePath();
-    ctx.fill();
-    // ハイライト
-    ctx.fillStyle = '#AAFFFF';
-    ctx.fillRect(x - 1, y - 3, 2, 2);
-  }
-
-  /** モバイル操作UI描画（business-logic-model 15.8） */
+  /** モバイル操作UI描画 */
   private renderMobileUI(ctx: CanvasRenderingContext2D): void {
     const alpha = 0.3;
-    // TODO: pressedAlpha (0.5) — ボタン押下フィードバック未実装（要InputHandler連携）
 
     // 左移動ボタン
     ctx.fillStyle = `rgba(255,255,255,${alpha})`;
@@ -574,14 +622,14 @@ export class RenderSystem implements System {
     ctx.font = '32px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('◀', 32, 1180);
+    ctx.fillText('\u25C0', 32, 1180);
 
     // 右移動ボタン
     ctx.fillStyle = `rgba(255,255,255,${alpha})`;
     this.drawRoundRect(ctx, 608 - 40, 1180 - 40, 80, 80, 12);
     ctx.fill();
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText('▶', 608, 1180);
+    ctx.fillText('\u25B6', 608, 1180);
   }
 
   private drawRoundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {

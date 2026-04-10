@@ -1,13 +1,14 @@
 import type { System } from '../ecs/System';
 import type { World } from '../ecs/World';
 import { BulletComponent } from '../components/BulletComponent';
-import { XPDropComponent } from '../components/XPDropComponent';
+import { ItemDropComponent } from '../components/ItemDropComponent';
 import { PositionComponent } from '../components/PositionComponent';
 import { GAME_CONFIG } from '../config/gameConfig';
 
 /**
  * S-11: クリーンアップシステム（優先度98）
  * business-logic-model セクション10
+ * Iteration 2: XPDrop → ItemDrop
  */
 export class CleanupSystem implements System {
   readonly priority = 98;
@@ -26,26 +27,31 @@ export class CleanupSystem implements System {
       }
     }
 
-    // XPDrop: 寿命管理と上限管理
-    const xpIds = world.query(XPDropComponent, PositionComponent);
-    const toDestroy: { id: number; createdAt: number }[] = [];
+    // ItemDrop: 寿命管理と上限管理
+    const itemIds = world.query(ItemDropComponent, PositionComponent);
+    const toDestroy: { id: number; remainingTime: number }[] = [];
 
-    for (const id of xpIds) {
-      const xp = world.getComponent(id, XPDropComponent)!;
-      xp.lifetime -= dt;
+    for (const id of itemIds) {
+      const item = world.getComponent(id, ItemDropComponent)!;
+      item.remainingTime -= dt;
 
-      // 自動消滅（15秒経過）
-      if (xp.lifetime <= 0) {
+      // 点滅開始判定（BR-ID05）
+      if (item.remainingTime <= GAME_CONFIG.itemDrop.blinkStartTime) {
+        item.isBlinking = true;
+      }
+
+      // 自動消滅（残り時間0）
+      if (item.remainingTime <= 0) {
         world.destroyEntity(id);
       } else {
-        toDestroy.push({ id, createdAt: xp.createdAt });
+        toDestroy.push({ id, remainingTime: item.remainingTime });
       }
     }
 
-    // XPDrop上限管理（BR-S03: 100個超過時は最古を消滅）
-    if (toDestroy.length > GAME_CONFIG.limits.maxXPDrops) {
-      toDestroy.sort((a, b) => a.createdAt - b.createdAt);
-      const excess = toDestroy.length - GAME_CONFIG.limits.maxXPDrops;
+    // ItemDrop上限管理（BR-S03: maxItems超過時は残り時間が少ないものから消滅）
+    if (toDestroy.length > GAME_CONFIG.limits.maxItems) {
+      toDestroy.sort((a, b) => a.remainingTime - b.remainingTime);
+      const excess = toDestroy.length - GAME_CONFIG.limits.maxItems;
       for (let i = 0; i < excess; i++) {
         world.destroyEntity(toDestroy[i].id);
       }

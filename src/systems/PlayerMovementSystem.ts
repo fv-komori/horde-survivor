@@ -2,12 +2,14 @@ import type { System } from '../ecs/System';
 import type { World } from '../ecs/World';
 import { PlayerComponent } from '../components/PlayerComponent';
 import { PositionComponent } from '../components/PositionComponent';
-import { PassiveSkillsComponent } from '../components/PassiveSkillsComponent';
+import { BuffComponent } from '../components/BuffComponent';
 import { ColliderComponent } from '../components/ColliderComponent';
 import { GAME_CONFIG } from '../config/gameConfig';
+import { BuffType } from '../types';
 
 /** S-03: プレイヤー移動システム（優先度2）
  *  business-logic-model セクション2
+ *  Iteration 2: PassiveSkills廃止 → BuffComponentでSPEED_UP適用
  */
 export class PlayerMovementSystem implements System {
   readonly priority = 2;
@@ -19,11 +21,13 @@ export class PlayerMovementSystem implements System {
     const id = playerIds[0];
     const player = world.getComponent(id, PlayerComponent)!;
     const pos = world.getComponent(id, PositionComponent)!;
-    const passives = world.getComponent(id, PassiveSkillsComponent);
+    const buffs = world.getComponent(id, BuffComponent);
     const collider = world.getComponent(id, ColliderComponent);
 
-    // 実効速度 = baseSpeed × (1 + speedLevel × 0.10)（BR-P04）
-    const speedMultiplier = 1 + (passives?.speedLevel ?? 0) * GAME_CONFIG.passiveSkills.speed.perLevel;
+    // 実効速度 = baseSpeed × バフ倍率（BR-BF04: SPEED_UP時1.5倍）
+    const speedMultiplier = buffs?.hasBuff(BuffType.SPEED_UP)
+      ? GAME_CONFIG.buff.speedMultiplier
+      : 1.0;
     const effectiveSpeed = player.baseSpeed * speedMultiplier;
 
     // 移動量

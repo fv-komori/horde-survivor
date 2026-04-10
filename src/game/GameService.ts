@@ -4,7 +4,7 @@ import { ScoreService } from './ScoreService';
 import { EntityFactory } from '../factories/EntityFactory';
 import { WaveManager } from '../managers/WaveManager';
 import { SpawnManager } from '../managers/SpawnManager';
-import { LevelUpManager } from '../managers/LevelUpManager';
+import { ItemDropManager } from '../managers/ItemDropManager';
 import { AssetManager } from '../managers/AssetManager';
 import { InputHandler } from '../input/InputHandler';
 import { UIManager } from '../ui/UIManager';
@@ -18,22 +18,27 @@ import { WeaponSystem } from '../systems/WeaponSystem';
 import { CollisionSystem } from '../systems/CollisionSystem';
 import { DefenseLineSystem } from '../systems/DefenseLineSystem';
 import { HealthSystem } from '../systems/HealthSystem';
-import { XPCollectionSystem } from '../systems/XPCollectionSystem';
+import { ItemCollectionSystem } from '../systems/ItemCollectionSystem';
+import { BuffSystem } from '../systems/BuffSystem';
+import { AllyConversionSystem } from '../systems/AllyConversionSystem';
+import { AllyFireRateSystem } from '../systems/AllyFireRateSystem';
 import { EffectSystem } from '../systems/EffectSystem';
 import { CleanupSystem } from '../systems/CleanupSystem';
 import { RenderSystem } from '../systems/RenderSystem';
 
 // Components
 import { HealthComponent } from '../components/HealthComponent';
+import { AllyComponent } from '../components/AllyComponent';
+import { BuffComponent } from '../components/BuffComponent';
+import { WeaponComponent } from '../components/WeaponComponent';
 
 import { GAME_CONFIG } from '../config/gameConfig';
-import { GameState } from '../types';
+import { GameState, WeaponType } from '../types';
 import type { EntityId } from '../ecs/Entity';
-import type { UpgradeChoice } from '../types';
 
 /**
  * S-SVC-01: ゲームサービス（メインオーケストレーター）
- * services.md, business-logic-model セクション1
+ * Iteration 2: XP/レベル廃止、アイテムドロップ/バフ/仲間化システム
  */
 export class GameService {
   private canvas: HTMLCanvasElement;
@@ -43,21 +48,20 @@ export class GameService {
   private entityFactory: EntityFactory;
   private waveManager: WaveManager;
   private spawnManager: SpawnManager;
-  private levelUpManager: LevelUpManager;
+  private itemDropManager: ItemDropManager;
   private assetManager: AssetManager;
   private inputHandler: InputHandler;
   private uiManager: UIManager;
   private renderSystem: RenderSystem;
   private weaponSystem: WeaponSystem;
+  private allyConversionSystem: AllyConversionSystem;
+  private allyFireRateSystem: AllyFireRateSystem;
 
   private playerId: EntityId = 0;
   private previousTimestamp: number = 0;
   private running: boolean = false;
   private animationFrameId: number = 0;
   private debugEnabled: boolean = false;
-
-  // LEVEL_UP state
-  private currentChoices: UpgradeChoice[] = [];
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -67,12 +71,14 @@ export class GameService {
     this.entityFactory = new EntityFactory();
     this.waveManager = new WaveManager();
     this.spawnManager = new SpawnManager(this.entityFactory, this.waveManager);
-    this.levelUpManager = new LevelUpManager(this.entityFactory);
+    this.itemDropManager = new ItemDropManager();
     this.assetManager = new AssetManager();
     this.inputHandler = new InputHandler(canvas);
     this.uiManager = new UIManager();
     this.renderSystem = new RenderSystem(canvas);
     this.weaponSystem = new WeaponSystem(this.entityFactory);
+    this.allyConversionSystem = new AllyConversionSystem(this.entityFactory);
+    this.allyFireRateSystem = new AllyFireRateSystem();
 
     this.renderSystem.setInputHandler(this.inputHandler);
   }
@@ -98,23 +104,24 @@ export class GameService {
     this.world.addSystem(new MovementSystem());
     this.world.addSystem(new AllyFollowSystem());
     this.world.addSystem(this.weaponSystem);
-    this.world.addSystem(new CollisionSystem(this.entityFactory, this.scoreService));
+    this.world.addSystem(new CollisionSystem(
+      this.entityFactory,
+      this.scoreService,
+      this.itemDropManager,
+      this.allyConversionSystem,
+    ));
     this.world.addSystem(new DefenseLineSystem());
     this.world.addSystem(new HealthSystem(this.gameStateManager));
-    this.world.addSystem(new XPCollectionSystem(this.levelUpManager));
+    this.world.addSystem(new ItemCollectionSystem());
+    this.world.addSystem(new BuffSystem());
+    this.world.addSystem(this.allyConversionSystem);
+    this.world.addSystem(this.allyFireRateSystem);
     this.world.addSystem(new EffectSystem());
     this.world.addSystem(new CleanupSystem());
     this.world.addSystem(this.renderSystem);
 
     // UI操作リスナー
     this.inputHandler.enableUITapListener();
-
-    // 状態遷移リスナー
-    this.gameStateManager.onStateChange((oldState, newState) => {
-      if (newState === GameState.LEVEL_UP) {
-        this.currentChoices = this.levelUpManager.generateChoices(this.world, this.playerId);
-      }
-    });
   }
 
   /** ゲーム開始 */
@@ -139,10 +146,9 @@ export class GameService {
     this.scoreService.reset();
     this.waveManager.reset();
     this.spawnManager.reset();
-    this.levelUpManager.reset();
     this.weaponSystem.reset();
+    this.allyFireRateSystem.reset();
     this.inputHandler.reset();
-    this.currentChoices = [];
   }
 
   /** ゲームプレイ開始 */
@@ -152,12 +158,12 @@ export class GameService {
     this.gameStateManager.changeState(GameState.PLAYING);
   }
 
-  /** メインゲームループ（services.md GameService.gameLoop） */
+  /** メインゲームループ */
   private gameLoop(timestamp: number): void {
     if (!this.running) return;
 
     try {
-      // deltaTime計算（business-logic-model セクション11）
+      // deltaTime計算
       const rawDt = timestamp - this.previousTimestamp;
       this.previousTimestamp = timestamp;
       const dt = Math.max(0, Math.min(rawDt / 1000, GAME_CONFIG.deltaTime.maxMs / 1000));
@@ -189,34 +195,27 @@ export class GameService {
         this.handleTitleInput();
         break;
 
-      case GameState.PLAYING:
+      case GameState.PLAYING: {
         // ゲーム更新
+        const elapsed = this.scoreService.getElapsedTime();
         this.scoreService.updateElapsedTime(dt);
-        this.waveManager.update(this.scoreService.getElapsedTime());
-        this.spawnManager.update(this.world, dt, this.scoreService.getElapsedTime());
-        this.scoreService.setLevel(this.levelUpManager.getCurrentLevel());
+        this.waveManager.update(elapsed + dt);
+        this.spawnManager.update(this.world, dt, elapsed + dt);
+
+        // 仲間連射ボーナスシステムに経過時間を同期
+        this.allyFireRateSystem.setElapsedTime(elapsed + dt);
+
+        // 仲間数をスコアに反映
+        const allyCount = this.world.query(AllyComponent).length;
+        this.scoreService.setAllyCount(allyCount);
 
         // ECS更新（全システム）
         this.world.update(dt);
 
-        // レベル���ップ判定
-        if (this.levelUpManager.checkLevelUp()) {
-          this.gameStateManager.changeState(GameState.LEVEL_UP);
-        }
-
         // HUD描画
         this.renderHUD(ctx);
         break;
-
-      case GameState.LEVEL_UP:
-        // ゲーム一時停止中（BR-ST02: エンティティ更新停止）
-        this.renderSystem.update(this.world, 0); // 描画のみ（dt=0）
-
-        // HUD + レベルアップ画面
-        this.renderHUD(ctx);
-        this.uiManager.renderLevelUpScreen(ctx, this.currentChoices);
-        this.handleLevelUpInput();
-        break;
+      }
 
       case GameState.GAME_OVER:
         this.renderSystem.update(this.world, 0); // 描画のみ
@@ -235,20 +234,6 @@ export class GameService {
     }
   }
 
-  private handleLevelUpInput(): void {
-    const tap = this.inputHandler.getLastTapPosition();
-    if (!tap) return;
-
-    const idx = this.uiManager.levelUpScreen.getClickedCardIndex(tap.x, tap.y);
-    if (idx >= 0 && idx < this.currentChoices.length) {
-      this.levelUpManager.applyChoice(this.world, this.playerId, this.currentChoices[idx], this.gameStateManager);
-      this.currentChoices = [];
-      // タップ位置リセット
-      this.inputHandler.disableUITapListener();
-      this.inputHandler.enableUITapListener();
-    }
-  }
-
   private handleGameOverInput(): void {
     const tap = this.inputHandler.getLastTapPosition();
     if (tap && this.uiManager.gameOverScreen.isRetryButtonClicked(tap.x, tap.y)) {
@@ -260,16 +245,27 @@ export class GameService {
   }
 
   private renderHUD(ctx: CanvasRenderingContext2D): void {
-    const xpProgress = this.levelUpManager.getXPProgress();
+    // バフ情報取得
+    const buffComp = this.world.getComponent(this.playerId, BuffComponent);
+    const activeBuffs = buffComp?.activeBuffs ?? new Map();
+
+    // 武器タイプ取得
+    const weaponComp = this.world.getComponent(this.playerId, WeaponComponent);
+    const weaponType = weaponComp?.weaponType ?? WeaponType.FORWARD;
+
+    // 仲間数取得
+    const allyCount = this.world.query(AllyComponent).length;
+
     this.uiManager.renderHUD(ctx, {
       hp: this.getPlayerHP(),
       maxHp: this.getPlayerMaxHP(),
-      xpCurrent: xpProgress.current,
-      xpRequired: xpProgress.required,
-      level: this.levelUpManager.getCurrentLevel(),
       elapsedTime: this.scoreService.getElapsedTime(),
       killCount: this.scoreService.getKillCount(),
       wave: this.waveManager.getCurrentWave(),
+      activeBuffs,
+      allyCount,
+      maxAllies: GAME_CONFIG.ally.maxCount,
+      weaponType,
     });
   }
 
@@ -302,7 +298,7 @@ export class GameService {
     });
   }
 
-  /** エラー画面��示（NFR-08） */
+  /** エラー画面表示（NFR-08） */
   private showErrorScreen(error: Error): void {
     const ctx = this.canvas.getContext('2d');
     if (!ctx) return;

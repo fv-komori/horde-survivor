@@ -1,37 +1,50 @@
-import { WAVE_DEFINITIONS, WAVE_SCALING, ENEMY_SPAWN_WEIGHTS } from '../config/waveConfig';
-import { BOSS_SCALING } from '../config/enemyConfig';
+import { WAVE_DEFINITIONS, WAVE_SCALING, WAVE2_SPAWN_WEIGHTS, WAVE3_SPAWN_WEIGHTS } from '../config/waveConfig';
+import { BOSS_CONFIG } from '../config/enemyConfig';
 import type { SpawnConfig } from '../types';
 
 /**
  * M-02: ウェーブ進行管理
  * business-logic-model セクション8
+ * Iteration 2: ヒットカウントスケーリング・同時スポーン・90秒ボス間隔
  */
 export class WaveManager {
   private currentWave: number = 1;
   private bossSpawnCount: number = 0;
   private bossTimer: number;
 
+  /** ヒットカウント倍率: 30秒ごとに+0.1 */
+  private hitCountMultiplier: number = 1.0;
+  private hitCountScalingTimer: number = 0;
+
   constructor() {
-    this.bossTimer = BOSS_SCALING.firstSpawnTime;
+    this.bossTimer = BOSS_CONFIG.firstSpawnTime;
   }
 
   /** ウェーブ進行を更新 */
   update(elapsedTime: number): void {
-    // ウェーブ判定
-    if (elapsedTime < 60) {
+    // ウェーブ判定（Iteration 2: ウェーブ定義テーブルに基づく）
+    if (elapsedTime < 45) {
       this.currentWave = 1;
-    } else if (elapsedTime < 150) {
+    } else if (elapsedTime < 90) {
       this.currentWave = 2;
-    } else if (elapsedTime < 270) {
+    } else if (elapsedTime < 180) {
       this.currentWave = 3;
     } else {
       // ウェーブ4以降: 30秒ごとにカウントアップ
-      this.currentWave = 4 + Math.floor((elapsedTime - 270) / WAVE_SCALING.scalingInterval);
+      this.currentWave = 4 + Math.floor((elapsedTime - WAVE_SCALING.scalingStartTime) / WAVE_SCALING.scalingInterval);
     }
+
+    // ヒットカウント倍率更新: 30秒ごとに+0.1
+    const scalingSteps = Math.floor(elapsedTime / 30);
+    this.hitCountMultiplier = 1.0 + scalingSteps * WAVE_SCALING.hitCountScalingIncrement;
   }
 
   getCurrentWave(): number {
     return this.currentWave;
+  }
+
+  getHitCountMultiplier(): number {
+    return this.hitCountMultiplier;
   }
 
   /** 現在のスポーン設定を取得 */
@@ -42,7 +55,8 @@ export class WaveManager {
         return {
           interval: wave.spawnInterval,
           enemyTypes: wave.enemyTypes,
-          hpMultiplier: wave.hpMultiplier,
+          simultaneousCount: wave.simultaneousCount,
+          hitCountMultiplier: this.hitCountMultiplier,
         };
       }
     }
@@ -53,64 +67,77 @@ export class WaveManager {
 
     const interval = Math.max(
       WAVE_SCALING.minSpawnInterval,
-      1.0 - scalingSteps * WAVE_SCALING.spawnIntervalDecrement,
+      0.5 - scalingSteps * WAVE_SCALING.spawnIntervalDecrement,
     );
-    const hpMultiplier = 1.0 + scalingSteps * WAVE_SCALING.hpMultiplierIncrement;
+
+    const simultaneousCount = Math.min(
+      WAVE_SCALING.maxSimultaneousCount,
+      3 + Math.floor(scalingSteps / 2),
+    );
 
     return {
       interval,
       enemyTypes: ['NORMAL', 'FAST', 'TANK'],
-      hpMultiplier,
+      simultaneousCount,
+      hitCountMultiplier: this.hitCountMultiplier,
     };
   }
 
-  /** ウェーブ3以降の敵タイプを重み付きランダムで選択 */
+  /** 敵タイプを重み付きランダムで選択 */
   selectEnemyType(availableTypes: string[]): string {
-    // ウェーブ1-2はavailableTypesから均等ランダム
+    // ウェーブ1: 単一タイプ
     if (availableTypes.length === 1) return availableTypes[0];
+
+    // ウェーブ2: NORMAL/FAST重み
     if (!availableTypes.includes('TANK')) {
-      // ウェーブ2: NORMAL/FASTから均等
-      return availableTypes[Math.floor(Math.random() * availableTypes.length)];
+      const weights = WAVE2_SPAWN_WEIGHTS;
+      const totalWeight = availableTypes.reduce(
+        (sum, type) => sum + (weights[type] ?? 0), 0
+      );
+      let roll = Math.random() * totalWeight;
+      for (const type of availableTypes) {
+        roll -= weights[type] ?? 0;
+        if (roll <= 0) return type;
+      }
+      return availableTypes[0];
     }
 
-    // ���ェーブ3以降: 重み付き（business-logic-model 8.2）
+    // ウェーブ3以降: 重み付き（business-logic-model 8.2）
+    const weights = WAVE3_SPAWN_WEIGHTS;
     const totalWeight = availableTypes.reduce(
-      (sum, type) => sum + (ENEMY_SPAWN_WEIGHTS[type] ?? 0), 0
+      (sum, type) => sum + (weights[type] ?? 0), 0
     );
     let roll = Math.random() * totalWeight;
     for (const type of availableTypes) {
-      roll -= ENEMY_SPAWN_WEIGHTS[type] ?? 0;
+      roll -= weights[type] ?? 0;
       if (roll <= 0) return type;
     }
     return availableTypes[0];
   }
 
-  /** ボスのスポーン判定（タイマー方式） */
+  /** ボスのスポーン判定（90秒間隔） */
   shouldSpawnBoss(dt: number, elapsedTime: number): boolean {
-    if (elapsedTime < BOSS_SCALING.firstSpawnTime) return false;
+    if (elapsedTime < BOSS_CONFIG.firstSpawnTime) return false;
 
     this.bossTimer -= dt;
     if (this.bossTimer <= 0) {
-      this.bossTimer = BOSS_SCALING.spawnInterval;
+      this.bossTimer = BOSS_CONFIG.spawnInterval;
       return true;
     }
     return false;
   }
 
-  /** ボス生成時のスケーリングパラメータを取得（BR-E03） */
-  getBossParams(): { hp: number; damage: number; xpDrop: number } {
+  /** ボス生成回数を取得（スケーリング用） */
+  getBossSpawnCount(): number {
     this.bossSpawnCount++;
-    const count = this.bossSpawnCount;
-    return {
-      hp: Math.round(BOSS_SCALING.baseHp * (1 + (count - 1) * BOSS_SCALING.hpScalingPerSpawn)),
-      damage: Math.round(BOSS_SCALING.baseDamage * (1 + (count - 1) * BOSS_SCALING.damageScalingPerSpawn)),
-      xpDrop: BOSS_SCALING.xpDrop,
-    };
+    return this.bossSpawnCount;
   }
 
   reset(): void {
     this.currentWave = 1;
     this.bossSpawnCount = 0;
-    this.bossTimer = BOSS_SCALING.firstSpawnTime;
+    this.bossTimer = BOSS_CONFIG.firstSpawnTime;
+    this.hitCountMultiplier = 1.0;
+    this.hitCountScalingTimer = 0;
   }
 }

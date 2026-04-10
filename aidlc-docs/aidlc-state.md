@@ -31,7 +31,7 @@
 - [x] NFR Requirements - SKIP（要件で定義済み）
 - [x] NFR Design - SKIP（FD/CGで対応）
 - [x] Infrastructure Design - SKIP（静的ホスティング、変更なし）
-- [ ] Code Generation - EXECUTE
+- [x] Code Generation - COMPLETED
 - [ ] Build and Test - EXECUTE
 
 ### OPERATIONS PHASE

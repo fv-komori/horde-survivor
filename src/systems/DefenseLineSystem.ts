@@ -9,6 +9,7 @@ import { GAME_CONFIG } from '../config/gameConfig';
 /**
  * S-07: 防衛ラインシステム（優先度6）
  * business-logic-model セクション6
+ * Iteration 2: 無敵チェック廃止、常にダメージ適用
  */
 export class DefenseLineSystem implements System {
   readonly priority = 6;
@@ -20,7 +21,6 @@ export class DefenseLineSystem implements System {
 
     const playerId = playerIds[0];
     const playerHealth = world.getComponent(playerId, HealthComponent)!;
-    const player = world.getComponent(playerId, PlayerComponent)!;
     const defenseLineY = GAME_CONFIG.defenseLine.y;
 
     for (const enemyId of enemyIds) {
@@ -29,14 +29,10 @@ export class DefenseLineSystem implements System {
       if (ePos.y >= defenseLineY) {
         const enemy = world.getComponent(enemyId, EnemyComponent)!;
 
-        // ダメージ適用（無敵中はダメージなし）（BR-P03）
-        if (!player.isInvincible) {
-          playerHealth.hp = Math.max(0, playerHealth.hp - enemy.breachDamage);
-          // 無敵状態付与
-          player.isInvincible = true;
-          player.invincibleTimer = GAME_CONFIG.player.invincibleDuration;
-        }
-        // 無敵中でも敵は消滅する（BR-P03）
+        // ダメージ適用（常に適用、無敵なし）
+        playerHealth.hp = Math.max(0, playerHealth.hp - enemy.breachDamage);
+
+        // 敵消滅
         world.destroyEntity(enemyId);
       }
     }

@@ -3,17 +3,17 @@ import { GAME_CONFIG } from '../config/gameConfig';
 
 type StateChangeCallback = (oldState: GameState, newState: GameState) => void;
 
-/** 有効な状態遷移マップ（BR-ST01） */
+/** 有効な状態遷移マップ（Iteration 2: LEVEL_UP廃止） */
 const VALID_TRANSITIONS: Record<GameState, GameState[]> = {
   [GameState.TITLE]: [GameState.PLAYING],
-  [GameState.PLAYING]: [GameState.LEVEL_UP, GameState.GAME_OVER],
-  [GameState.LEVEL_UP]: [GameState.PLAYING],
+  [GameState.PLAYING]: [GameState.GAME_OVER],
   [GameState.GAME_OVER]: [GameState.TITLE],
 };
 
 /**
  * M-01: ゲーム状態管理
  * 状態遷移制約（BR-ST01）を強制
+ * Iteration 2: TITLE→PLAYING→GAME_OVER→TITLE のみ
  */
 export class GameStateManager {
   private currentState: GameState = GameState.TITLE;

@@ -9,24 +9,23 @@ import { PlayerComponent } from '../components/PlayerComponent';
 import { EnemyComponent } from '../components/EnemyComponent';
 import { BulletComponent } from '../components/BulletComponent';
 import { WeaponComponent } from '../components/WeaponComponent';
-import { WeaponInventoryComponent } from '../components/WeaponInventoryComponent';
 import { AllyComponent } from '../components/AllyComponent';
-import { XPDropComponent } from '../components/XPDropComponent';
+import { HitCountComponent } from '../components/HitCountComponent';
+import { ItemDropComponent } from '../components/ItemDropComponent';
+import { BuffComponent } from '../components/BuffComponent';
 import { EffectComponent } from '../components/EffectComponent';
-import { PassiveSkillsComponent } from '../components/PassiveSkillsComponent';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { ENEMY_CONFIG } from '../config/enemyConfig';
 import { WEAPON_CONFIG } from '../config/weaponConfig';
-import { EnemyType, WeaponType, EffectType, ColliderType } from '../types';
+import { EnemyType, WeaponType, EffectType, ItemType, ColliderType, ITEM_COLORS } from '../types';
 import type { Position, SpriteType } from '../types';
 
 /**
- * S-SVC-03: エンティティ生成ファクトリ
- * コンポーネントの組み合わせをカプセル化
+ * S-SVC-03: エンティティ生成ファクトリ（Iteration 2）
  */
 export class EntityFactory {
 
-  /** プレイヤーエンティティを生成（domain-entities E-01） */
+  /** プレイヤーエンティティを生成（E-01） */
   createPlayer(world: World): EntityId {
     const id = world.createEntity();
     const cfg = GAME_CONFIG.player;
@@ -36,29 +35,29 @@ export class EntityFactory {
     world.addComponent(id, new HealthComponent(cfg.baseHp, cfg.baseHp));
     world.addComponent(id, new ColliderComponent(cfg.colliderRadius, ColliderType.PLAYER));
     world.addComponent(id, new PlayerComponent(cfg.baseSpeed));
-    world.addComponent(id, new PassiveSkillsComponent());
+    world.addComponent(id, new BuffComponent());
 
-    // 武器インベントリ（初期武器: FORWARD Lv1）
-    const inventory = new WeaponInventoryComponent();
-    inventory.addWeapon(WeaponType.FORWARD, 1);
-    world.addComponent(id, inventory);
+    // 単一武器: FORWARD（BR-W02）
+    const weaponCfg = WEAPON_CONFIG[WeaponType.FORWARD];
+    world.addComponent(id, new WeaponComponent(WeaponType.FORWARD, weaponCfg.fireInterval));
 
     return id;
   }
 
-  /** 敵エンティティを生成（domain-entities E-02） */
-  createEnemy(world: World, type: EnemyType, position: Position, hpMultiplier: number = 1.0): EntityId {
+  /** 敵エンティティを生成（E-02, BR-HC04: ヒット数スケーリング適用） */
+  createEnemy(world: World, type: EnemyType, position: Position, hitCountMultiplier: number = 1.0): EntityId {
     const id = world.createEntity();
     const cfg = ENEMY_CONFIG[type];
 
-    const hp = Math.round(cfg.hp * hpMultiplier);
+    const actualHitCount = Math.ceil(cfg.hitCount * hitCountMultiplier);
     world.addComponent(id, new PositionComponent(position.x, position.y));
     world.addComponent(id, new VelocityComponent(0, cfg.speed));
-    world.addComponent(id, new HealthComponent(hp, hp));
+    world.addComponent(id, new HitCountComponent(actualHitCount, actualHitCount));
     world.addComponent(id, new ColliderComponent(cfg.colliderRadius, ColliderType.ENEMY));
-    world.addComponent(id, new EnemyComponent(type, cfg.breachDamage, cfg.xpDrop));
+    world.addComponent(id, new EnemyComponent(
+      type, cfg.breachDamage, cfg.itemDropRate, cfg.weaponDropRate, cfg.conversionRate,
+    ));
 
-    // スプライトタイプを敵タイプに応じて設定
     const spriteMap: Record<string, SpriteType> = {
       [EnemyType.NORMAL]: 'enemy_normal',
       [EnemyType.FAST]: 'enemy_fast',
@@ -78,27 +77,12 @@ export class EntityFactory {
     return id;
   }
 
-  /** ボスエンティティを生成（BR-E03: スケーリング適用済みHP/ダメージ） */
-  createBoss(world: World, position: Position, hp: number, damage: number, xpDrop: number): EntityId {
-    const id = world.createEntity();
-    const cfg = ENEMY_CONFIG[EnemyType.BOSS];
-
-    world.addComponent(id, new PositionComponent(position.x, position.y));
-    world.addComponent(id, new VelocityComponent(0, cfg.speed));
-    world.addComponent(id, new HealthComponent(hp, hp));
-    world.addComponent(id, new ColliderComponent(cfg.colliderRadius, ColliderType.ENEMY));
-    world.addComponent(id, new EnemyComponent(EnemyType.BOSS, damage, xpDrop));
-    world.addComponent(id, new SpriteComponent('enemy_boss', 280, 280, '#FF0000'));
-
-    return id;
-  }
-
-  /** 弾丸エンティティを生成（domain-entities E-03） */
+  /** 弾丸エンティティを生成（E-03） */
   createBullet(
     world: World,
     origin: Position,
     velocity: { vx: number; vy: number },
-    damage: number,
+    hitCountReduction: number,
     piercing: boolean,
     ownerId: EntityId,
   ): EntityId {
@@ -106,54 +90,87 @@ export class EntityFactory {
 
     world.addComponent(id, new PositionComponent(origin.x, origin.y));
     world.addComponent(id, new VelocityComponent(velocity.vx, velocity.vy));
-    world.addComponent(id, new BulletComponent(damage, piercing, ownerId));
+    world.addComponent(id, new BulletComponent(hitCountReduction, piercing, ownerId));
     world.addComponent(id, new ColliderComponent(GAME_CONFIG.bullet.colliderRadius, ColliderType.BULLET));
     world.addComponent(id, new SpriteComponent('bullet', 16, 16, '#FFFF00'));
 
     return id;
   }
 
-  /** XPドロップエンティティを生成（domain-entities E-04） */
-  createXPDrop(world: World, position: Position, amount: number): EntityId {
+  /** アイテムドロップエンティティを生成（E-04） */
+  createItemDrop(world: World, position: Position, itemType: ItemType): EntityId {
     const id = world.createEntity();
 
     world.addComponent(id, new PositionComponent(position.x, position.y));
-    world.addComponent(id, new XPDropComponent(amount));
-    world.addComponent(id, new SpriteComponent('xp_drop', 12, 12, '#00FFFF'));
+    world.addComponent(id, new ItemDropComponent(itemType, GAME_CONFIG.itemDrop.lifetime));
+    world.addComponent(id, new ColliderComponent(12, ColliderType.ITEM));
+
+    const color = ITEM_COLORS[itemType] ?? '#FFFFFF';
+    world.addComponent(id, new SpriteComponent('item_drop', 24, 24, color));
 
     return id;
   }
 
-  /** 仲間エンティティを生成（domain-entities E-05） */
-  createAlly(world: World, playerEntity: EntityId, offsetX: number): EntityId {
+  /** 仲間エンティティを生成（E-05） */
+  createAlly(world: World, playerEntity: EntityId, allyIndex: number, elapsedTime: number): EntityId {
     const id = world.createEntity();
 
     world.addComponent(id, new PositionComponent(0, 0)); // AllyFollowSystemで更新
-    world.addComponent(id, new AllyComponent(offsetX, playerEntity));
+    world.addComponent(id, new AllyComponent(allyIndex, playerEntity, elapsedTime));
     world.addComponent(id, new SpriteComponent('ally', 150, 150, '#00CC00'));
 
-    // 仲間の武器: 前方射撃Lv1固定（BR-A03）
-    const weaponCfg = WEAPON_CONFIG[WeaponType.FORWARD].levels[0];
-    world.addComponent(id, new WeaponComponent(WeaponType.FORWARD, 1, weaponCfg.fireInterval));
+    // 仲間の武器: FORWARD固定（BR-AL03）
+    const weaponCfg = WEAPON_CONFIG[WeaponType.FORWARD];
+    world.addComponent(id, new WeaponComponent(WeaponType.FORWARD, weaponCfg.fireInterval));
 
     return id;
   }
 
-  /** エフェクトエンティティを生成（domain-entities E-06, NFR-04） */
-  createEffect(world: World, type: EffectType, position: Position): EntityId {
+  /** エフェクトエンティティを生成（E-06） */
+  createEffect(world: World, type: EffectType, position: Position, color?: string): EntityId {
     const id = world.createEntity();
 
-    const isMuzzle = type === EffectType.MUZZLE_FLASH;
-    const duration = isMuzzle ? 0.1 : 0.3;
-    const totalFrames = isMuzzle ? 2 : 4;
-    const frameInterval = duration / totalFrames;
-    const spriteType = isMuzzle ? 'effect_muzzle' as const : 'effect_destroy' as const;
-    const size = isMuzzle ? 16 : 32;
-    const color = isMuzzle ? '#FFFF88' : '#FF8800';
+    let duration: number;
+    let totalFrames: number;
+    let spriteType: SpriteType;
+    let size: number;
+    let effectColor: string;
 
+    switch (type) {
+      case EffectType.MUZZLE_FLASH:
+        duration = 0.1;
+        totalFrames = 2;
+        spriteType = 'effect_muzzle';
+        size = 16;
+        effectColor = '#FFFF88';
+        break;
+      case EffectType.ENEMY_DESTROY:
+        duration = 0.3;
+        totalFrames = 4;
+        spriteType = 'effect_destroy';
+        size = 32;
+        effectColor = '#FF8800';
+        break;
+      case EffectType.BUFF_ACTIVATE:
+        duration = GAME_CONFIG.buff.effectDuration;
+        totalFrames = 3;
+        spriteType = 'effect_buff';
+        size = GAME_CONFIG.buff.effectMaxRadius * 2;
+        effectColor = color ?? '#FFFFFF';
+        break;
+      case EffectType.ALLY_CONVERT:
+        duration = GAME_CONFIG.allyConversion.shrinkDuration + GAME_CONFIG.allyConversion.appearDuration;
+        totalFrames = 4;
+        spriteType = 'effect_ally_convert';
+        size = 48;
+        effectColor = color ?? '#00CC00';
+        break;
+    }
+
+    const frameInterval = duration / totalFrames;
     world.addComponent(id, new PositionComponent(position.x, position.y));
     world.addComponent(id, new EffectComponent(type, duration, totalFrames, frameInterval));
-    world.addComponent(id, new SpriteComponent(spriteType, size, size, color));
+    world.addComponent(id, new SpriteComponent(spriteType, size, size, effectColor));
 
     return id;
   }
