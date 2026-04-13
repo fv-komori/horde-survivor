@@ -4,7 +4,7 @@
 - **Project Type**: Brownfield
 - **Start Date**: 2026-04-09T00:00:00Z
 - **Original Start**: 2026-04-07T00:00:00Z
-- **Current Stage**: CONSTRUCTION - Unit-01 Build&Test COMPLETED, Unit-02 NEXT
+- **Current Stage**: CONSTRUCTION - Unit-02 Functional Design AutoReviewed PASS, Code Generation NEXT
 - **Iteration**: 2+（サウンド・設定画面・ヘルプ Unit追加）
 
 ## Workspace State
@@ -43,11 +43,11 @@
 - [x] Build and Test - COMPLETED
 
 ### CONSTRUCTION PHASE (Unit-02: 設定画面 & 遊び方ヘルプ)
-- [ ] Functional Design - PENDING
-- [ ] NFR Requirements - PENDING
-- [ ] NFR Design - PENDING
-- [ ] Infrastructure Design - PENDING
-- [ ] Code Generation - PENDING
+- [x] Functional Design - COMPLETED [AutoReviewed: reviews/construction/settings-help/functional-design-auto-review-v1, PASS]
+- [x] NFR Requirements - SKIP（FDで定義済み）
+- [x] NFR Design - SKIP（FD/CGで対応）
+- [x] Infrastructure Design - SKIP（静的ホスティング、変更なし）
+- [ ] Code Generation - NEXT
 - [ ] Build and Test - PENDING
 
 ### OPERATIONS PHASE

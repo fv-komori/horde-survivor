@@ -562,3 +562,53 @@
 **Context**: CONSTRUCTION - Unit-01完了、Unit-02未着手
 
 ---
+
+## Session Resumption - Unit-02開始
+**Timestamp**: 2026-04-13T00:00:00Z
+**User Input**: "続きのUnit2から"
+**AI Response**: セッション再開。Unit-02: 設定画面 & 遊び方ヘルプの Functional Design を開始。
+**Context**: CONSTRUCTION - Unit-02 FD開始
+
+---
+
+## Unit-02 Functional Design Q&A
+**Timestamp**: 2026-04-13T00:01:00Z
+**User Input**: ヘルプ表示=テキスト+アイコン、スクロール=ページ送り、画面構成=タブ切替
+**AI Response**: Q&A回答を反映してFD成果物を作成。
+**決定理由**: ヘルプ画面の表示方式・ナビゲーション・画面構成の3点を確認し、FD設計に反映
+**Context**: CONSTRUCTION - Unit-02 FD Q&A完了
+
+---
+
+## Unit-02 Functional Design Artifacts Generated
+**Timestamp**: 2026-04-13T00:02:00Z
+**成果物**:
+- `aidlc-docs/construction/settings-help/functional-design/business-logic-model.md`
+- `aidlc-docs/construction/settings-help/functional-design/domain-entities.md`
+- `aidlc-docs/construction/settings-help/functional-design/business-rules.md`
+- `aidlc-docs/construction/plans/settings-help-functional-design-plan.md`
+**Context**: CONSTRUCTION - Unit-02 FD成果物生成完了、レビュー待ち
+
+---
+
+## Unit-02 Functional Design Approved
+**Timestamp**: 2026-04-13T00:03:00Z
+**User Input**: "承認します。"
+**AI Response**: FD承認を記録。自動レビュー実施後、Code Generationへ進む。
+**Context**: CONSTRUCTION - Unit-02 FD承認完了
+
+---
+
+## Unit-02 Functional Design Auto-Review
+**Timestamp**: 2026-04-13T00:04:00Z
+**レビュー方式**: 自動レビュー（3ロール: アーキテクト, フロントエンド, セキュリティ）
+**結果**: PASS（2イテレーション）
+**スコア推移**:
+- iter1: A(7/6/8/6), F(6/7/8/7), S(8/8/7/8) → FAIL（A-設計品質6, A-保守性6, F-正確性6）
+- iter2: A(8/7/8/7), F(8/8/8/8), S(8/8/8/8) → PASS（全軸≥7）
+**自動修正**: 11件適用（handleInputルーティング, タップ消費, ポインターイベント統合, 型チェック, HowToPlay統合明確化, クラス定義追加, 依存関係図修正, ボタン非表示責務, 閉じるボタンヒットエリア, localStorage書き込みデバウンス, save()デバウンス）
+**未解決（実装時対応）**: 4件（ドラッグ中save分離, render構造, gameConfig依存, save()try-catch）
+**成果物**: aidlc-docs/reviews/construction/settings-help/functional-design-auto-review-v1.md
+**Context**: CONSTRUCTION - Unit-02 FD AutoReview PASS, NFR Requirements/Design/Infrastructure SKIP, Code Generation NEXT
+
+---
