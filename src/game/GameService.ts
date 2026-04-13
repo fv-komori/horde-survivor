@@ -31,6 +31,7 @@ import { AllyComponent } from '../components/AllyComponent';
 import { BuffComponent } from '../components/BuffComponent';
 import { WeaponComponent } from '../components/WeaponComponent';
 
+import { AudioManager } from '../audio/AudioManager';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { GameState, WeaponType } from '../types';
 import type { EntityId } from '../ecs/Entity';
@@ -54,12 +55,15 @@ export class GameService {
   private weaponSystem: WeaponSystem;
   private allyConversionSystem: AllyConversionSystem;
   private allyFireRateSystem: AllyFireRateSystem;
+  private audioManager: AudioManager;
 
   private playerId: EntityId = 0;
   private previousTimestamp: number = 0;
   private running: boolean = false;
   private animationFrameId: number = 0;
   private debugEnabled: boolean = false;
+  private titleBGMStarted: boolean = false;
+  private gameOverBGMStarted: boolean = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -68,13 +72,14 @@ export class GameService {
     this.scoreService = new ScoreService();
     this.entityFactory = new EntityFactory();
     this.waveManager = new WaveManager();
-    this.spawnManager = new SpawnManager(this.entityFactory, this.waveManager);
+    this.audioManager = new AudioManager();
+    this.spawnManager = new SpawnManager(this.entityFactory, this.waveManager, this.audioManager);
     this.assetManager = new AssetManager();
     this.inputHandler = new InputHandler(canvas);
     this.uiManager = new UIManager();
     this.renderSystem = new RenderSystem(canvas);
-    this.weaponSystem = new WeaponSystem(this.entityFactory);
-    this.allyConversionSystem = new AllyConversionSystem(this.entityFactory);
+    this.weaponSystem = new WeaponSystem(this.entityFactory, this.audioManager);
+    this.allyConversionSystem = new AllyConversionSystem(this.entityFactory, this.audioManager);
     this.allyFireRateSystem = new AllyFireRateSystem();
 
     this.renderSystem.setInputHandler(this.inputHandler);
@@ -105,8 +110,9 @@ export class GameService {
       this.entityFactory,
       this.scoreService,
       this.allyConversionSystem,
+      this.audioManager,
     ));
-    this.world.addSystem(new DefenseLineSystem());
+    this.world.addSystem(new DefenseLineSystem(this.audioManager));
     this.world.addSystem(new HealthSystem(this.gameStateManager));
     this.world.addSystem(new ItemCollectionSystem());
     this.world.addSystem(new BuffSystem());
@@ -115,6 +121,12 @@ export class GameService {
     this.world.addSystem(new EffectSystem());
     this.world.addSystem(new CleanupSystem());
     this.world.addSystem(this.renderSystem);
+
+    // AudioContext初回インタラクション初期化（BR-AU01）
+    this.audioManager.setupVisibilityHandler();
+    this.inputHandler.onFirstInteraction(() => {
+      this.audioManager.resumeContext();
+    });
 
     // UI操作リスナー
     this.inputHandler.enableUITapListener();
@@ -145,6 +157,9 @@ export class GameService {
     this.weaponSystem.reset();
     this.allyFireRateSystem.reset();
     this.inputHandler.reset();
+    this.audioManager.reset();
+    this.titleBGMStarted = false;
+    this.gameOverBGMStarted = false;
   }
 
   /** ゲームプレイ開始 */
@@ -152,6 +167,7 @@ export class GameService {
     this.resetGame();
     this.playerId = this.entityFactory.createPlayer(this.world);
     this.gameStateManager.changeState(GameState.PLAYING);
+    this.audioManager.playBGM('playing');
   }
 
   /** メインゲームループ */
@@ -186,6 +202,10 @@ export class GameService {
 
     switch (state) {
       case GameState.TITLE:
+        if (!this.titleBGMStarted) {
+          this.audioManager.playBGM('title');
+          this.titleBGMStarted = true;
+        }
         this.renderSystem.update(this.world, dt); // 背景クリア
         this.uiManager.renderTitleScreen(ctx);
         this.handleTitleInput();
@@ -214,6 +234,10 @@ export class GameService {
       }
 
       case GameState.GAME_OVER:
+        if (!this.gameOverBGMStarted) {
+          this.audioManager.playBGM('gameover');
+          this.gameOverBGMStarted = true;
+        }
         this.renderSystem.update(this.world, 0); // 描画のみ
         this.uiManager.renderGameOverScreen(ctx, this.scoreService.getScore());
         this.handleGameOverInput();

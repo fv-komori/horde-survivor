@@ -7,6 +7,9 @@ import { PlayerComponent } from '../../src/components/PlayerComponent';
 import { GAME_CONFIG } from '../../src/config/gameConfig';
 import { EnemyType } from '../../src/types';
 
+/** AudioManagerモック（テスト用） */
+const mockAudioManager = { playSE: jest.fn(), playBGM: jest.fn(), reset: jest.fn() } as any;
+
 describe('DefenseLineSystem', () => {
   let world: World;
   let system: DefenseLineSystem;
@@ -27,7 +30,8 @@ describe('DefenseLineSystem', () => {
 
   beforeEach(() => {
     world = new World();
-    system = new DefenseLineSystem();
+    system = new DefenseLineSystem(mockAudioManager);
+    jest.clearAllMocks();
   });
 
   it('should damage player when enemy reaches defense line', () => {

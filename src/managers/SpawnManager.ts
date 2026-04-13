@@ -3,6 +3,7 @@ import { EnemyComponent } from '../components/EnemyComponent';
 import { ItemDropComponent } from '../components/ItemDropComponent';
 import { EntityFactory } from '../factories/EntityFactory';
 import { WaveManager } from './WaveManager';
+import type { AudioManager } from '../audio/AudioManager';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { EnemyType, ItemType } from '../types';
 
@@ -28,10 +29,12 @@ export class SpawnManager {
   private itemSpawnTimer: number = GAME_CONFIG.itemSpawn.interval;
   private entityFactory: EntityFactory;
   private waveManager: WaveManager;
+  private audioManager: AudioManager;
 
-  constructor(entityFactory: EntityFactory, waveManager: WaveManager) {
+  constructor(entityFactory: EntityFactory, waveManager: WaveManager, audioManager: AudioManager) {
     this.entityFactory = entityFactory;
     this.waveManager = waveManager;
+    this.audioManager = audioManager;
   }
 
   /** 毎フレーム呼び出し（business-logic-model 8.4） */
@@ -62,6 +65,8 @@ export class SpawnManager {
       if (currentEnemyCount < SpawnManager.MAX_ENEMIES) {
         const position = this.getRandomSpawnPosition();
         this.entityFactory.createEnemy(world, EnemyType.BOSS, position, spawnConfig.hitCountMultiplier);
+        // ボス出現SE（BR-EV01）
+        this.audioManager.playSE('boss_spawn');
       }
     }
 

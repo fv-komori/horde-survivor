@@ -9,6 +9,7 @@ import { BuffComponent } from '../components/BuffComponent';
 import { EnemyComponent } from '../components/EnemyComponent';
 import { SpriteComponent } from '../components/SpriteComponent';
 import { EntityFactory } from '../factories/EntityFactory';
+import type { AudioManager } from '../audio/AudioManager';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { WEAPON_CONFIG } from '../config/weaponConfig';
 import { WeaponType, BuffType, EffectType } from '../types';
@@ -22,10 +23,12 @@ import type { EntityId } from '../ecs/Entity';
 export class WeaponSystem implements System {
   readonly priority = 4;
   private entityFactory: EntityFactory;
+  private audioManager: AudioManager;
   private gameTime: number = 0;
 
-  constructor(entityFactory: EntityFactory) {
+  constructor(entityFactory: EntityFactory, audioManager: AudioManager) {
     this.entityFactory = entityFactory;
+    this.audioManager = audioManager;
   }
 
   update(world: World, dt: number): void {
@@ -99,6 +102,9 @@ export class WeaponSystem implements System {
 
     weapon.lastFiredAt = this.gameTime;
 
+    // 射撃SE（BR-EV01）
+    this.audioManager.playSE('shoot', { isAlly: false });
+
     // 射撃エフェクト
     this.entityFactory.createEffect(world, EffectType.MUZZLE_FLASH, muzzle);
   }
@@ -133,6 +139,9 @@ export class WeaponSystem implements System {
     );
 
     weapon.lastFiredAt = this.gameTime;
+
+    // 仲間射撃SE（BR-EV02: 音量50%、クールダウン0.2秒）
+    this.audioManager.playSE('shoot', { isAlly: true });
   }
 
   private fireBullets(

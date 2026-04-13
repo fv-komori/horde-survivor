@@ -443,3 +443,122 @@
 **Context**: CONSTRUCTION - Unit-01 Functional Design完了（自動レビューPASS）
 
 ---
+
+## Unit-01 NFR/Infrastructure SKIP決定
+**Timestamp**: 2026-04-10T10:00:00Z
+**User Input**: "SKIP → CG へ（推奨）"を選択
+**AI Response**: NFR Requirements / NFR Design / Infrastructure DesignをSKIPし、Code Generationに進む。
+**Rationale**: FDがパフォーマンス（OscillatorNode上限）、信頼性（グレースフルデグラデーション）、ブラウザ互換性（遅延初期化）、セキュリティ（CSP整合）、リソース管理を網羅的に定義済み。クライアントサイド完結のためインフラ変更もなし。
+**Context**: CONSTRUCTION - Unit-01 NFR/Infra SKIP → Code Generation PLANNINGへ遷移
+
+---
+
+## Unit-01 Code Generation - Planning開始
+**Timestamp**: 2026-04-10T10:01:00Z
+**User Input**: N/A（自動遷移）
+**AI Response**: Unit-01サウンドシステムのCode Generation計画を策定開始。既存コードベースを解析中。
+**Context**: CONSTRUCTION - Unit-01 Code Generation PLANNING
+
+## Unit-01 Code Generation Plan 承認
+**Timestamp**: 2026-04-10T10:05:00Z
+**User Input**: "承認→実装開始"を選択
+**AI Response**: 12ステップのCG計画が承認された。実装を開始する。
+**Context**: CONSTRUCTION - Unit-01 Code Generation PLAN APPROVED → GENERATION開始
+
+---
+
+## Unit-01 Code Generation 完了
+**Timestamp**: 2026-04-10T10:30:00Z
+**User Input**: N/A（自動遷移）
+**AI Response**: Unit-01サウンドシステムのCode Generationが全12ステップ完了。TypeScript型チェックPASS、Viteビルド成功（56 modules, 59.51KB）。
+**成果物**:
+- 新規4ファイル: audioConfig.ts, SoundGenerator.ts, BGMGenerator.ts, AudioManager.ts
+- 変更7ファイル: InputHandler.ts, GameService.ts, WeaponSystem.ts, CollisionSystem.ts, AllyConversionSystem.ts, DefenseLineSystem.ts, SpawnManager.ts
+- サマリ: aidlc-docs/construction/audio-system/code/code-generation-summary.md
+**Context**: CONSTRUCTION - Unit-01 Code Generation COMPLETED → Review待ち
+
+---
+
+## Unit-01 Code 自動レビュー完了
+**Timestamp**: 2026-04-10T10:45:00Z
+**User Input**: N/A（自動実行）
+**AI Response**: Unit-01サウンドシステムのCode自動レビューがPASS。イテレーション1回で合格。
+**スコア**: FE(7/7/8/7), Security(7/7/7/7), 全体平均7.125
+**指摘**: OK 19件, NG 14件（重大0, 重要2, 中7, 軽微5）
+**成果物**: aidlc-docs/reviews/construction/audio-system/code-auto-review-v1.md
+**Context**: CONSTRUCTION - Unit-01 Code AutoReview PASS → Build&Test NEXT
+
+---
+
+## Unit-01 Build & Test 完了
+**Timestamp**: 2026-04-10T11:00:00Z
+**User Input**: "Build & Test へ（推奨）"
+**Build Status**: Success（Vite 60.23 kB, TypeScript PASS）
+**Test Status**: PASS（86/86テスト合格）
+**手動確認**: PASS（ユーザー確認済み: BGM 3曲 + SE 7種 + タブ切替）
+**テスト修正**: WeaponSystem/CollisionSystem/DefenseLineSystem のテストにモックAudioManager追加
+**成果物**: aidlc-docs/construction/build-and-test/build-and-test-summary-unit01.md
+**Context**: CONSTRUCTION - Unit-01 全ステージ完了 → Unit-02 NEXT
+
+---
+
+## EOD: Unit-01 サウンドシステム レビュー指摘修正
+**Timestamp**: 2026-04-10T10:50:00Z
+**User Input**: "重要指摘（F-NG-1, S-NG-1等）の修正を適用してから次へ"
+**AI Response**: 自動レビューの重要+中程度指摘7件を修正適用。
+
+### コード変更
+1. **F-NG-1 (important)**: BGMTrackに`activeOscillators`配列追加、scheduleNotes()でOscillatorNode参照保持、stop()で明示停止
+2. **S-NG-1/F-NG-2 (important/medium)**: reschedule()先頭で`stopScheduler()`呼び出し追加（タイマー二重登録防止）
+3. **F-NG-3/S-NG-2 (medium)**: playSE()冒頭でisPlaying===falseの完了SEチャンネルをspliceで除去
+4. **F-NG-4 (medium)**: context.resume()に`.catch()`追加（Promiseハンドリング）
+5. **F-NG-5/S-NG-3 (medium)**: `validateConfig()`メソッド追加（BR-ACFG02準拠のaudioConfigバリデーション）
+6. **S-NG-6 (medium)**: playSE()内のgenerator呼び出しをtry-catchで囲み、失敗時channelGain解放
+7. **F-NG-7 (minor)**: fadeOutBGMコールバック内でcurrentBGMの条件付きクリア
+
+### 変更ファイル
+- src/audio/AudioManager.ts（修正7件すべて）
+
+**決定理由**: 自動レビューで指摘されたリソースリーク・タイマー二重登録・例外未捕捉等を修正し、長時間プレイ時の安定性を向上
+**Context**: CONSTRUCTION - Unit-01 Code AutoReview指摘修正 → Build & Test
+
+---
+
+## EOD: 2026-04-10 作業終了記録
+**Timestamp**: 2026-04-10
+**AI Response**: 本日の作業サマリを記録。
+
+### 本日完了した作業
+1. Unit-01（サウンドシステム）NFR/Infrastructure SKIP決定
+2. Unit-01 Code Generation計画策定・承認・実装（12ステップ完了）
+   - 新規4ファイル: audioConfig.ts, SoundGenerator.ts, BGMGenerator.ts, AudioManager.ts
+   - 既存変更7ファイル: InputHandler, GameService, WeaponSystem, CollisionSystem, AllyConversionSystem, DefenseLineSystem, SpawnManager
+3. Unit-01 Code自動レビュー（PASS: FE 7/7/8/7, Security 7/7/7/7）
+4. レビュー指摘修正（important 2件 + medium 5件）
+5. Unit-01 Build & Test完了（86/86テスト合格、手動動作確認PASS）
+6. テストファイル3件のモックAudioManager対応
+
+### 進捗状態
+- Unit-01（サウンドシステム）: **全ステージ完了**（FD → CG → AutoReview → Build&Test）
+- Unit-02（設定画面&ヘルプ）: **未着手**（次回開始予定）
+
+**Context**: Unit-01完了、Unit-02未着手
+
+---
+
+## Unit-01 サウンドシステム コミット
+**Timestamp**: 2026-04-13
+**User Input**: "コミットお願いします"
+**AI Response**: Unit-01サウンドシステムの全成果物をコミット。
+
+### 変更ファイル
+- コミット `58cc7f4`: 20ファイル変更、+1466行
+- コード新規: src/audio/AudioManager.ts, SoundGenerator.ts, BGMGenerator.ts, src/config/audioConfig.ts
+- コード変更: GameService.ts, InputHandler.ts, WeaponSystem.ts, CollisionSystem.ts, AllyConversionSystem.ts, DefenseLineSystem.ts, SpawnManager.ts
+- テスト変更: WeaponSystem.test.ts, CollisionSystem.test.ts, DefenseLineSystem.test.ts（モックAudioManager追加）
+- 設計書: CG計画, コードサマリ, B&Tサマリ, レビューレポート, aidlc-state.md, audit.md
+
+**決定理由**: Unit-01全ステージ完了（FD→CG→AutoReview PASS→Build&Test PASS）後の成果物一括コミット
+**Context**: CONSTRUCTION - Unit-01完了、Unit-02未着手
+
+---

@@ -5,6 +5,7 @@ import { ItemDropComponent } from '../components/ItemDropComponent';
 import { PositionComponent } from '../components/PositionComponent';
 import { HealthComponent } from '../components/HealthComponent';
 import { PlayerComponent } from '../components/PlayerComponent';
+import type { AudioManager } from '../audio/AudioManager';
 import { GAME_CONFIG } from '../config/gameConfig';
 
 /**
@@ -14,6 +15,11 @@ import { GAME_CONFIG } from '../config/gameConfig';
  */
 export class DefenseLineSystem implements System {
   readonly priority = 6;
+  private audioManager: AudioManager;
+
+  constructor(audioManager: AudioManager) {
+    this.audioManager = audioManager;
+  }
 
   update(world: World, _dt: number): void {
     const enemyIds = world.query(EnemyComponent, PositionComponent);
@@ -31,6 +37,8 @@ export class DefenseLineSystem implements System {
         if (ePos.y >= defenseLineY) {
           const enemy = world.getComponent(enemyId, EnemyComponent)!;
           playerHealth.hp = Math.max(0, playerHealth.hp - enemy.breachDamage);
+          // 防衛ライン突破SE（BR-EV01）
+          this.audioManager.playSE('defense_breach');
           world.destroyEntity(enemyId);
         }
       }

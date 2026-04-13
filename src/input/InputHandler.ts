@@ -10,6 +10,8 @@ export class InputHandler {
   private rightPressed: boolean = false;
   private isMobile: boolean = false;
   private canvas: HTMLCanvasElement;
+  private firstInteractionFired: boolean = false;
+  private firstInteractionCallback: (() => void) | null = null;
 
   // タッチ状態
   private touchStartX: number = 0;
@@ -54,6 +56,7 @@ export class InputHandler {
     const signal = this.abortController.signal;
 
     window.addEventListener('keydown', (e: KeyboardEvent) => {
+      this.fireFirstInteraction();
       switch (e.key) {
         case 'ArrowLeft':
         case 'a':
@@ -91,6 +94,7 @@ export class InputHandler {
 
     this.canvas.addEventListener('touchstart', (e: TouchEvent) => {
       e.preventDefault();
+      this.fireFirstInteraction();
       for (let i = 0; i < e.changedTouches.length; i++) {
         const touch = e.changedTouches[i];
         const logical = this.toLogicalCoords(touch.clientX, touch.clientY);
@@ -204,9 +208,21 @@ export class InputHandler {
 
   private _lastTapPos: { x: number; y: number } | null = null;
 
+  /** 初回インタラクションコールバック登録（BR-AU01） */
+  onFirstInteraction(callback: () => void): void {
+    this.firstInteractionCallback = callback;
+  }
+
+  private fireFirstInteraction(): void {
+    if (this.firstInteractionFired || !this.firstInteractionCallback) return;
+    this.firstInteractionFired = true;
+    this.firstInteractionCallback();
+  }
+
   /** UIタップリスナーを有効化（LEVEL_UP, GAME_OVER画面用） */
   enableUITapListener(): void {
     const handler = (e: TouchEvent | MouseEvent) => {
+      this.fireFirstInteraction();
       let clientX: number, clientY: number;
       if ('touches' in e) {
         if (e.changedTouches.length === 0) return;

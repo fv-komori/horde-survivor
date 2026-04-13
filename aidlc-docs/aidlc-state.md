@@ -4,7 +4,7 @@
 - **Project Type**: Brownfield
 - **Start Date**: 2026-04-09T00:00:00Z
 - **Original Start**: 2026-04-07T00:00:00Z
-- **Current Stage**: CONSTRUCTION - Unit-01 Functional Design COMPLETED, Code Generation NEXT
+- **Current Stage**: CONSTRUCTION - Unit-01 Build&Test COMPLETED, Unit-02 NEXT
 - **Iteration**: 2+（サウンド・設定画面・ヘルプ Unit追加）
 
 ## Workspace State
@@ -36,11 +36,11 @@
 
 ### CONSTRUCTION PHASE (Unit-01: サウンドシステム)
 - [x] Functional Design - COMPLETED [AutoReviewed: reviews/construction/audio-system/functional-design-auto-review-v1, PASS]
-- [ ] NFR Requirements - PENDING
-- [ ] NFR Design - PENDING
-- [ ] Infrastructure Design - PENDING
-- [ ] Code Generation - PENDING
-- [ ] Build and Test - PENDING
+- [x] NFR Requirements - SKIP（FDで定義済み）
+- [x] NFR Design - SKIP（FD/CGで対応）
+- [x] Infrastructure Design - SKIP（静的ホスティング、変更なし）
+- [x] Code Generation - COMPLETED [AutoReviewed: reviews/construction/audio-system/code-auto-review-v1, PASS]
+- [x] Build and Test - COMPLETED
 
 ### CONSTRUCTION PHASE (Unit-02: 設定画面 & 遊び方ヘルプ)
 - [ ] Functional Design - PENDING

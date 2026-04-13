@@ -15,6 +15,9 @@ import { AllyConversionSystem } from '../../src/systems/AllyConversionSystem';
 import { EnemyType, ItemType, ColliderType, WeaponType } from '../../src/types';
 import { WEAPON_CONFIG } from '../../src/config/weaponConfig';
 
+/** AudioManagerモック（テスト用） */
+const mockAudioManager = { playSE: jest.fn(), playBGM: jest.fn(), reset: jest.fn() } as any;
+
 describe('CollisionSystem', () => {
   let world: World;
   let system: CollisionSystem;
@@ -26,12 +29,13 @@ describe('CollisionSystem', () => {
     world = new World();
     entityFactory = new EntityFactory();
     scoreService = new ScoreService();
-    allyConversionSystem = new AllyConversionSystem(entityFactory);
+    allyConversionSystem = new AllyConversionSystem(entityFactory, mockAudioManager);
 
     // Mock allyConversionSystem to avoid randomness
     jest.spyOn(allyConversionSystem, 'tryConvertToAlly').mockReturnValue(false);
 
-    system = new CollisionSystem(entityFactory, scoreService, allyConversionSystem);
+    system = new CollisionSystem(entityFactory, scoreService, allyConversionSystem, mockAudioManager);
+    jest.clearAllMocks();
   });
 
   afterEach(() => {

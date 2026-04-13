@@ -15,6 +15,9 @@ import { EnemyType, WeaponType, BuffType, ColliderType } from '../../src/types';
 import { GAME_CONFIG } from '../../src/config/gameConfig';
 import { WEAPON_CONFIG } from '../../src/config/weaponConfig';
 
+/** AudioManagerモック（テスト用） */
+const mockAudioManager = { playSE: jest.fn(), playBGM: jest.fn(), reset: jest.fn() } as any;
+
 describe('WeaponSystem', () => {
   let world: World;
   let system: WeaponSystem;
@@ -23,7 +26,8 @@ describe('WeaponSystem', () => {
   beforeEach(() => {
     world = new World();
     entityFactory = new EntityFactory();
-    system = new WeaponSystem(entityFactory);
+    system = new WeaponSystem(entityFactory, mockAudioManager);
+    jest.clearAllMocks();
   });
 
   function createPlayer(x: number, y: number): number {

@@ -13,6 +13,7 @@ import { WeaponComponent } from '../components/WeaponComponent';
 import { EntityFactory } from '../factories/EntityFactory';
 import { AllyConversionSystem } from './AllyConversionSystem';
 import { ScoreService } from '../game/ScoreService';
+import type { AudioManager } from '../audio/AudioManager';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { WEAPON_CONFIG } from '../config/weaponConfig';
 import { EffectType, itemTypeToBuff, itemTypeToWeapon, ITEM_COLORS } from '../types';
@@ -27,15 +28,18 @@ export class CollisionSystem implements System {
   private entityFactory: EntityFactory;
   private scoreService: ScoreService;
   private allyConversionSystem: AllyConversionSystem;
+  private audioManager: AudioManager;
 
   constructor(
     entityFactory: EntityFactory,
     scoreService: ScoreService,
     allyConversionSystem: AllyConversionSystem,
+    audioManager: AudioManager,
   ) {
     this.entityFactory = entityFactory;
     this.scoreService = scoreService;
     this.allyConversionSystem = allyConversionSystem;
+    this.audioManager = audioManager;
   }
 
   update(world: World, _dt: number): void {
@@ -141,6 +145,9 @@ export class CollisionSystem implements System {
       // スコア加算
       this.scoreService.incrementKills();
 
+      // 敵撃破SE（BR-EV01）
+      this.audioManager.playSE('enemy_destroy');
+
       // 撃破エフェクト
       this.entityFactory.createEffect(world, EffectType.ENEMY_DESTROY, position);
 
@@ -163,10 +170,15 @@ export class CollisionSystem implements System {
 
           const position = { x: iPos.x, y: iPos.y };
 
+          // アイテム破壊SE（BR-EV01）
+          this.audioManager.playSE('item_destroy');
+
           // パワーアップアイテム → バフ適用
           const buffType = itemTypeToBuff(itemDrop.itemType);
           if (buffType !== null && buff) {
             buff.applyBuff(buffType, GAME_CONFIG.buff.duration);
+            // バフ発動SE（BR-EV01）
+            this.audioManager.playSE('buff_activate');
           }
 
           // 武器アイテム → 武器切り替え

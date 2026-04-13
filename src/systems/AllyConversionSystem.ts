@@ -5,6 +5,7 @@ import { EnemyComponent } from '../components/EnemyComponent';
 import { PositionComponent } from '../components/PositionComponent';
 import { PlayerComponent } from '../components/PlayerComponent';
 import { EntityFactory } from '../factories/EntityFactory';
+import type { AudioManager } from '../audio/AudioManager';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { EffectType } from '../types';
 import type { EntityId } from '../ecs/Entity';
@@ -18,9 +19,11 @@ import type { Position } from '../types';
 export class AllyConversionSystem implements System {
   readonly priority = 10;
   private entityFactory: EntityFactory;
+  private audioManager: AudioManager;
 
-  constructor(entityFactory: EntityFactory) {
+  constructor(entityFactory: EntityFactory, audioManager: AudioManager) {
     this.entityFactory = entityFactory;
+    this.audioManager = audioManager;
   }
 
   update(_world: World, _dt: number): void {
@@ -59,6 +62,9 @@ export class AllyConversionSystem implements System {
 
     // 仲間化エフェクト生成
     this.entityFactory.createEffect(world, EffectType.ALLY_CONVERT, defeatPosition);
+
+    // 仲間化SE（BR-EV01）
+    this.audioManager.playSE('ally_convert');
 
     return true;
   }
