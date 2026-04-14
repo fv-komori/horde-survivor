@@ -5,3 +5,4 @@ coverage/
 *.tsbuildinfo
 .mcp.json
 .playwright-mcp/
+.playwright-screenshots/
