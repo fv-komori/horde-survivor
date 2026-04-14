@@ -40,8 +40,8 @@
 ## 実装ステップ
 
 ### Step 1: 型定義・設定ファイル
-- [ ] `src/types/index.ts` に ControlType 列挙型を追加
-- [ ] `src/config/settingsConfig.ts` を新規作成
+- [x] `src/types/index.ts` に ControlType 列挙型を追加
+- [x] `src/config/settingsConfig.ts` を新規作成
   - SETTINGS_CONFIG定数（デフォルト値、localStorageキー）
   - スライダーUI定数（トラック座標、ノブ半径、ヒットエリア）
   - パネル座標・タブ座標・閉じるボタン座標
@@ -49,7 +49,7 @@
   - ヘルプページ定義（タイトル配列）
 
 ### Step 2: SettingsManager実装
-- [ ] `src/game/SettingsManager.ts` を新規作成
+- [x] `src/game/SettingsManager.ts` を新規作成
   - constructor(audioManager, inputHandler)
   - init(): localStorage復元 → 型チェック+バリデーション → applySettings
   - getBGMVolume/getSEVolume/getControlType
@@ -59,7 +59,7 @@
   - applySettings(): AudioManager/InputHandler一括反映
 
 ### Step 3: InputHandler拡張
-- [ ] `src/input/InputHandler.ts` を変更
+- [x] `src/input/InputHandler.ts` を変更
   - controlType/swipeEnabled/buttonsEnabledプロパティ追加
   - setControlType(type: ControlType): void
   - consumeLastTapPosition(): get-and-clear方式
@@ -67,13 +67,13 @@
   - setupTouchListeners内でswipeEnabled/buttonsEnabledフラグ参照
 
 ### Step 4: TitleScreen変更
-- [ ] `src/ui/TitleScreen.ts` を変更
+- [x] `src/ui/TitleScreen.ts` を変更
   - settingsButtonRect追加（y: 780）
   - render()にSETTINGSボタン描画追加
   - isSettingsButtonClicked()メソッド追加
 
 ### Step 5: SettingsScreen実装 — 基盤・設定タブ
-- [ ] `src/ui/SettingsScreen.ts` を新規作成（Part 1）
+- [x] `src/ui/SettingsScreen.ts` を新規作成（Part 1）
   - クラス定義・コンストラクタ（settingsManager, inputHandler参照）
   - show()/hide()/switchTab()
   - render(): オーバーレイ背景 → パネル → タブバー → 閉じるボタン → activeTab委譲
@@ -83,7 +83,7 @@
   - ラジオボタン描画・入力処理
 
 ### Step 6: SettingsScreen実装 — 遊び方タブ
-- [ ] `src/ui/SettingsScreen.ts` を追記（Part 2）
+- [x] `src/ui/SettingsScreen.ts` を追記（Part 2）
   - renderHelpTab(): ページコンテンツ + ページインジケータ + 前後ボタン
   - 各ページの描画（Page 0〜5、テキスト+スプライトアイコン）
   - ページ送りナビゲーション入力処理
@@ -91,7 +91,7 @@
   - ゲーム内描画関数を流用したミニスプライト表示
 
 ### Step 7: GameService統合
-- [ ] `src/game/GameService.ts` を変更
+- [x] `src/game/GameService.ts` を変更
   - SettingsManager/SettingsScreenのimport追加
   - init()内: SettingsManager初期化 → SettingsScreen生成
   - handleTitleInput(): consumeLastTapPosition使用、settingsScreen.visible時の入力委譲
@@ -99,9 +99,9 @@
   - SettingsScreenのポインターイベントリスナー登録/解除の管理
 
 ### Step 8: コードサマリー・最終確認
-- [ ] aidlc-docs/construction/settings-help/code/code-generation-summary.md 作成
-- [ ] 全ファイルの変更内容サマリー
-- [ ] ストーリートレーサビリティ確認（US-26, US-27の受入基準カバー）
+- [x] aidlc-docs/construction/settings-help/code/code-generation-summary.md 作成
+- [x] 全ファイルの変更内容サマリー
+- [x] ストーリートレーサビリティ確認（US-26, US-27の受入基準カバー）
 
 ---
 

@@ -48,6 +48,12 @@ export enum ItemType {
   WEAPON_PIERCING = 'WEAPON_PIERCING',
 }
 
+export enum ControlType {
+  BUTTONS = 'buttons',
+  SWIPE = 'swipe',
+  BOTH = 'both',
+}
+
 // --- 値オブジェクト ---
 
 /** VO-01: 座標 */

@@ -161,8 +161,8 @@ export class RenderSystem implements System {
       this.renderItem(ctx, world, item);
     }
 
-    // モバイルUI描画
-    if (this.inputHandler?.isMobileDevice()) {
+    // モバイルUI描画（BR-IN02: スワイプモード時はボタン非表示）
+    if (this.inputHandler?.isMobileDevice() && this.inputHandler.isButtonsEnabled()) {
       this.renderMobileUI(ctx);
     }
 

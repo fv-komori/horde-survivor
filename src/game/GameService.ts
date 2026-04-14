@@ -32,6 +32,8 @@ import { BuffComponent } from '../components/BuffComponent';
 import { WeaponComponent } from '../components/WeaponComponent';
 
 import { AudioManager } from '../audio/AudioManager';
+import { SettingsManager } from './SettingsManager';
+import { SettingsScreen } from '../ui/SettingsScreen';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { GameState, WeaponType } from '../types';
 import type { EntityId } from '../ecs/Entity';
@@ -56,6 +58,8 @@ export class GameService {
   private allyConversionSystem: AllyConversionSystem;
   private allyFireRateSystem: AllyFireRateSystem;
   private audioManager: AudioManager;
+  private settingsManager: SettingsManager;
+  private settingsScreen: SettingsScreen;
 
   private playerId: EntityId = 0;
   private previousTimestamp: number = 0;
@@ -83,6 +87,10 @@ export class GameService {
     this.allyFireRateSystem = new AllyFireRateSystem();
 
     this.renderSystem.setInputHandler(this.inputHandler);
+
+    // Unit-02: 設定管理・設定画面（BLM §7.1）
+    this.settingsManager = new SettingsManager(this.audioManager, this.inputHandler);
+    this.settingsScreen = new SettingsScreen(this.settingsManager, this.inputHandler, canvas);
   }
 
   /** 初期化 */
@@ -127,6 +135,9 @@ export class GameService {
     this.inputHandler.onFirstInteraction(() => {
       this.audioManager.resumeContext();
     });
+
+    // Unit-02: 設定復元（localStorage → AudioManager/InputHandler反映）
+    this.settingsManager.init();
 
     // UI操作リスナー
     this.inputHandler.enableUITapListener();
@@ -208,6 +219,8 @@ export class GameService {
         }
         this.renderSystem.update(this.world, dt); // 背景クリア
         this.uiManager.renderTitleScreen(ctx);
+        // Unit-02: 設定画面オーバーレイ（BR-UI02）
+        this.settingsScreen.render(ctx);
         this.handleTitleInput();
         break;
 
@@ -246,16 +259,26 @@ export class GameService {
   }
 
   private handleTitleInput(): void {
-    const tap = this.inputHandler.getLastTapPosition();
-    if (tap && this.uiManager.titleScreen.isStartButtonClicked(tap.x, tap.y)) {
+    const tap = this.inputHandler.consumeLastTapPosition();
+    if (!tap) return;
+
+    // 設定画面表示中 → 設定画面が入力を処理（BR-UI02: 背景入力ブロック）
+    if (this.settingsScreen.visible) {
+      this.settingsScreen.handleInput(tap.x, tap.y);
+      return;
+    }
+
+    if (this.uiManager.titleScreen.isStartButtonClicked(tap.x, tap.y)) {
       this.inputHandler.disableUITapListener();
       this.startPlaying();
       this.inputHandler.enableUITapListener();
+    } else if (this.uiManager.titleScreen.isSettingsButtonClicked(tap.x, tap.y)) {
+      this.settingsScreen.show();
     }
   }
 
   private handleGameOverInput(): void {
-    const tap = this.inputHandler.getLastTapPosition();
+    const tap = this.inputHandler.consumeLastTapPosition();
     if (tap && this.uiManager.gameOverScreen.isRetryButtonClicked(tap.x, tap.y)) {
       this.gameStateManager.changeState(GameState.TITLE);
       this.resetGame();

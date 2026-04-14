@@ -1,8 +1,11 @@
 
+import { ControlType } from '../types';
+
 /**
  * 入力ハンドラー
  * キーボード（A/D、矢印キー）、タッチ入力（左右ボタン、水平スワイプ）
  * BR-V01: 入力バリデーション
+ * Unit-02: 操作タイプ切替（BR-IN01〜04）
  */
 export class InputHandler {
   private moveDirection: number = 0;
@@ -18,6 +21,11 @@ export class InputHandler {
   private touchActive: boolean = false;
   private swipeDirection: number = 0;
   private buttonTouchIds: Map<string, number> = new Map(); // 'left'|'right' → touchId
+
+  // 操作タイプ（Unit-02: BR-IN01〜04）
+  private controlType: ControlType = ControlType.BOTH;
+  private buttonsEnabled: boolean = true;
+  private swipeEnabled: boolean = true;
 
   // スケーリング情報（物理→論理座標変換用）
   private scale: number = 1;
@@ -99,14 +107,14 @@ export class InputHandler {
         const touch = e.changedTouches[i];
         const logical = this.toLogicalCoords(touch.clientX, touch.clientY);
 
-        // 左右ボタン判定（business-logic-model 15.8）
-        if (this.isLeftButton(logical.x, logical.y)) {
+        // 左右ボタン判定（BR-IN01〜03: 操作タイプに応じてフィルタ）
+        if (this.buttonsEnabled && this.isLeftButton(logical.x, logical.y)) {
           this.buttonTouchIds.set('left', touch.identifier);
           this.leftPressed = true;
-        } else if (this.isRightButton(logical.x, logical.y)) {
+        } else if (this.buttonsEnabled && this.isRightButton(logical.x, logical.y)) {
           this.buttonTouchIds.set('right', touch.identifier);
           this.rightPressed = true;
-        } else if (logical.y > 640) {
+        } else if (this.swipeEnabled && logical.y > 640) {
           // 画面下半分でスワイプ開始
           this.touchStartX = touch.clientX;
           this.touchActive = true;
@@ -201,9 +209,41 @@ export class InputHandler {
     return logicalX >= 560 && logicalX <= 704 && logicalY >= 1132 && logicalY <= 1276;
   }
 
+  /** 操作タイプ設定（Unit-02: BR-IN01〜04） */
+  setControlType(type: ControlType): void {
+    this.controlType = type;
+    if (type === ControlType.BUTTONS) {
+      this.buttonsEnabled = true;
+      this.swipeEnabled = false;
+    } else if (type === ControlType.SWIPE) {
+      this.buttonsEnabled = false;
+      this.swipeEnabled = true;
+    } else {
+      this.buttonsEnabled = true;
+      this.swipeEnabled = true;
+    }
+  }
+
+  /** ボタン表示が有効か（描画側参照用） */
+  isButtonsEnabled(): boolean {
+    return this.buttonsEnabled;
+  }
+
+  /** スケーリング情報を取得（SettingsScreen座標変換用） */
+  getScaling(): { scale: number; offsetX: number; offsetY: number } {
+    return { scale: this.scale, offsetX: this.offsetX, offsetY: this.offsetY };
+  }
+
   /** 論理座標でのタップ位置を取得（UI操作用） */
   getLastTapPosition(): { x: number; y: number } | null {
     return this._lastTapPos;
+  }
+
+  /** タップ位置を取得し即座にクリア（多重検出防止、BLM §7.2.1） */
+  consumeLastTapPosition(): { x: number; y: number } | null {
+    const pos = this._lastTapPos;
+    this._lastTapPos = null;
+    return pos;
   }
 
   private _lastTapPos: { x: number; y: number } | null = null;
