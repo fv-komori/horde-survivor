@@ -12,7 +12,7 @@ import {
   HELP_PAGE_TITLES,
   HELP_TOTAL_PAGES,
 } from '../config/settingsConfig';
-import { ControlType, BuffType, BUFF_COLORS } from '../types';
+import { BuffType, BUFF_COLORS } from '../types';
 import type { SettingsManager } from '../game/SettingsManager';
 import type { InputHandler } from '../input/InputHandler';
 

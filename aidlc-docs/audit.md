@@ -620,3 +620,44 @@
 **Context**: CONSTRUCTION - Unit-02 Code Generation開始
 
 ---
+
+## Unit-02 Build and Test
+**Timestamp**: 2026-04-14T00:00:00Z
+**Build Status**: Success（Vite 76.16KB, 195ms）
+**Test Status**: PASS（TypeScript型チェック0エラー、ESLint 0エラー、動作確認OK）
+**動作確認項目**: SETTINGSボタン、設定画面オーバーレイ、タブ切替、音量スライダー、操作タイプ切替（ボタン非表示対応含む）、ゲームプレイ正常動作
+**成果物**: aidlc-docs/construction/build-and-test/build-and-test-summary-unit02.md
+**Context**: CONSTRUCTION - Unit-02 Build&Test完了、全Unit完了
+
+---
+
+## EOD — 2026-04-13〜04-14 作業記録
+**Timestamp**: 2026-04-13T00:00:00Z 〜 2026-04-14T01:00:00Z
+
+### 本日の作業サマリー
+
+**Unit-02: 設定画面 & 遊び方ヘルプ — 全ステージ完了**
+
+1. **Functional Design**: Q&A（ヘルプ表示方式・スクロール・画面構成）→ FD成果物3ファイル生成 → 承認 → AutoReview PASS（2イテレーション、11件自動修正）
+2. **NFR Requirements / NFR Design / Infrastructure Design**: SKIP（FDで定義済み、静的ホスティング変更なし）
+3. **Code Generation**: CGプラン作成・承認 → 8ステップでコード実装（新規3ファイル+変更4ファイル） → AutoReview PASS（1イテレーション）→ レビュー指摘4件を追加修正（touchイベントpassive、AbortController化、破損データ自動修復、NaN防御）
+4. **Build & Test**: TypeScript型チェックPASS、ESLint PASS（未使用import修正）、Viteビルド成功、動作確認OK
+
+### コード変更
+- 新規: settingsConfig.ts, SettingsManager.ts, SettingsScreen.ts
+- 変更: types/index.ts（ControlType追加）, InputHandler.ts（操作タイプ切替・タップ消費）, TitleScreen.ts（SETTINGSボタン）, GameService.ts（設定統合）, RenderSystem.ts（ボタン非表示対応）
+
+### 設計書更新
+- FD成果物: business-logic-model.md, domain-entities.md, business-rules.md（AutoReview修正含む）
+- レビューレポート: functional-design-auto-review-v1.md, code-auto-review-v1.md
+- CGプラン: settings-help-code-generation-plan.md
+- B&Tサマリー: build-and-test-summary-unit02.md
+
+### コミット
+- `4b55e6b` docs: Unit-02設定画面&ヘルプ機能設計・CGプラン（FD自動レビューPASS）
+- `31249bb` feat: Unit-02設定画面&遊び方ヘルプ実装（音量スライダー・操作タイプ切替・6ページヘルプ・自動レビューPASS・設計書同期）
+
+**決定理由**: Iteration 2の全Unit（Unit-01サウンド + Unit-02設定&ヘルプ）完了
+**Context**: CONSTRUCTION PHASE完了、全Unitの FD→CG→B&T が PASS
+
+---
