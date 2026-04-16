@@ -4,8 +4,8 @@
 - **Project Type**: Brownfield
 - **Start Date**: 2026-04-09T00:00:00Z
 - **Original Start**: 2026-04-07T00:00:00Z
-- **Current Stage**: CONSTRUCTION - Unit-02 Build&Test COMPLETED, OPERATIONS NEXT
-- **Iteration**: 2+（サウンド・設定画面・ヘルプ Unit追加）
+- **Current Stage**: CONSTRUCTION - Code Generation IN PROGRESS（Iteration 3）
+- **Iteration**: 3（ビジュアルリニューアル: Three.js導入）
 
 ## Workspace State
 - **Existing Code**: Yes
@@ -50,5 +50,21 @@
 - [x] Code Generation - COMPLETED [AutoReviewed: reviews/construction/settings-help/code-auto-review-v1, PASS]
 - [x] Build and Test - COMPLETED
 
-### OPERATIONS PHASE
+### OPERATIONS PHASE (Iteration 2)
 - [ ] Operations - PENDING
+
+### INCEPTION PHASE (Iteration 3 - ビジュアルリニューアル)
+- [x] Workspace Detection - COMPLETED（Brownfield継続）
+- [x] Requirements Analysis - COMPLETED [AutoReviewed: reviews/inception/requirements-auto-review-v3, PASS]
+- [x] User Stories - SKIP（技術的ビジュアル移行、ユーザー機能追加なし）
+- [x] Workflow Planning - COMPLETED
+- [x] Application Design - COMPLETED [AutoReviewed: reviews/inception/application-design-auto-review-v3, PASS]
+- [x] Units Generation - SKIP（1 Unitで一括実装、運用停止中のため分割不要）
+
+### CONSTRUCTION PHASE (Iteration 3 - ビジュアルリニューアル)
+- [x] Functional Design - COMPLETED [AutoReviewed: reviews/construction/visual-overhaul/functional-design-auto-review-v1, PASS]
+- [ ] NFR Requirements - SKIP（要件定義NFR-01〜07で包括定義済み）
+- [ ] NFR Design - SKIP（FD/CGで対応）
+- [ ] Infrastructure Design - SKIP（静的ホスティング変更なし）
+- [ ] Code Generation - IN PROGRESS
+- [ ] Build and Test - PENDING
