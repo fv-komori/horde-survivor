@@ -2,6 +2,38 @@
 
 ---
 
+## Iteration 3 - 動作確認・レビュー指摘修正・バグ修正
+**Timestamp**: 2026-04-16T14:00:00Z〜2026-04-16T17:00:00Z
+**User Input**: Playwright動作確認→ビジュアル・操作の問題指摘→コードAutoReview→敵撃破時のバグ報告
+**AI Response**: 以下の変更を段階的に実施。
+
+### 動作確認で発見・修正した問題（c776ef1に含む）
+1. タイトル画面でHUD表示 → init()/resetGame()でHUD非表示化
+2. カメラ視点が参考画像と乖離（俯瞰→背後低め） → FOV50、position(3.6,2.5,-13.5)、lookAt(3.6,0.5,-4)に変更
+3. 道路幅が狭い → road.width 5→8、tileCount 3→4
+4. 遠景が黒い → scene.backgroundに砂漠色(0xc9a96e)設定
+5. 敵HP数値未表示 → HealthComponent→HitCountComponent修正、overlayManager接続修正
+6. ←→キー反転 → CoordinateMapperのX座標マッピング反転（カメラ+Z向き対応）
+7. 敵がただの四角 → 敵NORMALをInstancedMesh→個別Mesh（詳細キャラモデル）に変更
+8. GAME OVER後のエラー → showGameOver/showTitleの毎フレーム呼び出しを初回のみに修正
+
+### コードAutoReview指摘修正（3a874c9）
+1. F-NG-9: World.clear()でonDestroyCallbacksをリセット（コールバック累積防止）
+2. F-NG-8: ProceduralMeshFactoryのWeaponType asキャスト→enum値直接参照
+
+### 敵撃破時メッシュ残存バグ修正（62f5028）
+- resetGame()→world.clear()でonDestroyコールバックがクリアされ再登録されていなかった
+- resetGame()末尾でcleanupMeshコールバックを再登録
+
+### 設計書同期
+- business-logic-model.md: BL-01(X座標反転)、BL-09(カメラ設定値更新)
+- domain-entities.md: 敵NORMALのInstancedMesh→個別Mesh、gameConfig確定版更新
+
+**決定理由**: ユーザーの実機確認によるフィードバック（参考画像との乖離、操作反転、敵ビジュアル、バグ報告）に即時対応
+**Context**: CONSTRUCTION - Code Generation後の動作確認・品質改善（Iteration 3）
+
+---
+
 ## Iteration 3 - Build and Test COMPLETED
 **Timestamp**: 2026-04-16T14:00:00Z
 **User Input**: "Build And Testに進みます。"
