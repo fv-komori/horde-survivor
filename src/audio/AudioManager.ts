@@ -68,8 +68,13 @@ class BGMTrack {
 
     for (let ch = 0; ch < channels.length; ch++) {
       const channel = channels[ch];
+      // 非ループBGMで全ノート再生済みのチャンネルはスキップ
+      if (!this.definition.loop && this.currentSteps[ch] >= channel.notes.length) {
+        continue;
+      }
       while (this.nextNoteTimes[ch] < scheduleAhead) {
         const note = channel.notes[this.currentSteps[ch]];
+        if (!note) break; // 安全ガード: 配列外アクセス防止
         const stepDuration = (60 / this.definition.tempo) * note.duration;
 
         if (note.frequency > 0) {

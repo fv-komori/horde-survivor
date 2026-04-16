@@ -96,7 +96,7 @@ export const GAME_CONFIG = deepFreeze({
   enemySpawn: {
     minY: -50,
     maxY: -10,
-    marginX: 100,
+    marginX: 160,
   },
 
   /** 仲間化演出（BR-AL05） */

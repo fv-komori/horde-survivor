@@ -144,6 +144,7 @@ export class GameService {
     this.overlayCanvas.style.height = '100%';
     this.overlayCanvas.style.pointerEvents = 'none';
     this.overlayCanvas.style.display = 'none';
+    this.overlayCanvas.style.zIndex = '150'; // タイトル/ゲームオーバー(z-index:100)より前面
     this.container.appendChild(this.overlayCanvas);
 
     // HTMLOverlayManager初期化

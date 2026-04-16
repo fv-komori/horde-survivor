@@ -113,7 +113,11 @@ export class SettingsScreen {
       if ('touches' in e) e.preventDefault(); // F-NG-2: スクロール抑制
       const pos = this.getPointerLogical(e);
       if (!pos) return;
-      this.handlePointerDown(pos.x, pos.y);
+      // タブ切替・閉じるボタンを先にチェック（Canvas z-index上でクリック直接処理）
+      this.handleInput(pos.x, pos.y);
+      if (this.visible) {
+        this.handlePointerDown(pos.x, pos.y);
+      }
     };
     const onMove = (e: MouseEvent | TouchEvent) => {
       if (this.draggingSlider === null) return;
