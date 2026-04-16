@@ -6,3 +6,4 @@ coverage/
 .mcp.json
 .playwright-mcp/
 .playwright-screenshots/
+test-screenshots/
