@@ -10,7 +10,7 @@ import {
   type Material,
 } from 'three';
 import { GAME_CONFIG } from '../config/gameConfig';
-import type { WeaponType } from '../types';
+import { WeaponType } from '../types';
 
 /** プロシージャル3Dメッシュ生成（BL-04, FR-03） */
 export class ProceduralMeshFactory {
@@ -73,7 +73,7 @@ export class ProceduralMeshFactory {
   // --- キャラクター生成 ---
 
   /** プレイヤーメッシュ（BL-04） */
-  createPlayer(weaponType: WeaponType = 'FORWARD' as WeaponType): Group {
+  createPlayer(weaponType: WeaponType = WeaponType.FORWARD): Group {
     const group = new Group();
     group.name = 'player';
 
@@ -235,20 +235,20 @@ export class ProceduralMeshFactory {
     const metalMat = this.getToonMaterial(0x424242);
 
     switch (weaponType) {
-      case 'FORWARD' as WeaponType: {
+      case WeaponType.FORWARD: {
         // ライフル風: 長い筒
         this.addMesh(group, this.cylinder(0.02, 0.02, 0.35, 6), metalMat, 0, 0, 0.15);
         this.addMesh(group, this.box(0.04, 0.06, 0.12), this.getToonMaterial(0x5d4037), 0, -0.03, -0.02);
         break;
       }
-      case 'SPREAD' as WeaponType: {
+      case WeaponType.SPREAD: {
         // ショットガン風: 太い短筒 x2
         this.addMesh(group, this.cylinder(0.025, 0.025, 0.25, 6), metalMat, -0.02, 0, 0.1);
         this.addMesh(group, this.cylinder(0.025, 0.025, 0.25, 6), metalMat, 0.02, 0, 0.1);
         this.addMesh(group, this.box(0.06, 0.06, 0.1), this.getToonMaterial(0x5d4037), 0, -0.03, -0.05);
         break;
       }
-      case 'PIERCING' as WeaponType: {
+      case WeaponType.PIERCING: {
         // レールガン風: 細長い+発光リング
         this.addMesh(group, this.cylinder(0.015, 0.015, 0.4, 6), metalMat, 0, 0, 0.18);
         this.addMesh(group, this.cylinder(0.035, 0.035, 0.02, 8), this.getToonMaterial(0x00e5ff), 0, 0, 0.25);

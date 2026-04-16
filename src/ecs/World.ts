@@ -133,6 +133,7 @@ export class World {
     }
     this.entities.clear();
     this.entitiesToDestroy.clear();
+    this.onDestroyCallbacks.length = 0;
     this.nextEntityId = 1;
   }
 }

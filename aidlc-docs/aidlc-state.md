@@ -66,5 +66,5 @@
 - [ ] NFR Requirements - SKIP（要件定義NFR-01〜07で包括定義済み）
 - [ ] NFR Design - SKIP（FD/CGで対応）
 - [ ] Infrastructure Design - SKIP（静的ホスティング変更なし）
-- [x] Code Generation - COMPLETED
+- [x] Code Generation - COMPLETED [AutoReviewed: reviews/construction/visual-overhaul/code-auto-review-v1, PASS]
 - [ ] Build and Test - NEXT
