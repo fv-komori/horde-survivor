@@ -10,7 +10,7 @@ import { ColliderComponent } from '../../src/components/ColliderComponent';
 import { HitCountComponent } from '../../src/components/HitCountComponent';
 import { WeaponComponent } from '../../src/components/WeaponComponent';
 import { AllyComponent } from '../../src/components/AllyComponent';
-import { SpriteComponent } from '../../src/components/SpriteComponent';
+import { MeshComponent } from '../../src/components/MeshComponent';
 import { EnemyType, WeaponType, BuffType, ColliderType } from '../../src/types';
 import { GAME_CONFIG } from '../../src/config/gameConfig';
 import { WEAPON_CONFIG } from '../../src/config/weaponConfig';
@@ -35,7 +35,7 @@ describe('WeaponSystem', () => {
     world.addComponent(id, new PositionComponent(x, y));
     world.addComponent(id, new PlayerComponent(200));
     world.addComponent(id, new BuffComponent());
-    world.addComponent(id, new SpriteComponent('player', 192, 192, '#00FF00'));
+    world.addComponent(id, new MeshComponent('player', 192, 192));
     const weaponCfg = WEAPON_CONFIG[WeaponType.FORWARD];
     world.addComponent(id, new WeaponComponent(WeaponType.FORWARD, weaponCfg.fireInterval));
     return id;
@@ -172,7 +172,7 @@ describe('WeaponSystem', () => {
       const allyId = world.createEntity();
       world.addComponent(allyId, new PositionComponent(392, 1200));
       world.addComponent(allyId, new AllyComponent(0, playerId, 10.0));
-      world.addComponent(allyId, new SpriteComponent('ally', 150, 150, '#00CC00'));
+      world.addComponent(allyId, new MeshComponent('ally', 150, 150));
       const weaponCfg = WEAPON_CONFIG[WeaponType.FORWARD];
       world.addComponent(allyId, new WeaponComponent(WeaponType.FORWARD, weaponCfg.fireInterval));
 

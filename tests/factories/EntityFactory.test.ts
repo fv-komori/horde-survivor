@@ -2,7 +2,7 @@ import { World } from '../../src/ecs/World';
 import { EntityFactory } from '../../src/factories/EntityFactory';
 import { PositionComponent } from '../../src/components/PositionComponent';
 import { VelocityComponent } from '../../src/components/VelocityComponent';
-import { SpriteComponent } from '../../src/components/SpriteComponent';
+import { MeshComponent } from '../../src/components/MeshComponent';
 import { HealthComponent } from '../../src/components/HealthComponent';
 import { ColliderComponent } from '../../src/components/ColliderComponent';
 import { PlayerComponent } from '../../src/components/PlayerComponent';
@@ -33,7 +33,7 @@ describe('EntityFactory', () => {
       const id = factory.createPlayer(world);
 
       expect(world.getComponent(id, PositionComponent)).toBeDefined();
-      expect(world.getComponent(id, SpriteComponent)).toBeDefined();
+      expect(world.getComponent(id, MeshComponent)).toBeDefined();
       expect(world.getComponent(id, HealthComponent)).toBeDefined();
       expect(world.getComponent(id, ColliderComponent)).toBeDefined();
       expect(world.getComponent(id, PlayerComponent)).toBeDefined();
@@ -78,7 +78,7 @@ describe('EntityFactory', () => {
       expect(world.getComponent(id, HitCountComponent)).toBeDefined();
       expect(world.getComponent(id, ColliderComponent)).toBeDefined();
       expect(world.getComponent(id, EnemyComponent)).toBeDefined();
-      expect(world.getComponent(id, SpriteComponent)).toBeDefined();
+      expect(world.getComponent(id, MeshComponent)).toBeDefined();
     });
 
     it('should set position correctly', () => {
@@ -113,16 +113,16 @@ describe('EntityFactory', () => {
 
     it('should use larger size for boss', () => {
       const id = factory.createEnemy(world, EnemyType.BOSS, { x: 100, y: 50 });
-      const sprite = world.getComponent(id, SpriteComponent)!;
-      expect(sprite.width).toBe(280);
-      expect(sprite.height).toBe(280);
+      const sprite = world.getComponent(id, MeshComponent)!;
+      expect(sprite.logicalWidth).toBe(280);
+      expect(sprite.logicalHeight).toBe(280);
     });
 
     it('should use tank size for tank', () => {
       const id = factory.createEnemy(world, EnemyType.TANK, { x: 100, y: 50 });
-      const sprite = world.getComponent(id, SpriteComponent)!;
-      expect(sprite.width).toBe(200);
-      expect(sprite.height).toBe(200);
+      const sprite = world.getComponent(id, MeshComponent)!;
+      expect(sprite.logicalWidth).toBe(200);
+      expect(sprite.logicalHeight).toBe(200);
     });
   });
 
@@ -134,7 +134,7 @@ describe('EntityFactory', () => {
       expect(world.getComponent(id, VelocityComponent)).toBeDefined();
       expect(world.getComponent(id, BulletComponent)).toBeDefined();
       expect(world.getComponent(id, ColliderComponent)).toBeDefined();
-      expect(world.getComponent(id, SpriteComponent)).toBeDefined();
+      expect(world.getComponent(id, MeshComponent)).toBeDefined();
     });
 
     it('should set bullet properties correctly', () => {
@@ -167,7 +167,7 @@ describe('EntityFactory', () => {
       expect(world.getComponent(id, VelocityComponent)).toBeDefined();
       expect(world.getComponent(id, HitCountComponent)).toBeDefined();
       expect(world.getComponent(id, ItemDropComponent)).toBeDefined();
-      expect(world.getComponent(id, SpriteComponent)).toBeDefined();
+      expect(world.getComponent(id, MeshComponent)).toBeDefined();
       expect(world.getComponent(id, ColliderComponent)).toBeDefined();
     });
 
@@ -202,7 +202,7 @@ describe('EntityFactory', () => {
 
       expect(world.getComponent(id, PositionComponent)).toBeDefined();
       expect(world.getComponent(id, AllyComponent)).toBeDefined();
-      expect(world.getComponent(id, SpriteComponent)).toBeDefined();
+      expect(world.getComponent(id, MeshComponent)).toBeDefined();
       expect(world.getComponent(id, WeaponComponent)).toBeDefined();
     });
 
@@ -232,7 +232,7 @@ describe('EntityFactory', () => {
 
       expect(world.getComponent(id, PositionComponent)).toBeDefined();
       expect(world.getComponent(id, EffectComponent)).toBeDefined();
-      expect(world.getComponent(id, SpriteComponent)).toBeDefined();
+      expect(world.getComponent(id, MeshComponent)).toBeDefined();
 
       const effect = world.getComponent(id, EffectComponent)!;
       expect(effect.effectType).toBe(EffectType.MUZZLE_FLASH);
