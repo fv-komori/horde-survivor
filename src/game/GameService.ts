@@ -338,6 +338,11 @@ export class GameService {
 
     // RenderSystemのシーン参照を更新
     this.renderSystem.updateSceneManager(this.sceneManager, this.qualityManager);
+
+    // onDestroyコールバック再登録（world.clear()でクリアされるため）
+    this.world.onDestroy((entityId) => {
+      this.cleanupSystem.cleanupMesh(this.world, entityId);
+    });
   }
 
   /** ゲームプレイ開始 */
