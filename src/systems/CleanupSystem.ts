@@ -2,15 +2,23 @@ import type { System } from '../ecs/System';
 import type { World } from '../ecs/World';
 import { BulletComponent } from '../components/BulletComponent';
 import { PositionComponent } from '../components/PositionComponent';
+import { MeshComponent } from '../components/MeshComponent';
 import { GAME_CONFIG } from '../config/gameConfig';
+import type { SceneManager } from '../rendering/SceneManager';
 
 /**
  * S-11: クリーンアップシステム（優先度98）
- * business-logic-model セクション10
- * Iteration 2: アイテムは防衛ラインで消滅（DefenseLineSystem担当）、ここでは弾丸の画面外消滅のみ
+ * Iteration 3: MeshComponent保有エンティティのdispose追加（BR-MEM01）
  */
 export class CleanupSystem implements System {
   readonly priority = 98;
+
+  private sceneManager: SceneManager | null = null;
+
+  /** Three.js依存を注入 */
+  initThree(sceneManager: SceneManager): void {
+    this.sceneManager = sceneManager;
+  }
 
   update(world: World, _dt: number): void {
     const margin = GAME_CONFIG.bullet.screenMargin;
@@ -22,8 +30,23 @@ export class CleanupSystem implements System {
     for (const id of bulletIds) {
       const pos = world.getComponent(id, PositionComponent)!;
       if (pos.x < -margin || pos.x > w + margin || pos.y < -margin || pos.y > h + margin) {
+        this.cleanupMesh(world, id);
         world.destroyEntity(id);
       }
+    }
+  }
+
+  /** エンティティ破棄時のMeshComponent関連リソース解放（BR-MEM01） */
+  cleanupMesh(world: World, entityId: number): void {
+    const mesh = world.getComponent(entityId, MeshComponent);
+    if (!mesh) return;
+
+    if (mesh.instancePool) {
+      // InstancedMesh: スロット解放のみ
+      mesh.instancePool.release(entityId);
+    } else if (mesh.object3D && this.sceneManager) {
+      // 個別Mesh: シーンから除去
+      this.sceneManager.disposeObject(mesh.object3D);
     }
   }
 }

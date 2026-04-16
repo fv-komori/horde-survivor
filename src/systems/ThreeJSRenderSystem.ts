@@ -1,0 +1,165 @@
+import {
+  PerspectiveCamera,
+  Vector3,
+  WebGLRenderer,
+} from 'three';
+import { GAME_CONFIG } from '../config/gameConfig';
+import { MeshComponent } from '../components/MeshComponent';
+import { PositionComponent } from '../components/PositionComponent';
+import { CoordinateMapper } from '../utils/CoordinateMapper';
+import type { System } from '../ecs/System';
+import type { World } from '../ecs/World';
+import type { SceneManager } from '../rendering/SceneManager';
+import type { QualityManager } from '../rendering/QualityManager';
+import type { HTMLOverlayManager } from '../ui/HTMLOverlayManager';
+
+const LOG_PREFIX = GAME_CONFIG.logPrefix;
+
+/** Three.jsレンダリングシステム（BL-02, BR-R01〜R03） */
+export class ThreeJSRenderSystem implements System {
+  readonly priority = 99; // 全Systemの最後に実行（BR-R02）
+
+  readonly renderer: WebGLRenderer;
+  readonly camera: PerspectiveCamera;
+
+  /** 累積時間（アイテム浮遊アニメーション用） */
+  private elapsedTime = 0;
+
+  /** 再利用用ベクトル */
+  private readonly _worldPos = new Vector3();
+
+  constructor(
+    private readonly container: HTMLElement,
+    private sceneManager: SceneManager,
+    private qualityManager: QualityManager,
+    private overlayManager: HTMLOverlayManager | null,
+  ) {
+    // WebGLRenderer初期化
+    this.renderer = new WebGLRenderer({ antialias: true, alpha: false });
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.updateRendererSize();
+    this.container.appendChild(this.renderer.domElement);
+
+    // カメラ初期化
+    const camCfg = GAME_CONFIG.three.camera;
+    const aspect = this.renderer.domElement.width / this.renderer.domElement.height;
+    this.camera = new PerspectiveCamera(camCfg.fov, aspect, camCfg.near, camCfg.far);
+    this.camera.position.set(camCfg.position.x, camCfg.position.y, camCfg.position.z);
+    this.camera.lookAt(camCfg.lookAt.x, camCfg.lookAt.y, camCfg.lookAt.z);
+
+    // リサイズハンドリング（NFR-07）
+    window.addEventListener('resize', this.handleResize);
+
+    // WebGLコンテキストロスト（BL-07）
+    this.renderer.domElement.addEventListener('webglcontextlost', this.handleContextLost);
+    this.renderer.domElement.addEventListener('webglcontextrestored', this.handleContextRestored);
+  }
+
+  update(world: World, dt: number): void {
+    this.elapsedTime += dt;
+
+    // 品質チェック
+    this.qualityManager.measureFPS(dt);
+    this.qualityManager.checkQualitySwitch();
+
+    // エンティティ位置同期
+    this.syncEntityPositions(world);
+
+    // 背景スクロール
+    this.sceneManager.updateBackgroundScroll(dt);
+
+    // HP表示位置更新
+    if (this.overlayManager) {
+      this.overlayManager.updatePositions(world, this.camera);
+    }
+
+    // レンダリング
+    this.renderer.render(this.sceneManager.scene, this.camera);
+  }
+
+  /** エンティティの2D論理座標→3Dワールド座標を同期（BL-02） */
+  private syncEntityPositions(world: World): void {
+    const entities = world.query(MeshComponent, PositionComponent);
+
+    for (const entityId of entities) {
+      const mesh = world.getComponent(entityId, MeshComponent);
+      const pos = world.getComponent(entityId, PositionComponent);
+      if (!mesh || !pos) continue;
+
+      const height = CoordinateMapper.getEntityHeight(mesh.spriteType, this.elapsedTime);
+      const worldVec = CoordinateMapper.toWorld(pos.x, pos.y);
+
+      this._worldPos.set(
+        worldVec.x,
+        height,
+        worldVec.z,
+      );
+
+      if (mesh.instancePool && mesh.instanceId >= 0) {
+        // InstancedMesh: 行列更新
+        mesh.instancePool.updateMatrix(mesh.instanceId, this._worldPos);
+      } else if (mesh.object3D) {
+        // 個別Mesh: 位置更新
+        mesh.object3D.position.copy(this._worldPos);
+      }
+    }
+  }
+
+  // --- リサイズ ---
+
+  private handleResize = (): void => {
+    this.updateRendererSize();
+    const aspect = this.renderer.domElement.width / this.renderer.domElement.height;
+    this.camera.aspect = aspect;
+    this.camera.updateProjectionMatrix();
+  };
+
+  private updateRendererSize(): void {
+    const width = this.container.clientWidth;
+    const height = this.container.clientHeight;
+    this.renderer.setSize(width, height);
+  }
+
+  // --- WebGLコンテキストロスト（BL-07） ---
+
+  private handleContextLost = (event: Event): void => {
+    event.preventDefault();
+    console.warn(`${LOG_PREFIX} WebGL context lost`);
+  };
+
+  private handleContextRestored = (): void => {
+    console.info(`${LOG_PREFIX} WebGL context restored, rebuilding...`);
+    try {
+      this.sceneManager.recompileAllMaterials();
+      this.sceneManager.reuploadAllTextures();
+      this.sceneManager.rebuildPools();
+    } catch (e) {
+      console.error(`${LOG_PREFIX} Failed to restore WebGL context`, e);
+    }
+  };
+
+  /** HTMLOverlayManager設定（init後に呼び出し） */
+  setOverlayManager(overlayManager: HTMLOverlayManager): void {
+    this.overlayManager = overlayManager;
+  }
+
+  /** シーンマネージャー/品質マネージャー更新（ゲームリセット時） */
+  updateSceneManager(sceneManager: SceneManager, qualityManager: QualityManager): void {
+    this.sceneManager = sceneManager;
+    this.qualityManager = qualityManager;
+  }
+
+  /** canvas要素取得（InputHandler用） */
+  get domElement(): HTMLCanvasElement {
+    return this.renderer.domElement;
+  }
+
+  /** リソース解放 */
+  dispose(): void {
+    window.removeEventListener('resize', this.handleResize);
+    this.renderer.domElement.removeEventListener('webglcontextlost', this.handleContextLost);
+    this.renderer.domElement.removeEventListener('webglcontextrestored', this.handleContextRestored);
+    this.renderer.dispose();
+  }
+}

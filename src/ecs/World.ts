@@ -12,6 +12,9 @@ export class World {
   private systems: System[] = [];
   private entitiesToDestroy: Set<EntityId> = new Set();
 
+  /** エンティティ破棄時のコールバック（MeshComponent dispose等） */
+  private onDestroyCallbacks: ((entityId: EntityId) => void)[] = [];
+
   /** エンティティを生成し、IDを返す */
   createEntity(): EntityId {
     const id = this.nextEntityId++;
@@ -88,9 +91,18 @@ export class World {
     this.flushDestroyQueue();
   }
 
+  /** エンティティ破棄時のコールバックを登録 */
+  onDestroy(callback: (entityId: EntityId) => void): void {
+    this.onDestroyCallbacks.push(callback);
+  }
+
   /** 破棄予約されたエンティティを実際に削除 */
   private flushDestroyQueue(): void {
     for (const id of this.entitiesToDestroy) {
+      // コールバック呼び出し（エンティティ削除前）
+      for (const cb of this.onDestroyCallbacks) {
+        cb(id);
+      }
       this.removeEntity(id);
     }
     this.entitiesToDestroy.clear();
@@ -113,6 +125,12 @@ export class World {
 
   /** 全エンティティと状態をクリア（ゲームリセット用） */
   clear(): void {
+    // 全エンティティに対してコールバック呼び出し
+    for (const id of this.entities.keys()) {
+      for (const cb of this.onDestroyCallbacks) {
+        cb(id);
+      }
+    }
     this.entities.clear();
     this.entitiesToDestroy.clear();
     this.nextEntityId = 1;

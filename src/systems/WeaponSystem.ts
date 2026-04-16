@@ -7,7 +7,7 @@ import { AllyComponent } from '../components/AllyComponent';
 import { BulletComponent } from '../components/BulletComponent';
 import { BuffComponent } from '../components/BuffComponent';
 import { EnemyComponent } from '../components/EnemyComponent';
-import { SpriteComponent } from '../components/SpriteComponent';
+import { MeshComponent } from '../components/MeshComponent';
 import { EntityFactory } from '../factories/EntityFactory';
 import type { AudioManager } from '../audio/AudioManager';
 import { GAME_CONFIG } from '../config/gameConfig';
@@ -87,8 +87,8 @@ export class WeaponSystem implements System {
       : 1;
 
     // 銃口位置を計算（描画と合わせる）
-    const sprite = world.getComponent(ownerId, SpriteComponent);
-    const half = sprite ? sprite.width / 2 : 32;
+    const mesh = world.getComponent(ownerId, MeshComponent);
+    const half = mesh ? mesh.logicalWidth / 2 : 32;
     const muzzle = { x: pos.x + half * 0.45, y: pos.y - half * 0.91 };
 
     // 弾丸生成
@@ -126,8 +126,8 @@ export class WeaponSystem implements System {
     if (this.getBulletCount(world) >= GAME_CONFIG.limits.maxBullets) return;
 
     // 銃口位置を計算
-    const sprite = world.getComponent(allyId, SpriteComponent);
-    const half = sprite ? sprite.width / 2 : 24;
+    const mesh = world.getComponent(allyId, MeshComponent);
+    const half = mesh ? mesh.logicalWidth / 2 : 24;
     const muzzle = { x: pos.x + half * 0.42, y: pos.y - half * 0.78 };
 
     // 仲間弾丸は常にhitCountReduction = 1（BR-AL03）

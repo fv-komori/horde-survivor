@@ -2,11 +2,19 @@ import { World } from '../ecs/World';
 import { GameStateManager } from './GameStateManager';
 import { ScoreService } from './ScoreService';
 import { EntityFactory } from '../factories/EntityFactory';
+import { ProceduralMeshFactory } from '../factories/ProceduralMeshFactory';
 import { WaveManager } from '../managers/WaveManager';
 import { SpawnManager } from '../managers/SpawnManager';
 import { AssetManager } from '../managers/AssetManager';
 import { InputHandler } from '../input/InputHandler';
-import { UIManager } from '../ui/UIManager';
+
+// Three.js rendering
+import { SceneManager } from '../rendering/SceneManager';
+import { InstancedMeshPool } from '../rendering/InstancedMeshPool';
+import { QualityManager } from '../rendering/QualityManager';
+import { EffectManager3D } from '../rendering/EffectManager3D';
+import { HTMLOverlayManager } from '../ui/HTMLOverlayManager';
+import { ThreeJSRenderSystem } from '../systems/ThreeJSRenderSystem';
 
 // Systems
 import { InputSystem } from '../systems/InputSystem';
@@ -23,14 +31,12 @@ import { AllyConversionSystem } from '../systems/AllyConversionSystem';
 import { AllyFireRateSystem } from '../systems/AllyFireRateSystem';
 import { EffectSystem } from '../systems/EffectSystem';
 import { CleanupSystem } from '../systems/CleanupSystem';
-import { RenderSystem } from '../systems/RenderSystem';
 
 // Components
 import { HealthComponent } from '../components/HealthComponent';
 import { AllyComponent } from '../components/AllyComponent';
 import { BuffComponent } from '../components/BuffComponent';
 import { WeaponComponent } from '../components/WeaponComponent';
-
 import { AudioManager } from '../audio/AudioManager';
 import { SettingsManager } from './SettingsManager';
 import { SettingsScreen } from '../ui/SettingsScreen';
@@ -38,12 +44,13 @@ import { GAME_CONFIG } from '../config/gameConfig';
 import { GameState, WeaponType } from '../types';
 import type { EntityId } from '../ecs/Entity';
 
+const LOG_PREFIX = GAME_CONFIG.logPrefix;
+
 /**
- * S-SVC-01: ゲームサービス（メインオーケストレーター）
- * Iteration 2: XP/レベル廃止、アイテムドロップ/バフ/仲間化システム
+ * S-SVC-01: ゲームサービス（Iteration 3: Three.js統合）
  */
 export class GameService {
-  private canvas: HTMLCanvasElement;
+  private container: HTMLElement;
   private world: World;
   private gameStateManager: GameStateManager;
   private scoreService: ScoreService;
@@ -51,15 +58,30 @@ export class GameService {
   private waveManager: WaveManager;
   private spawnManager: SpawnManager;
   private assetManager: AssetManager;
-  private inputHandler: InputHandler;
-  private uiManager: UIManager;
-  private renderSystem: RenderSystem;
+  private inputHandler!: InputHandler;
   private weaponSystem: WeaponSystem;
   private allyConversionSystem: AllyConversionSystem;
   private allyFireRateSystem: AllyFireRateSystem;
   private audioManager: AudioManager;
-  private settingsManager: SettingsManager;
-  private settingsScreen: SettingsScreen;
+  private settingsManager!: SettingsManager;
+  private settingsScreen!: SettingsScreen;
+
+  // Three.js
+  private meshFactory!: ProceduralMeshFactory;
+  private sceneManager!: SceneManager;
+  private qualityManager!: QualityManager;
+  private effectManager3D!: EffectManager3D;
+  private overlayManager!: HTMLOverlayManager;
+  private renderSystem!: ThreeJSRenderSystem;
+  private cleanupSystem!: CleanupSystem;
+
+  // InstancedMeshプール
+  private bulletPool!: InstancedMeshPool;
+  private enemyNormalPool!: InstancedMeshPool;
+  private itemPool!: InstancedMeshPool;
+
+  // 設定画面用オーバーレイCanvas
+  private overlayCanvas!: HTMLCanvasElement;
 
   private playerId: EntityId = 0;
   private previousTimestamp: number = 0;
@@ -68,9 +90,11 @@ export class GameService {
   private debugEnabled: boolean = false;
   private titleBGMStarted: boolean = false;
   private gameOverBGMStarted: boolean = false;
+  private titleUIShown: boolean = false;
+  private gameOverUIShown: boolean = false;
 
-  constructor(canvas: HTMLCanvasElement) {
-    this.canvas = canvas;
+  constructor(container: HTMLElement) {
+    this.container = container;
     this.world = new World();
     this.gameStateManager = new GameStateManager();
     this.scoreService = new ScoreService();
@@ -79,34 +103,75 @@ export class GameService {
     this.audioManager = new AudioManager();
     this.spawnManager = new SpawnManager(this.entityFactory, this.waveManager, this.audioManager);
     this.assetManager = new AssetManager();
-    this.inputHandler = new InputHandler(canvas);
-    this.uiManager = new UIManager();
-    this.renderSystem = new RenderSystem(canvas);
     this.weaponSystem = new WeaponSystem(this.entityFactory, this.audioManager);
     this.allyConversionSystem = new AllyConversionSystem(this.entityFactory, this.audioManager);
     this.allyFireRateSystem = new AllyFireRateSystem();
-
-    this.renderSystem.setInputHandler(this.inputHandler);
-
-    // Unit-02: 設定管理・設定画面（BLM §7.1）
-    this.settingsManager = new SettingsManager(this.audioManager, this.inputHandler);
-    this.settingsScreen = new SettingsScreen(this.settingsManager, this.inputHandler, canvas);
   }
 
   /** 初期化 */
   async init(): Promise<void> {
     this.setupErrorHandlers();
 
+    // WebGL2チェック（BL-12）
+    if (!this.checkWebGL2Support()) {
+      return;
+    }
+
     // アセットロード
     await this.assetManager.loadAll();
 
-    // デバッグモード判定（開発環境のみ有効化）
+    // デバッグモード判定
     if (import.meta.env.DEV) {
       const params = new URLSearchParams(window.location.search);
       if (params.get('debug') === '1') {
         this.debugEnabled = true;
       }
     }
+
+    // Three.js初期化
+    this.initThreeJS();
+
+    // InputHandler（renderer.domElement — BL-10）
+    this.inputHandler = new InputHandler(this.renderSystem.domElement);
+
+    // 設定画面用オーバーレイCanvas
+    this.overlayCanvas = document.createElement('canvas');
+    this.overlayCanvas.className = 'settings-overlay-canvas';
+    this.overlayCanvas.style.position = 'absolute';
+    this.overlayCanvas.style.top = '0';
+    this.overlayCanvas.style.left = '0';
+    this.overlayCanvas.style.width = '100%';
+    this.overlayCanvas.style.height = '100%';
+    this.overlayCanvas.style.pointerEvents = 'none';
+    this.overlayCanvas.style.display = 'none';
+    this.container.appendChild(this.overlayCanvas);
+
+    // HTMLOverlayManager初期化
+    this.overlayManager = new HTMLOverlayManager(this.container);
+    this.overlayManager.initHUD();
+    this.overlayManager.hideHUD(); // タイトル画面からスタートなのでHUD非表示
+    this.renderSystem.setOverlayManager(this.overlayManager);
+
+    // SettingsManager & SettingsScreen（Unit-02互換）
+    this.settingsManager = new SettingsManager(this.audioManager, this.inputHandler);
+    this.settingsScreen = new SettingsScreen(this.settingsManager, this.inputHandler, this.overlayCanvas);
+
+    // EntityFactoryにThree.js依存を注入
+    this.entityFactory.initThree(
+      this.meshFactory,
+      this.sceneManager,
+      this.bulletPool,
+      this.enemyNormalPool,
+      this.itemPool,
+    );
+
+    // CleanupSystemにThree.js依存を注入
+    this.cleanupSystem.initThree(this.sceneManager);
+
+    // World.onDestroyでメッシュクリーンアップ（BR-MEM01）
+    this.world.onDestroy((entityId) => {
+      this.cleanupSystem.cleanupMesh(this.world, entityId);
+    });
 
     // ECSシステム登録
     this.world.addSystem(new InputSystem(this.inputHandler));
@@ -127,7 +192,7 @@ export class GameService {
     this.world.addSystem(this.allyConversionSystem);
     this.world.addSystem(this.allyFireRateSystem);
     this.world.addSystem(new EffectSystem());
-    this.world.addSystem(new CleanupSystem());
+    this.world.addSystem(this.cleanupSystem);
     this.world.addSystem(this.renderSystem);
 
     // AudioContext初回インタラクション初期化（BR-AU01）
@@ -136,11 +201,69 @@ export class GameService {
       this.audioManager.resumeContext();
     });
 
-    // Unit-02: 設定復元（localStorage → AudioManager/InputHandler反映）
+    // 設定復元
     this.settingsManager.init();
 
     // UI操作リスナー
     this.inputHandler.enableUITapListener();
+  }
+
+  /** Three.js初期化 */
+  private initThreeJS(): void {
+    // ファクトリ・マネージャー
+    this.meshFactory = new ProceduralMeshFactory();
+    this.sceneManager = new SceneManager(this.meshFactory);
+
+    // InstancedMeshプール作成（BL-05）
+    this.bulletPool = new InstancedMeshPool(
+      this.meshFactory.createBulletGeometry(),
+      this.meshFactory.createBulletMaterial(),
+      GAME_CONFIG.limits.maxBullets,
+    );
+    this.enemyNormalPool = new InstancedMeshPool(
+      this.meshFactory.createEnemyNormalGeometry(),
+      this.meshFactory.createEnemyNormalMaterial(),
+      100, // maxCount for enemy normal pool
+    );
+    this.itemPool = new InstancedMeshPool(
+      this.meshFactory.createItemGeometry(),
+      this.meshFactory.createBulletMaterial(), // 仮マテリアル（個別色はsetColorで設定）
+      GAME_CONFIG.limits.maxItems,
+    );
+
+    // シーン初期化（ライト・背景・プール追加）
+    this.sceneManager.init([this.bulletPool, this.enemyNormalPool, this.itemPool]);
+
+    // 品質管理
+    this.qualityManager = new QualityManager(this.sceneManager);
+
+    // エフェクト管理
+    this.effectManager3D = new EffectManager3D(this.sceneManager, this.qualityManager);
+
+    // CleanupSystem（後でinitThree呼び出し）
+    this.cleanupSystem = new CleanupSystem();
+
+    // レンダリングシステム
+    this.renderSystem = new ThreeJSRenderSystem(
+      this.container,
+      this.sceneManager,
+      this.qualityManager,
+      null, // overlayManagerは後で設定
+    );
+  }
+
+  /** WebGL2サポートチェック（BL-12） */
+  private checkWebGL2Support(): boolean {
+    const testCanvas = document.createElement('canvas');
+    const gl = testCanvas.getContext('webgl2');
+    if (!gl) {
+      const overlay = new HTMLOverlayManager(this.container);
+      overlay.showFallbackMessage(
+        'このブラウザはWebGL 2.0に対応していないため、ゲームをプレイできません。\n最新のChrome, Firefox, Safari, Edgeをお試しください。',
+      );
+      return false;
+    }
+    return true;
   }
 
   /** ゲーム開始 */
@@ -161,6 +284,12 @@ export class GameService {
 
   /** ゲーム状態リセット */
   private resetGame(): void {
+    // Three.jsリソースクリーンアップ
+    this.effectManager3D.clearAll();
+    this.overlayManager.clearHPLabels();
+    this.overlayManager.hideHUD();
+    this.overlayManager.hideGameOver();
+
     this.world.clear();
     this.scoreService.reset();
     this.waveManager.reset();
@@ -171,6 +300,44 @@ export class GameService {
     this.audioManager.reset();
     this.titleBGMStarted = false;
     this.gameOverBGMStarted = false;
+    this.titleUIShown = false;
+    this.gameOverUIShown = false;
+
+    // シーンを再構築
+    this.sceneManager.dispose();
+    this.meshFactory = new ProceduralMeshFactory();
+    this.sceneManager = new SceneManager(this.meshFactory);
+
+    this.bulletPool = new InstancedMeshPool(
+      this.meshFactory.createBulletGeometry(),
+      this.meshFactory.createBulletMaterial(),
+      GAME_CONFIG.limits.maxBullets,
+    );
+    this.enemyNormalPool = new InstancedMeshPool(
+      this.meshFactory.createEnemyNormalGeometry(),
+      this.meshFactory.createEnemyNormalMaterial(),
+      100,
+    );
+    this.itemPool = new InstancedMeshPool(
+      this.meshFactory.createItemGeometry(),
+      this.meshFactory.createBulletMaterial(),
+      GAME_CONFIG.limits.maxItems,
+    );
+
+    this.sceneManager.init([this.bulletPool, this.enemyNormalPool, this.itemPool]);
+    this.qualityManager = new QualityManager(this.sceneManager);
+    this.effectManager3D = new EffectManager3D(this.sceneManager, this.qualityManager);
+    this.cleanupSystem.initThree(this.sceneManager);
+    this.entityFactory.initThree(
+      this.meshFactory,
+      this.sceneManager,
+      this.bulletPool,
+      this.enemyNormalPool,
+      this.itemPool,
+    );
+
+    // RenderSystemのシーン参照を更新
+    this.renderSystem.updateSceneManager(this.sceneManager, this.qualityManager);
   }
 
   /** ゲームプレイ開始 */
@@ -179,6 +346,11 @@ export class GameService {
     this.playerId = this.entityFactory.createPlayer(this.world);
     this.gameStateManager.changeState(GameState.PLAYING);
     this.audioManager.playBGM('playing');
+
+    this.overlayManager.hideTitle();
+    this.overlayManager.showHUD();
+    this.titleUIShown = false;
+    this.gameOverUIShown = false;
   }
 
   /** メインゲームループ */
@@ -186,7 +358,6 @@ export class GameService {
     if (!this.running) return;
 
     try {
-      // deltaTime計算
       const rawDt = timestamp - this.previousTimestamp;
       this.previousTimestamp = timestamp;
       const dt = Math.max(0, Math.min(rawDt / 1000, GAME_CONFIG.deltaTime.maxMs / 1000));
@@ -196,7 +367,7 @@ export class GameService {
       }
     } catch (error) {
       if (import.meta.env.DEV) {
-        console.error(`${GAME_CONFIG.logPrefix}[ERROR][GameService] Fatal error in game loop:`, error);
+        console.error(`${LOG_PREFIX}[ERROR][GameService] Fatal error in game loop:`, error);
       }
       this.stop();
       this.showErrorScreen(error instanceof Error ? error : new Error(String(error)));
@@ -209,7 +380,6 @@ export class GameService {
   /** フレーム更新 */
   private update(dt: number): void {
     const state = this.gameStateManager.getCurrentState();
-    const ctx = this.canvas.getContext('2d')!;
 
     switch (state) {
       case GameState.TITLE:
@@ -217,32 +387,46 @@ export class GameService {
           this.audioManager.playBGM('title');
           this.titleBGMStarted = true;
         }
-        this.renderSystem.update(this.world, dt); // 背景クリア
-        this.uiManager.renderTitleScreen(ctx);
-        // Unit-02: 設定画面オーバーレイ（BR-UI02）
-        this.settingsScreen.render(ctx);
+        // タイトルUI（初回のみ表示）
+        if (!this.titleUIShown) {
+          this.overlayManager.showTitle(
+            () => {
+              this.inputHandler.disableUITapListener();
+              this.startPlaying();
+              this.inputHandler.enableUITapListener();
+            },
+            () => {
+              this.showSettingsScreen();
+            },
+          );
+          this.titleUIShown = true;
+        }
+        // Three.js背景レンダリング
+        this.sceneManager.updateBackgroundScroll(dt);
+        this.renderSystem.renderer.render(this.sceneManager.scene, this.renderSystem.camera);
+        // 設定画面描画
+        this.renderSettingsOverlay();
         this.handleTitleInput();
         break;
 
       case GameState.PLAYING: {
-        // ゲーム更新
         const elapsed = this.scoreService.getElapsedTime();
         this.scoreService.updateElapsedTime(dt);
         this.waveManager.update(elapsed + dt);
         this.spawnManager.update(this.world, dt, elapsed + dt);
-
-        // 仲間連射ボーナスシステムに経過時間を同期
         this.allyFireRateSystem.setElapsedTime(elapsed + dt);
 
-        // 仲間数をスコアに反映
         const allyCount = this.world.query(AllyComponent).length;
         this.scoreService.setAllyCount(allyCount);
 
-        // ECS更新（全システム）
+        // ECS更新（全システム — ThreeJSRenderSystemが最後に実行）
         this.world.update(dt);
 
-        // HUD描画
-        this.renderHUD(ctx);
+        // 3Dエフェクト更新
+        this.effectManager3D.updateEffects(dt);
+
+        // HUD更新
+        this.updateHUD();
         break;
       }
 
@@ -251,9 +435,19 @@ export class GameService {
           this.audioManager.playBGM('gameover');
           this.gameOverBGMStarted = true;
         }
-        this.renderSystem.update(this.world, 0); // 描画のみ
-        this.uiManager.renderGameOverScreen(ctx, this.scoreService.getScore());
-        this.handleGameOverInput();
+        // ゲームオーバーUI（初回のみ表示）
+        if (!this.gameOverUIShown) {
+          this.overlayManager.showGameOver(this.scoreService.getScore(), () => {
+            this.overlayManager.hideGameOver();
+            this.gameStateManager.changeState(GameState.TITLE);
+            this.resetGame();
+            this.inputHandler.disableUITapListener();
+            this.inputHandler.enableUITapListener();
+          });
+          this.gameOverUIShown = true;
+        }
+        // Three.js描画のみ（フリーズ）
+        this.renderSystem.renderer.render(this.sceneManager.scene, this.renderSystem.camera);
         break;
     }
   }
@@ -262,44 +456,23 @@ export class GameService {
     const tap = this.inputHandler.consumeLastTapPosition();
     if (!tap) return;
 
-    // 設定画面表示中 → 設定画面が入力を処理（BR-UI02: 背景入力ブロック）
     if (this.settingsScreen.visible) {
       this.settingsScreen.handleInput(tap.x, tap.y);
-      return;
-    }
-
-    if (this.uiManager.titleScreen.isStartButtonClicked(tap.x, tap.y)) {
-      this.inputHandler.disableUITapListener();
-      this.startPlaying();
-      this.inputHandler.enableUITapListener();
-    } else if (this.uiManager.titleScreen.isSettingsButtonClicked(tap.x, tap.y)) {
-      this.settingsScreen.show();
     }
   }
 
   private handleGameOverInput(): void {
-    const tap = this.inputHandler.consumeLastTapPosition();
-    if (tap && this.uiManager.gameOverScreen.isRetryButtonClicked(tap.x, tap.y)) {
-      this.gameStateManager.changeState(GameState.TITLE);
-      this.resetGame();
-      this.inputHandler.disableUITapListener();
-      this.inputHandler.enableUITapListener();
-    }
+    // ゲームオーバーのリトライはHTMLOverlayManagerのボタンで処理
   }
 
-  private renderHUD(ctx: CanvasRenderingContext2D): void {
-    // バフ情報取得
+  private updateHUD(): void {
     const buffComp = this.world.getComponent(this.playerId, BuffComponent);
     const activeBuffs = buffComp?.activeBuffs ?? new Map();
-
-    // 武器タイプ取得
     const weaponComp = this.world.getComponent(this.playerId, WeaponComponent);
     const weaponType = weaponComp?.weaponType ?? WeaponType.FORWARD;
-
-    // 仲間数取得
     const allyCount = this.world.query(AllyComponent).length;
 
-    this.uiManager.renderHUD(ctx, {
+    this.overlayManager.updateHUD({
       hp: this.getPlayerHP(),
       maxHp: this.getPlayerMaxHP(),
       elapsedTime: this.scoreService.getElapsedTime(),
@@ -310,6 +483,48 @@ export class GameService {
       maxAllies: GAME_CONFIG.ally.maxCount,
       weaponType,
     });
+  }
+
+  private showSettingsScreen(): void {
+    this.overlayCanvas.style.display = '';
+    this.overlayCanvas.style.pointerEvents = 'auto';
+    this.settingsScreen.show();
+  }
+
+  private renderSettingsOverlay(): void {
+    if (!this.settingsScreen.visible) {
+      this.overlayCanvas.style.display = 'none';
+      this.overlayCanvas.style.pointerEvents = 'none';
+      return;
+    }
+
+    // オーバーレイCanvasのサイズをコンテナに合わせる
+    const dpr = window.devicePixelRatio || 1;
+    const w = this.container.clientWidth;
+    const h = this.container.clientHeight;
+    this.overlayCanvas.width = w * dpr;
+    this.overlayCanvas.height = h * dpr;
+    this.overlayCanvas.style.width = `${w}px`;
+    this.overlayCanvas.style.height = `${h}px`;
+
+    const ctx = this.overlayCanvas.getContext('2d');
+    if (!ctx) return;
+
+    // スケーリング（論理座標に合わせる）
+    const scaleX = w / GAME_CONFIG.screen.logicalWidth;
+    const scaleY = h / GAME_CONFIG.screen.logicalHeight;
+    const scale = Math.min(scaleX, scaleY);
+    const offsetX = (w - GAME_CONFIG.screen.logicalWidth * scale) / 2;
+    const offsetY = (h - GAME_CONFIG.screen.logicalHeight * scale) / 2;
+
+    ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * offsetX, dpr * offsetY);
+    ctx.clearRect(
+      -offsetX / scale, -offsetY / scale,
+      w / scale, h / scale,
+    );
+
+    this.inputHandler.updateScaling(scale, offsetX, offsetY);
+    this.settingsScreen.render(ctx);
   }
 
   private getPlayerHP(): number {
@@ -326,7 +541,7 @@ export class GameService {
   private setupErrorHandlers(): void {
     window.onerror = (_msg, _source, _line, _col, error) => {
       if (import.meta.env.DEV) {
-        console.error(`${GAME_CONFIG.logPrefix}[ERROR][Global] Unhandled error:`, error);
+        console.error(`${LOG_PREFIX}[ERROR][Global] Unhandled error:`, error);
       }
       this.stop();
       this.showErrorScreen(error ?? new Error('Unknown error'));
@@ -334,42 +549,20 @@ export class GameService {
 
     window.addEventListener('unhandledrejection', (event) => {
       if (import.meta.env.DEV) {
-        console.error(`${GAME_CONFIG.logPrefix}[ERROR][Global] Unhandled rejection:`, event.reason);
+        console.error(`${LOG_PREFIX}[ERROR][Global] Unhandled rejection:`, event.reason);
       }
       this.stop();
       this.showErrorScreen(new Error(String(event.reason)));
     });
   }
 
-  /** エラー画面表示（NFR-08） */
+  /** エラー画面表示 */
   private showErrorScreen(error: Error): void {
-    const ctx = this.canvas.getContext('2d');
-    if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-    ctx.fillStyle = '#FF0000';
-    ctx.font = 'bold 24px monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const centerX = this.canvas.width / (2 * dpr);
-    const centerY = this.canvas.height / (2 * dpr);
-    ctx.fillText('An error occurred', centerX, centerY - 40);
-
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = '14px monospace';
+    const overlay = this.overlayManager ?? new HTMLOverlayManager(this.container);
     const displayMessage = this.debugEnabled
-      ? error.message.slice(0, 50)
+      ? error.message.slice(0, 80)
       : 'An unexpected error occurred.';
-    ctx.fillText(displayMessage, centerX, centerY);
-
-    ctx.fillStyle = '#AAAAAA';
-    ctx.font = '16px monospace';
-    ctx.fillText('Click to reload', centerX, centerY + 50);
-
-    this.canvas.addEventListener('click', () => location.reload(), { once: true });
+    overlay.showFallbackMessage(`${displayMessage}\nClick to reload`);
+    this.container.addEventListener('click', () => location.reload(), { once: true });
   }
 }

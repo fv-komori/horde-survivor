@@ -2,7 +2,7 @@ import type { EntityId } from '../ecs/Entity';
 import type { World } from '../ecs/World';
 import { PositionComponent } from '../components/PositionComponent';
 import { VelocityComponent } from '../components/VelocityComponent';
-import { SpriteComponent } from '../components/SpriteComponent';
+import { MeshComponent } from '../components/MeshComponent';
 import { HealthComponent } from '../components/HealthComponent';
 import { ColliderComponent } from '../components/ColliderComponent';
 import { PlayerComponent } from '../components/PlayerComponent';
@@ -19,11 +19,36 @@ import { ENEMY_CONFIG } from '../config/enemyConfig';
 import { WEAPON_CONFIG } from '../config/weaponConfig';
 import { EnemyType, WeaponType, EffectType, ItemType, ColliderType, ITEM_COLORS } from '../types';
 import type { Position, SpriteType } from '../types';
+import type { ProceduralMeshFactory } from './ProceduralMeshFactory';
+import type { SceneManager } from '../rendering/SceneManager';
+import type { InstancedMeshPool } from '../rendering/InstancedMeshPool';
 
 /**
- * S-SVC-03: エンティティ生成ファクトリ（Iteration 2）
+ * S-SVC-03: エンティティ生成ファクトリ（Iteration 3: Three.js MeshComponent対応）
  */
 export class EntityFactory {
+  private meshFactory: ProceduralMeshFactory | null = null;
+  private sceneManager: SceneManager | null = null;
+
+  /** InstancedMeshプール */
+  private bulletPool: InstancedMeshPool | null = null;
+  private enemyNormalPool: InstancedMeshPool | null = null;
+  private itemPool: InstancedMeshPool | null = null;
+
+  /** Three.js依存を注入（DI） */
+  initThree(
+    meshFactory: ProceduralMeshFactory,
+    sceneManager: SceneManager,
+    bulletPool: InstancedMeshPool,
+    enemyNormalPool: InstancedMeshPool,
+    itemPool: InstancedMeshPool,
+  ): void {
+    this.meshFactory = meshFactory;
+    this.sceneManager = sceneManager;
+    this.bulletPool = bulletPool;
+    this.enemyNormalPool = enemyNormalPool;
+    this.itemPool = itemPool;
+  }
 
   /** プレイヤーエンティティを生成（E-01） */
   createPlayer(world: World): EntityId {
@@ -31,11 +56,18 @@ export class EntityFactory {
     const cfg = GAME_CONFIG.player;
 
     world.addComponent(id, new PositionComponent(cfg.startX, cfg.startY));
-    world.addComponent(id, new SpriteComponent('player', 192, 192, '#00FF00'));
     world.addComponent(id, new HealthComponent(cfg.baseHp, cfg.baseHp));
     world.addComponent(id, new ColliderComponent(cfg.colliderRadius, ColliderType.PLAYER));
     world.addComponent(id, new PlayerComponent(cfg.baseSpeed));
     world.addComponent(id, new BuffComponent());
+
+    // MeshComponent（Three.js）
+    const object3D = this.meshFactory?.createPlayer(WeaponType.FORWARD) ?? null;
+    if (object3D) this.sceneManager?.addEntity(object3D);
+    world.addComponent(id, new MeshComponent('player', 192, 192, {
+      object3D,
+      baseColor: '#1565C0',
+    }));
 
     // 単一武器: FORWARD（BR-W02）
     const weaponCfg = WEAPON_CONFIG[WeaponType.FORWARD];
@@ -44,7 +76,7 @@ export class EntityFactory {
     return id;
   }
 
-  /** 敵エンティティを生成（E-02, BR-HC04: ヒット数スケーリング適用） */
+  /** 敵エンティティを生成（E-02） */
   createEnemy(world: World, type: EnemyType, position: Position, hitCountMultiplier: number = 1.0): EntityId {
     const id = world.createEntity();
     const cfg = ENEMY_CONFIG[type];
@@ -67,12 +99,30 @@ export class EntityFactory {
     const spriteType = spriteMap[type] ?? 'enemy_normal';
     const size = type === EnemyType.BOSS ? 280 : type === EnemyType.TANK ? 200 : 150;
     const colors: Record<string, string> = {
-      [EnemyType.NORMAL]: '#FF4444',
-      [EnemyType.FAST]: '#FFAA00',
-      [EnemyType.TANK]: '#884488',
-      [EnemyType.BOSS]: '#FF0000',
+      [EnemyType.NORMAL]: '#F44336',
+      [EnemyType.FAST]: '#FF9800',
+      [EnemyType.TANK]: '#7B1FA2',
+      [EnemyType.BOSS]: '#B71C1C',
     };
-    world.addComponent(id, new SpriteComponent(spriteType, size, size, colors[type] ?? '#FF4444'));
+    const baseColor = colors[type] ?? '#F44336';
+
+    // 全敵タイプ: 個別Mesh（詳細キャラクターモデル）
+    {
+      let object3D = null;
+      if (this.meshFactory) {
+        switch (type) {
+          case EnemyType.NORMAL: object3D = this.meshFactory.createEnemyNormal(); break;
+          case EnemyType.FAST: object3D = this.meshFactory.createEnemyFast(); break;
+          case EnemyType.TANK: object3D = this.meshFactory.createEnemyTank(); break;
+          case EnemyType.BOSS: object3D = this.meshFactory.createEnemyBoss(); break;
+        }
+        if (object3D) this.sceneManager?.addEntity(object3D);
+      }
+      world.addComponent(id, new MeshComponent(spriteType, size, size, {
+        object3D,
+        baseColor,
+      }));
+    }
 
     return id;
   }
@@ -92,12 +142,25 @@ export class EntityFactory {
     world.addComponent(id, new VelocityComponent(velocity.vx, velocity.vy));
     world.addComponent(id, new BulletComponent(hitCountReduction, piercing, ownerId));
     world.addComponent(id, new ColliderComponent(GAME_CONFIG.bullet.colliderRadius, ColliderType.BULLET));
-    world.addComponent(id, new SpriteComponent('bullet', 16, 16, '#FFFF00'));
+
+    // InstancedMesh
+    if (this.bulletPool) {
+      const instanceId = this.bulletPool.acquire(id);
+      world.addComponent(id, new MeshComponent('bullet', 16, 16, {
+        instancePool: this.bulletPool,
+        instanceId,
+        baseColor: '#FFEB3B',
+      }));
+    } else {
+      world.addComponent(id, new MeshComponent('bullet', 16, 16, {
+        baseColor: '#FFEB3B',
+      }));
+    }
 
     return id;
   }
 
-  /** アイテムドロップエンティティを生成（E-04: 画面上部から降下、射撃で破壊） */
+  /** アイテムドロップエンティティを生成（E-04） */
   createItemDrop(world: World, position: Position, itemType: ItemType): EntityId {
     const id = world.createEntity();
     const cfg = GAME_CONFIG.itemSpawn;
@@ -109,7 +172,20 @@ export class EntityFactory {
     world.addComponent(id, new ColliderComponent(cfg.colliderRadius, ColliderType.ITEM));
 
     const color = ITEM_COLORS[itemType] ?? '#FFFFFF';
-    world.addComponent(id, new SpriteComponent('item_drop', cfg.spriteSize, cfg.spriteSize, color));
+
+    // InstancedMesh
+    if (this.itemPool) {
+      const instanceId = this.itemPool.acquire(id);
+      world.addComponent(id, new MeshComponent('item_drop', cfg.spriteSize, cfg.spriteSize, {
+        instancePool: this.itemPool,
+        instanceId,
+        baseColor: color,
+      }));
+    } else {
+      world.addComponent(id, new MeshComponent('item_drop', cfg.spriteSize, cfg.spriteSize, {
+        baseColor: color,
+      }));
+    }
 
     return id;
   }
@@ -118,9 +194,15 @@ export class EntityFactory {
   createAlly(world: World, playerEntity: EntityId, allyIndex: number, elapsedTime: number): EntityId {
     const id = world.createEntity();
 
-    world.addComponent(id, new PositionComponent(0, 0)); // AllyFollowSystemで更新
+    world.addComponent(id, new PositionComponent(0, 0));
     world.addComponent(id, new AllyComponent(allyIndex, playerEntity, elapsedTime));
-    world.addComponent(id, new SpriteComponent('ally', 150, 150, '#00CC00'));
+
+    const object3D = this.meshFactory?.createAlly() ?? null;
+    if (object3D) this.sceneManager?.addEntity(object3D);
+    world.addComponent(id, new MeshComponent('ally', 150, 150, {
+      object3D,
+      baseColor: '#2E7D32',
+    }));
 
     // 仲間の武器: FORWARD固定（BR-AL03）
     const weaponCfg = WEAPON_CONFIG[WeaponType.FORWARD];
@@ -173,7 +255,9 @@ export class EntityFactory {
     const frameInterval = duration / totalFrames;
     world.addComponent(id, new PositionComponent(position.x, position.y));
     world.addComponent(id, new EffectComponent(type, duration, totalFrames, frameInterval));
-    world.addComponent(id, new SpriteComponent(spriteType, size, size, effectColor));
+    world.addComponent(id, new MeshComponent(spriteType, size, size, {
+      baseColor: effectColor,
+    }));
 
     return id;
   }

@@ -88,10 +88,10 @@ interface BackgroundTile {
 |---|---|---|---|
 | 'player' | Group | null | 個別メッシュ、武器含む |
 | 'ally' | Group | null | 最大10体 |
-| 'enemy_normal' | null | enemyNormalPool | InstancedMesh |
-| 'enemy_fast' | Group | null | 少数のため個別 |
-| 'enemy_tank' | Group | null | 少数のため個別 |
-| 'enemy_boss' | Group | null | 少数のため個別 |
+| 'enemy_normal' | Group | null | 個別メッシュ（詳細キャラモデル優先） |
+| 'enemy_fast' | Group | null | 個別メッシュ |
+| 'enemy_tank' | Group | null | 個別メッシュ |
+| 'enemy_boss' | Group | null | 個別メッシュ |
 | 'bullet' | null | bulletPool | InstancedMesh |
 | 'item_drop' | null | itemPool | InstancedMesh |
 | 'effect_*' | Group | null | EffectManager3D管理 |
@@ -130,40 +130,40 @@ THREE.Scene
 ```typescript
 three: {
   camera: {
-    fov: 60,                                    // 45→60（フラスタムカバー改善）
+    fov: 50,                                    // プレイヤー背後視点に最適化
     near: 0.1,
     far: 100,
-    position: { x: 3.6, y: 12, z: 12 },        // 調整済み
-    lookAt: { x: 3.6, y: 0, z: -6.4 },         // ゲーム領域中央
+    position: { x: 3.6, y: 2.5, z: -13.5 },   // プレイヤー背後・低め
+    lookAt: { x: 3.6, y: 0.5, z: -4 },         // 道路前方を注視
   },
   lighting: {
-    ambientIntensity: 0.6,
-    ambientColor: 0xffffff,
-    directionalIntensity: 0.8,
+    ambientIntensity: 0.7,
+    ambientColor: 0xfff5e6,  // 暖色系アンビエント
+    directionalIntensity: 1.0,
     directionalColor: 0xffffff,
-    directionalPosition: { x: 5, y: 10, z: 5 },
+    directionalPosition: { x: 5, y: 15, z: -5 },
     shadowMapSize: 1024,
   },
   coordinate: {
     scale: 0.01,
   },
   road: {
-    width: 5.0,
-    length: 5.0,           // 1タイル長
-    tileCount: 3,           // タイル数
+    width: 8.0,             // ゲーム領域7.2をカバー
+    length: 6.0,            // 1タイル長
+    tileCount: 4,           // 4枚で前方カバー
     scrollSpeed: 2.0,       // units/sec
-    color: 0x888888,
-    lineColor: 0xffffff,
-    lineWidth: 0.05,
+    color: 0x777777,
+    lineColor: 0xeeeeee,
+    lineWidth: 0.06,
   },
   guardrail: {
-    height: 0.3,
-    postSpacing: 1.0,
-    color: 0xaaaaaa,
+    height: 0.4,
+    postSpacing: 0.8,
+    color: 0xbbbbbb,
   },
   desert: {
     color: 0xd4a574,
-    width: 15.0,            // 道路の外側
+    width: 20.0,            // 道路の外側
   },
   quality: {
     fpsThresholdForDowngrade: 25,

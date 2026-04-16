@@ -5,11 +5,15 @@ import { ControlType } from '../types';
 /** localStorageキー */
 export const SETTINGS_STORAGE_KEY = 'fv-game-settings';
 
+/** 品質設定タイプ */
+export type QualityPreference = 'auto' | 'high' | 'low';
+
 /** デフォルト設定値（BR-ST02） */
 export const DEFAULT_SETTINGS = {
   bgmVolume: 70,
   seVolume: 80,
   controlType: ControlType.BOTH,
+  quality: 'auto' as QualityPreference,
 } as const;
 
 /** 操作タイプ選択肢 */

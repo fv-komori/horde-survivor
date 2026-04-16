@@ -1,13 +1,13 @@
 import { GameService } from './game/GameService';
 
-/** エントリポイント */
+/** エントリポイント（Iteration 3: Three.js対応） */
 async function main(): Promise<void> {
-  const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
-  if (!canvas) {
-    throw new Error('Canvas element #game-canvas not found');
+  const container = document.getElementById('game-container');
+  if (!container) {
+    throw new Error('Container element #game-container not found');
   }
 
-  const game = new GameService(canvas);
+  const game = new GameService(container);
   await game.init();
   game.start();
 }

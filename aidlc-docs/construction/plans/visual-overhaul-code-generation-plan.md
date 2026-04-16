@@ -18,33 +18,33 @@
 ## 実装ステップ
 
 ### Phase 1: 基盤セットアップ
-- [ ] Step 1: Three.js依存パッケージのインストール
+- [x] Step 1: Three.js依存パッケージのインストール
   - `npm install three` / `npm install -D @types/three`
-- [ ] Step 2: MeshComponent作成（SpriteComponent置換）
+- [x] Step 2: MeshComponent作成（SpriteComponent置換）
   - 新規: `src/components/MeshComponent.ts`
   - 変更: `src/types/index.ts` — MeshComponent関連の型追加
-- [ ] Step 3: CoordinateMapper作成
+- [x] Step 3: CoordinateMapper作成
   - 新規: `src/utils/CoordinateMapper.ts`
-- [ ] Step 4: gameConfig拡張（three設定追加）
+- [x] Step 4: gameConfig拡張（three設定追加）
   - 変更: `src/config/gameConfig.ts` — three セクション追加
 
 ### Phase 2: メッシュ生成 & シーン管理
-- [ ] Step 5: ProceduralMeshFactory作成
+- [x] Step 5: ProceduralMeshFactory作成
   - 新規: `src/factories/ProceduralMeshFactory.ts`
   - Player/Ally/Enemy(4タイプ)/Bullet/Item/Weapon(3タイプ)/背景メッシュ生成
   - マテリアルキャッシュ管理
-- [ ] Step 6: InstancedMeshPool作成
+- [x] Step 6: InstancedMeshPool作成
   - 新規: `src/rendering/InstancedMeshPool.ts`
   - acquire/release/updateMatrix/setColor/rebuild
-- [ ] Step 7: SceneManager作成
+- [x] Step 7: SceneManager作成
   - 新規: `src/rendering/SceneManager.ts`
   - Scene/Light管理、背景タイル循環配置、エンティティObject3D追加/除去/dispose
 
 ### Phase 3: レンダリングシステム
-- [ ] Step 8: QualityManager作成
+- [x] Step 8: QualityManager作成
   - 新規: `src/rendering/QualityManager.ts`
   - FPS計測(60フレーム移動平均)、品質ティア自動切替(sustainDuration付き)、SettingsManager連携
-- [ ] Step 9: ThreeJSRenderSystem作成
+- [x] Step 9: ThreeJSRenderSystem作成
   - 新規: `src/systems/ThreeJSRenderSystem.ts`
   - PerspectiveCamera(FOV60,固定位置)、WebGLRenderer、毎フレーム位置同期
   - InstancedMesh対象/個別Meshの分岐、背景スクロール更新
@@ -52,11 +52,11 @@
   - リサイズハンドリング
 
 ### Phase 4: エフェクト & HP表示
-- [ ] Step 10: EffectManager3D作成
+- [x] Step 10: EffectManager3D作成
   - 新規: `src/rendering/EffectManager3D.ts`
   - マズルフラッシュ(PointLight+パーティクル)、敵撃破パーティクル、バフ光柱、アイテム回転
   - 品質ティア別パーティクル数
-- [ ] Step 11: HTMLOverlayManager作成
+- [x] Step 11: HTMLOverlayManager作成
   - 新規: `src/ui/HTMLOverlayManager.ts`
   - HUD(HP,バフ,スコア,ウェーブ,武器)、タイトル画面、ゲームオーバー画面
   - HP表示(3D→スクリーン座標投影)、ダメージ数値フロートアップ(DOMプール)
@@ -64,31 +64,31 @@
   - innerHTML禁止、textContent/DOM API使用
 
 ### Phase 5: 既存コード改修
-- [ ] Step 12: EntityFactory改修
+- [x] Step 12: EntityFactory改修
   - 変更: `src/factories/EntityFactory.ts`
   - SpriteComponent→MeshComponent、ProceduralMeshFactory/SceneManager/InstancedMeshPool DI
-- [ ] Step 13: WeaponSystem / AllyFollowSystem改修
+- [x] Step 13: WeaponSystem / AllyFollowSystem改修
   - 変更: `src/systems/WeaponSystem.ts` — SpriteComponent.width→MeshComponent.logicalWidth
   - 変更: `src/systems/AllyFollowSystem.ts` — 同上
-- [ ] Step 14: EffectSystem改修
-  - 変更: `src/systems/EffectSystem.ts` — EffectManager3D経由の3Dエフェクト生成
-- [ ] Step 15: InputSystem / InputHandler改修
-  - 変更: `src/systems/InputSystem.ts` — renderer.domElement参照
-  - 変更: `src/input/InputHandler.ts` — canvas参照先変更
-- [ ] Step 16: CleanupSystem改修 + World拡張
+- [x] Step 14: EffectSystem改修
+  - EffectSystemはロジックのみ（アニメーションフレーム管理）なので3D描画はEffectManager3Dが担当。変更不要。
+- [x] Step 15: InputSystem / InputHandler改修
+  - InputHandler: canvas参照先はGameService統合時にrenderer.domElementを渡す（コード自体は変更不要、BL-10）
+  - InputSystem: 変更不要（入力ロジックは2D論理座標のまま）
+- [x] Step 16: CleanupSystem改修 + World拡張
   - 変更: `src/systems/CleanupSystem.ts` — MeshComponent保有エンティティのdispose追加
   - 変更: `src/ecs/World.ts` — destroyEntity時のdisposeフック（onDestroyCallback）
 
 ### Phase 6: GameService統合 & エントリポイント
-- [ ] Step 17: GameService統合
+- [x] Step 17: GameService統合
   - 変更: `src/game/GameService.ts`
   - Three.js初期化フロー、WebGL2チェック、System登録変更(RenderSystem→ThreeJSRenderSystem)
   - UIレンダリングをHTMLOverlayManager経由に変更
   - 旧Canvas 2D UIクラス(HUD/TitleScreen/GameOverScreen)の参照除去
-- [ ] Step 18: index.html & CSS更新
+- [x] Step 18: index.html & CSS更新
   - 変更: `index.html` — Three.js用DOM構造、HTMLオーバーレイコンテナ
   - 新規: `src/styles/overlay.css` — HUD/ダメージ/タイトル/ゲームオーバーのCSS
-- [ ] Step 19: 旧Canvas 2D描画コード廃止
+- [x] Step 19: 旧Canvas 2D描画コード廃止
   - 削除: `src/systems/RenderSystem.ts`
   - 削除: `src/ui/HUD.ts`
   - 削除: `src/ui/TitleScreen.ts`
@@ -96,17 +96,18 @@
   - 変更: `src/components/SpriteComponent.ts` → MeshComponentに置換（ファイル削除）
 
 ### Phase 7: SettingsManager拡張 & 品質設定
-- [ ] Step 20: SettingsManager拡張
-  - 変更: `src/game/SettingsManager.ts` — 品質設定(high/low)の永続化追加
-  - 変更: `src/ui/SettingsScreen.ts` — 品質切替UIの追加
+- [x] Step 20: SettingsManager拡張
+  - 変更: `src/game/SettingsManager.ts` — 品質設定(auto/high/low)の永続化追加
+  - 変更: `src/config/settingsConfig.ts` — QualityPreference型・デフォルト値追加
+  - SettingsScreen品質UI: ビルド検証後に追加判断（既存Canvas描画のため工数大）
 
 ### Phase 8: ビルド検証
-- [ ] Step 21: TypeScriptコンパイル & ESLint修正
-  - `npx tsc --noEmit` でコンパイルエラー確認・修正
-  - `npm run lint` でESLintエラー修正
-- [ ] Step 22: Viteビルド確認
-  - `npm run build` でビルド成功確認
-  - バンドルサイズ確認（gzip後1MB以下目標）
+- [x] Step 21: TypeScriptコンパイル & ESLint修正
+  - `npx tsc --noEmit` → エラー3件修正 → PASS
+  - `npm run lint` → 未使用import修正 → PASS（残警告はBGMGenerator既存）
+- [x] Step 22: Viteビルド確認
+  - `npm run build` → 成功
+  - バンドルサイズ: 593KB (raw) / 152.69KB (gzip) — NFR-01目標1MB以下 ✓
 
 ## ファイル一覧サマリー
 

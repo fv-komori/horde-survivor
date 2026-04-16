@@ -113,4 +113,62 @@ export const GAME_CONFIG = deepFreeze({
 
   /** ログ接頭辞（NFR-08） */
   logPrefix: '[FV-GAME]',
+
+  /** Three.js 3Dレンダリング設定（Iteration 3: ビジュアルリニューアル） */
+  three: {
+    camera: {
+      fov: 50,
+      near: 0.1,
+      far: 100,
+      position: { x: 3.6, y: 2.5, z: -13.5 },  // プレイヤー背後・低め
+      lookAt: { x: 3.6, y: 0.5, z: -4 },         // 道路前方を注視
+    },
+    lighting: {
+      ambientIntensity: 0.7,
+      ambientColor: 0xfff5e6,    // 暖色系アンビエント
+      directionalIntensity: 1.0,
+      directionalColor: 0xffffff,
+      directionalPosition: { x: 5, y: 15, z: -5 },
+      shadowMapSize: 1024,
+    },
+    coordinate: {
+      scale: 0.01,
+    },
+    road: {
+      width: 8.0,        // 幅広（ゲーム領域7.2をカバー）
+      length: 6.0,        // タイル長
+      tileCount: 4,        // 4枚で前方をカバー
+      scrollSpeed: 2.0,
+      color: 0x777777,    // やや暗めのグレー
+      lineColor: 0xeeeeee,
+      lineWidth: 0.06,
+    },
+    guardrail: {
+      height: 0.4,
+      postSpacing: 0.8,
+      color: 0xbbbbbb,
+    },
+    desert: {
+      color: 0xd4a574,
+      width: 20.0,
+    },
+    quality: {
+      fpsThresholdForDowngrade: 25,
+      fpsThresholdForUpgrade: 55,
+      fpsSampleWindow: 60,
+      switchCooldownMs: 5000,
+      sustainDurationMs: 5000,
+    },
+    entityHeight: {
+      player: 0.4,
+      ally: 0.35,
+      enemyNormal: 0.35,
+      enemyFast: 0.3,
+      enemyTank: 0.5,
+      enemyBoss: 0.7,
+      bullet: 0.5,
+      itemBase: 0.3,
+      itemBobAmplitude: 0.1,
+    },
+  },
 } as const);
