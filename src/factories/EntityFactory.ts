@@ -76,6 +76,15 @@ const ENEMY_VARIANT: Record<EnemyType, { key: CharacterKey; scale: number; tint:
 };
 
 /**
+ * カメラは -Z 側から +Z 方向を見る（camera (3.6,2.5,-13.5) → lookAt (3.6,0.5,-4)）。
+ * Toon Shooter Kit キャラの GLTF default forward は +Z。
+ * プレイヤー/仲間は +Z（＝奥の敵方向）を向かせる（rotationY = 0）。
+ * 敵は -Z（＝手前のプレイヤー方向）を向かせるため 180° 回転させる。
+ */
+const PLAYER_FACING_Y = 0;
+const ENEMY_FACING_Y = Math.PI;
+
+/**
  * Toon Shooter Game Kit のキャラ GLTF には複数の武器メッシュ（AK / Pistol / Shotgun / Knife 等）が
  * あらかじめ各 bone に attach されている。Iter5 では GunKey で指定した武器のみを見せたいため、
  * 不要な兄弟武器メッシュを非表示化する（削除は skeleton 参照を壊し得るため visible=false に留める）。
@@ -83,6 +92,7 @@ const ENEMY_VARIANT: Record<EnemyType, { key: CharacterKey; scale: number; tint:
 const KNOWN_GUN_NAMES = new Set([
   'AK', 'GrenadeLauncher', 'Knife_1', 'Knife_2', 'Pistol', 'Revolver',
   'Revolver_Small', 'RocketLauncher', 'ShortCannon', 'Shotgun', 'Shovel', 'SMG',
+  'Sniper', 'Sniper_2',
 ]);
 
 /**
@@ -214,11 +224,12 @@ export class EntityFactory {
     id: EntityId,
     charKey: CharacterKey,
     gunKey: GunKey | null,
-    options: { scale?: number; tint?: number | null } = {},
+    options: { scale?: number; tint?: number | null; rotationY?: number } = {},
   ): { root: Group; mixer: AnimationMixer; anims: Map<string, AnimationClip>; outlineMesh: Group } {
     const { root, mixer, anims } = this.cloneCharacter(charKey);
     const variantScale = options.scale ?? 1.0;
     root.scale.setScalar(CHAR_BASE_SCALE * variantScale);
+    if (options.rotationY !== undefined) root.rotation.y = options.rotationY;
     if (options.tint != null) this.applyTint(root, options.tint);
     this.hidePreAttachedGuns(root);
     const outlineMesh = this.createOutlineMesh(root);
@@ -250,7 +261,9 @@ export class EntityFactory {
 
     let mesh: MeshComponent;
     if (this.assetManager?.hasCharacter('SOLDIER')) {
-      const { root, mixer, anims, outlineMesh } = this.buildCharacter(world, id, 'SOLDIER', 'AK');
+      const { root, mixer, anims, outlineMesh } = this.buildCharacter(
+        world, id, 'SOLDIER', 'AK', { rotationY: PLAYER_FACING_Y },
+      );
       mesh = new MeshComponent('player', 192, 192, {
         object3D: root, mixer, animations: anims, outlineMesh, baseColor: '#1565C0',
       });
@@ -300,7 +313,7 @@ export class EntityFactory {
     if (this.assetManager?.hasCharacter(variant.key)) {
       const { root, mixer, anims, outlineMesh } = this.buildCharacter(
         world, id, variant.key, 'AK',
-        { scale: variant.scale, tint: variant.tint },
+        { scale: variant.scale, tint: variant.tint, rotationY: ENEMY_FACING_Y },
       );
       mesh = new MeshComponent(spriteType, size, size, {
         object3D: root, mixer, animations: anims, outlineMesh, baseColor,
@@ -375,7 +388,8 @@ export class EntityFactory {
     let mesh: MeshComponent;
     if (this.assetManager?.hasCharacter('SOLDIER')) {
       const { root, mixer, anims, outlineMesh } = this.buildCharacter(
-        world, id, 'SOLDIER', 'AK', { tint: 0x2E7D32 }, // 味方は緑tint
+        world, id, 'SOLDIER', 'AK',
+        { tint: 0x2E7D32, rotationY: PLAYER_FACING_Y }, // 味方は緑tint、プレイヤーと同じ前向き
       );
       mesh = new MeshComponent('ally', 150, 150, {
         object3D: root, mixer, animations: anims, outlineMesh, baseColor: '#2E7D32',
