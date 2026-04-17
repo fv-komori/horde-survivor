@@ -402,6 +402,11 @@ export class HTMLOverlayManager {
     if (this.titleContainer) this.titleContainer.style.display = 'none';
   }
 
+  /** Iter5: タイトル画面の mini-renderer 埋め込み用コンテナ取得（GameStartScreen が使用） */
+  getTitleContainer(): HTMLElement | null {
+    return this.titleContainer;
+  }
+
   // ================================================================
   // ゲームオーバー画面
   // ================================================================

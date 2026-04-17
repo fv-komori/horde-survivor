@@ -106,7 +106,7 @@
 - [x] Build and Test - MVP COMPLETED [build-and-test-summary-v5.md]（tsc/ESLint clean, 86 tests PASS, Playwright 動作確認済み、737KB/gzip192KB）
 - 残作業（Iter5 完了に向けて）:
   - [x] 環境 GLB（Barrier_Single / Crate / SackTrench / Fence / Tree_1 / Fence_Long）を SceneManager に配置（a9bbf55）
-  - [ ] GameStartScreen mini-renderer（キャラプレビュー）
+  - [x] GameStartScreen mini-renderer（Soldier GLTF + Idle + 回転プレビュー、Start 押下で detach）
   - [x] MetricsProbe（heap5min 差分、Chrome 限定、S-SVC-08 / NFR-07）
   - [x] webglcontextlost/restored: AssetManager.restoreTextures() 追加し ThreeJSRenderSystem.handleContextRestored から呼び出し、Playwright lose→restore で復帰確認
   - [ ] AssetManager 用 LoaderScreen（任意）

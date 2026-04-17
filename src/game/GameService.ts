@@ -43,6 +43,7 @@ import { AudioManager } from '../audio/AudioManager';
 import { SettingsManager } from './SettingsManager';
 import { SettingsScreen } from '../ui/SettingsScreen';
 import { MetricsProbe } from '../services/MetricsProbe';
+import { GameStartScreen } from '../ui/GameStartScreen';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { GameState, WeaponType } from '../types';
 import type { EntityId } from '../ecs/Entity';
@@ -69,6 +70,7 @@ export class GameService {
   private settingsManager!: SettingsManager;
   private settingsScreen!: SettingsScreen;
   private metricsProbe: MetricsProbe;
+  private gameStartScreen!: GameStartScreen;
 
   // Three.js
   private sceneManager!: SceneManager;
@@ -162,6 +164,9 @@ export class GameService {
     // SettingsManager & SettingsScreen（Unit-02互換）
     this.settingsManager = new SettingsManager(this.audioManager, this.inputHandler);
     this.settingsScreen = new SettingsScreen(this.settingsManager, this.inputHandler, this.overlayCanvas);
+
+    // Iter5 / S-SVC-07: タイトル画面キャラプレビュー mini-renderer
+    this.gameStartScreen = new GameStartScreen(this.assetManager);
 
     // EntityFactoryにThree.js依存を注入（Iter5: AssetManager 渡し、enemyNormalPool 不要）
     this.entityFactory.initThree(
@@ -392,6 +397,8 @@ export class GameService {
     this.audioManager.playBGM('playing');
 
     this.overlayManager.hideTitle();
+    // Iter5 / S-SVC-07: mini-renderer を停止＋dispose（メイン WebGL コンテキストと競合させない）
+    this.gameStartScreen.detach();
     this.overlayManager.showHUD();
     this.titleUIShown = false;
     this.gameOverUIShown = false;
@@ -443,6 +450,9 @@ export class GameService {
               this.showSettingsScreen();
             },
           );
+          // Iter5 / S-SVC-07: タイトルコンテナ生成後に mini-renderer を attach
+          const titleEl = this.overlayManager.getTitleContainer();
+          if (titleEl) this.gameStartScreen.attach(titleEl);
           this.titleUIShown = true;
         }
         // Three.js背景レンダリング（Iter4: PostFX経由）
