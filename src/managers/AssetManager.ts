@@ -68,9 +68,7 @@ export class AssetManager {
         }
       } catch (err) {
         // NFR-08: 単一アセット失敗はログしてスキップ。致命エラーなら呼び出し側で判定
-        if (import.meta.env.DEV) {
-          console.error(`${LOG_PREFIX}[ERROR][AssetManager] failed to load ${e.url}`, err);
-        }
+        console.error(`${LOG_PREFIX}[ERROR][AssetManager] failed to load ${e.url}`, err);
       }
       loadedCount += 1;
       onProgress?.(loadedCount, total, `${e.kind}: ${e.key}`);

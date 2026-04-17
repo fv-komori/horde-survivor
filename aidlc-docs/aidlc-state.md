@@ -110,5 +110,5 @@
   - [x] MetricsProbe（heap5min 差分、Chrome 限定、S-SVC-08 / NFR-07）
   - [x] webglcontextlost/restored: AssetManager.restoreTextures() 追加し ThreeJSRenderSystem.handleContextRestored から呼び出し、Playwright lose→restore で復帰確認
   - [ ] AssetManager 用 LoaderScreen（任意）
-  - [ ] 新規テスト（AssetManager / AnimationSystem / AnimationStateComponent / EntityFactory.gltf）
+  - [x] 新規テスト（AssetManager / AnimationSystem / AnimationStateComponent）10 tests 追加、98 tests PASS（EntityFactory.gltf は initThree 依存のため後続対応）
   - [ ] 最終 Playwright 目視確認（アニメ再生、敵撃破、仲間生成、ダメージ演出）
