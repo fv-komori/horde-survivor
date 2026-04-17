@@ -317,9 +317,10 @@ HealthSystem                 AnimationSystem                 CleanupSystem      
 
 | 項目 | 対応タイミング | 備考 |
 |---|---|---|
-| bone名3モデル実測 | Construction Day 1 | BoneAttachmentConfig確定 |
-| 反転ハルSkinnedMesh PoC | Construction Day 1 | 頂点シェーダ膨張方式で検証 |
-| payload実測（Character 2.3MB） | Construction Day 1 | NFR-06上限の見直し要否判断 |
-| ProceduralMeshFactory呼び出し元grep最終確認 | Construction Day 1 | 棚卸し漏れ防止 |
+| bone名3モデル実測 | Construction Day 1 | **完了**: 3キャラ共通 `LowerArm.R` 確定、BoneAttachmentConfig は1パターン |
+| 反転ハルSkinnedMesh PoC | Construction Day 1 | **完了**: geometry clone + skeleton 共有 bind 成立、`outlineThickness=0.02` 基準値、Run/Walk/Wave/Death 等7アニメで破綻なし |
+| payload実測（Character 2.3MB） | Construction Day 1 | **完了**: 全12ファイル 3MB上限内、最大 Character_Soldier.gltf 2.23 MiB |
+| ProceduralMeshFactory呼び出し元grep最終確認 | Construction Day 1 | **完了**: EffectManager3D 漏れ追加、Option B 移設方針確定 |
+| GLTF→GLB 変換（data: URL 排除） | Construction Day 2 | dev CSP で暫定 `connect-src 'self' data:` 許容中。本番 CSP 最小化（NFR-09）のため `.glb` 単一バイナリへ変換予定 |
 | テスト削除件数の確定 | Construction 早期 | NFR-05件数合わせ |
 | renderer.info triangle/drawCall実測 | Construction PoC段階 | NFR-01追記 |

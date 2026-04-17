@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>Iter5 PoC - Inverted Hull Outline (SkinnedMesh)</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #2a2a2a; }
+    #info {
+      position: absolute; top: 10px; left: 10px; padding: 8px 12px;
+      background: rgba(0,0,0,0.6); color: #fff; font-family: monospace;
+      font-size: 13px; line-height: 1.6; pointer-events: none; z-index: 10;
+    }
+    #info kbd { background: #444; padding: 1px 5px; border-radius: 3px; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <div id="info">
+    <div><b>Iter5 PoC: Inverted Hull Outline on SkinnedMesh</b></div>
+    <div id="status">loading...</div>
+    <div><kbd>O</kbd> outline on/off &nbsp; <kbd>Space</kbd> next anim &nbsp; <kbd>+/-</kbd> thickness</div>
+  </div>
+  <script type="module" src="/src/poc/outline-poc.ts"></script>
+</body>
+</html>

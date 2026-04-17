@@ -6,7 +6,7 @@
 - **ECS・System骨格は維持**: AnimationSystem と AnimationStateComponent を追加するのみ、既存Systemsは軽微改修
 - **非同期起動フロー**: AssetManager プリロード完了を保証してから EntityFactory/World 生成（DI 制約）
 - **dispose 責任の明確化**: AssetManager保持テンプレートは不変、entity clone は CleanupSystem 責任
-- **退避策の事前定義**: SkinnedMesh反転ハルのskinning追随は Construction初日にPoC、不成立時は Outline OFFでリリース可
+- **退避策の事前定義**: SkinnedMesh反転ハルのskinning追随は Construction初日PoCで成立確認済（`src/poc/outline-poc.ts` + `.playwright-screenshots/poc-outline-*`、Run/Walk/Wave/Death 等7アニメで追随破綻なし）
 
 ## アーキテクチャ全体図
 

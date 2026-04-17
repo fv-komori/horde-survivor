@@ -699,7 +699,7 @@ void main() {
 ```
 
 - Three.js の `skinning_pars_vertex` / `skinning_vertex` を include することで `SkeletonUtils.clone` した skeleton と一貫したボーン変形が適用される
-- Construction Day 1 のスパイクで成立確認必須
+- Construction Day 1 PoC 成立確認済（`src/poc/outline-poc.ts`、`.playwright-screenshots/poc-outline-*` 参照）。Run / Walk / Wave / Death 等7アニメで追随破綻なし、`outlineThickness=0.02` 基準値（Death/倒伏姿勢は 0.04 の方が視認性◎）
 
 ---
 
