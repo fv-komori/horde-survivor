@@ -4,6 +4,7 @@ import type { EntityId } from '../ecs/Entity';
 import { BulletComponent } from '../components/BulletComponent';
 import { EnemyComponent } from '../components/EnemyComponent';
 import { PositionComponent } from '../components/PositionComponent';
+import { VelocityComponent } from '../components/VelocityComponent';
 import { ColliderComponent } from '../components/ColliderComponent';
 import { HitCountComponent } from '../components/HitCountComponent';
 import { ItemDropComponent } from '../components/ItemDropComponent';
@@ -12,7 +13,9 @@ import { BuffComponent } from '../components/BuffComponent';
 import { WeaponComponent } from '../components/WeaponComponent';
 import { EntityFactory } from '../factories/EntityFactory';
 import { AllyConversionSystem } from './AllyConversionSystem';
+import { AnimationSystem } from './AnimationSystem';
 import { ScoreService } from '../game/ScoreService';
+import { AnimationStateComponent } from '../components/AnimationStateComponent';
 import type { AudioManager } from '../audio/AudioManager';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { WEAPON_CONFIG } from '../config/weaponConfig';
@@ -29,17 +32,20 @@ export class CollisionSystem implements System {
   private scoreService: ScoreService;
   private allyConversionSystem: AllyConversionSystem;
   private audioManager: AudioManager;
+  private animationSystem: AnimationSystem | null;
 
   constructor(
     entityFactory: EntityFactory,
     scoreService: ScoreService,
     allyConversionSystem: AllyConversionSystem,
     audioManager: AudioManager,
+    animationSystem: AnimationSystem | null = null,
   ) {
     this.entityFactory = entityFactory;
     this.scoreService = scoreService;
     this.allyConversionSystem = allyConversionSystem;
     this.audioManager = audioManager;
+    this.animationSystem = animationSystem;
   }
 
   update(world: World, _dt: number): void {
@@ -69,6 +75,9 @@ export class CollisionSystem implements System {
       let bulletDestroyed = false;
       for (const enemyId of enemyIds) {
         if (defeatedSet.has(enemyId)) continue;
+        // Iter5: 既に Death anim 再生中の敵は当たり判定から除外
+        const enemyAnim = world.getComponent(enemyId, AnimationStateComponent);
+        if (enemyAnim?.current === 'Death') continue;
         if (bullet.isPiercing && bullet.hitEntities.has(enemyId)) continue;
 
         const ePos = world.getComponent(enemyId, PositionComponent)!;
@@ -82,6 +91,9 @@ export class CollisionSystem implements System {
           if (hitCount.currentHits <= 0) {
             defeatedEnemies.push(enemyId);
             defeatedSet.add(enemyId);
+          } else {
+            // Iter5: 被弾 HitReact ワンショット
+            this.animationSystem?.playHitReact(world, enemyId);
           }
 
           if (bullet.isPiercing) {
@@ -151,8 +163,16 @@ export class CollisionSystem implements System {
       // 撃破エフェクト
       this.entityFactory.createEffect(world, EffectType.ENEMY_DESTROY, position);
 
-      // 敵エンティティ破棄
-      world.destroyEntity(enemyId);
+      // Iter5: AnimationStateComponent を持つ敵は Death anim を再生し、
+      //        deathComplete になるまで破棄を CleanupSystem に委ねる
+      const hasAnim = world.getComponent(enemyId, AnimationStateComponent) != null;
+      if (hasAnim && this.animationSystem) {
+        this.animationSystem.playDeath(world, enemyId);
+        const vel = world.getComponent(enemyId, VelocityComponent);
+        if (vel) { vel.vx = 0; vel.vy = 0; }
+      } else {
+        world.destroyEntity(enemyId);
+      }
     }
 
     // 破壊キュー消費（アイテム）— バフ/武器効果を適用

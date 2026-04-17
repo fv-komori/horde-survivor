@@ -5,6 +5,8 @@ import { ItemDropComponent } from '../components/ItemDropComponent';
 import { PositionComponent } from '../components/PositionComponent';
 import { HealthComponent } from '../components/HealthComponent';
 import { PlayerComponent } from '../components/PlayerComponent';
+import { AnimationStateComponent } from '../components/AnimationStateComponent';
+import type { AnimationSystem } from './AnimationSystem';
 import type { AudioManager } from '../audio/AudioManager';
 import { GAME_CONFIG } from '../config/gameConfig';
 
@@ -16,9 +18,11 @@ import { GAME_CONFIG } from '../config/gameConfig';
 export class DefenseLineSystem implements System {
   readonly priority = 6;
   private audioManager: AudioManager;
+  private animationSystem: AnimationSystem | null;
 
-  constructor(audioManager: AudioManager) {
+  constructor(audioManager: AudioManager, animationSystem: AnimationSystem | null = null) {
     this.audioManager = audioManager;
+    this.animationSystem = animationSystem;
   }
 
   update(world: World, _dt: number): void {
@@ -32,6 +36,9 @@ export class DefenseLineSystem implements System {
       const playerHealth = world.getComponent(playerId, HealthComponent)!;
 
       for (const enemyId of enemyIds) {
+        // Iter5: 既に Death anim 中の敵はスキップ（二重判定防止）
+        const enemyAnim = world.getComponent(enemyId, AnimationStateComponent);
+        if (enemyAnim?.current === 'Death') continue;
         const ePos = world.getComponent(enemyId, PositionComponent)!;
 
         if (ePos.y >= defenseLineY) {
@@ -39,6 +46,10 @@ export class DefenseLineSystem implements System {
           playerHealth.hp = Math.max(0, playerHealth.hp - enemy.breachDamage);
           // 防衛ライン突破SE（BR-EV01）
           this.audioManager.playSE('defense_breach');
+          // Iter5: プレイヤーが被弾 → HitReact ワンショット
+          if (this.animationSystem && playerHealth.hp > 0) {
+            this.animationSystem.playHitReact(world, playerId);
+          }
           world.destroyEntity(enemyId);
         }
       }

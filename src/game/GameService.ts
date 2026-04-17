@@ -187,9 +187,10 @@ export class GameService {
       this.scoreService,
       this.allyConversionSystem,
       this.audioManager,
+      this.animationSystem,
     ));
-    this.world.addSystem(new DefenseLineSystem(this.audioManager));
-    this.world.addSystem(new HealthSystem(this.gameStateManager));
+    this.world.addSystem(new DefenseLineSystem(this.audioManager, this.animationSystem));
+    this.world.addSystem(new HealthSystem(this.gameStateManager, this.animationSystem));
     this.world.addSystem(new ItemCollectionSystem());
     this.world.addSystem(new BuffSystem());
     this.world.addSystem(this.allyConversionSystem);

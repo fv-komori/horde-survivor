@@ -3,6 +3,8 @@ import type { World } from '../ecs/World';
 import { BulletComponent } from '../components/BulletComponent';
 import { PositionComponent } from '../components/PositionComponent';
 import { MeshComponent } from '../components/MeshComponent';
+import { AnimationStateComponent } from '../components/AnimationStateComponent';
+import { PlayerComponent } from '../components/PlayerComponent';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { Mesh } from 'three';
 import type { SceneManager } from '../rendering/SceneManager';
@@ -26,6 +28,17 @@ export class CleanupSystem implements System {
     const margin = GAME_CONFIG.bullet.screenMargin;
     const w = GAME_CONFIG.screen.logicalWidth;
     const h = GAME_CONFIG.screen.logicalHeight;
+
+    // Iter5: Death anim 完了フラグが立ったエンティティを破棄（プレイヤーは GAME_OVER 状態保持のため除外）
+    const animIds = world.query(AnimationStateComponent);
+    for (const id of animIds) {
+      const anim = world.getComponent(id, AnimationStateComponent)!;
+      if (!anim.deathComplete) continue;
+      // プレイヤーは倒れたポーズをゲームオーバー画面中も保持
+      if (world.getComponent(id, PlayerComponent)) continue;
+      this.cleanupMesh(world, id);
+      world.destroyEntity(id);
+    }
 
     // 弾丸: 画面外（マージン50px外）で消滅（BR-W05）
     const bulletIds = world.query(BulletComponent, PositionComponent);
