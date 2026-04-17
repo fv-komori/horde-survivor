@@ -5,10 +5,8 @@
  *       アニメーション（skinning）に追随するかを検証する。成立すれば設計書 FR-06 / C-06 の
  *       `outlineMesh?` 実装方針が確定。不成立なら Outline OFF でリリース（FR-06 退避策）。
  *
- * 備考: glTF は埋め込み base64 buffer を data:URL で持つため、GLTFLoader 内部 FileLoader が
- *       fetch() で再取得する際に `connect-src 'self'` CSP に阻まれる。
- *       dev だけ CSP を `connect-src 'self' data:` に緩和してPoCを通した。
- *       本番は .glb（単一バイナリ）変換 or 手動 base64 → Blob URL 経由で data: を排除する想定（NFR-09）。
+ * 備考: アセットは .glb（単一バイナリ）化済み。data:URL を使わないため CSP `connect-src 'self'`
+ *       の最小権限（NFR-09）と整合する。glTF→glb 変換は `scripts/convert-gltf-to-glb.mjs` 参照。
  */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -108,9 +106,9 @@ function playClipByIndex(idx: number): void {
 }
 
 const loader = new GLTFLoader();
-setStatus('loading Character_Soldier.gltf...');
+setStatus('loading Character_Soldier.glb...');
 loader.load(
-  '/models/toon-shooter/v1/characters/Character_Soldier.gltf',
+  '/models/toon-shooter/v1/characters/Character_Soldier.glb',
   (gltf) => {
     const root = gltf.scene;
     scene.add(root);

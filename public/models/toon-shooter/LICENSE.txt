@@ -12,15 +12,15 @@ Pack version: Dec 2022
 本LICENSE.txtを保持しています。
 
 Files included in this project:
-  characters/Character_Soldier.gltf
-  characters/Character_Enemy.gltf
-  characters/Character_Hazmat.gltf
-  guns/AK.gltf
-  guns/Pistol.gltf
-  guns/Shotgun.gltf
-  environment/Barrier_Single.gltf
-  environment/Crate.gltf
-  environment/SackTrench.gltf
-  environment/Fence.gltf
-  environment/Fence_Long.gltf
-  environment/Tree_1.gltf
+  characters/Character_Soldier.glb
+  characters/Character_Enemy.glb
+  characters/Character_Hazmat.glb
+  guns/AK.glb
+  guns/Pistol.glb
+  guns/Shotgun.glb
+  environment/Barrier_Single.glb
+  environment/Crate.glb
+  environment/SackTrench.glb
+  environment/Fence.glb
+  environment/Fence_Long.glb
+  environment/Tree_1.glb
