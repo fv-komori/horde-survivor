@@ -81,7 +81,7 @@ private async loadOne(url: string, timeoutMs = 30000): Promise<GltfTemplate> {
 // FIX-K: 暫定閾値（Construction Day 1 で調整）
 const VELOCITY_THRESHOLD_SQ = 0.01;  // 0.1 unit/sec の二乗、これ未満を静止とみなす
 // ヒステリシス案（検討）: Run遷移 velSq>0.01、Idle復帰 velSq<0.005
-const HITREACT_DURATION = 0.4;       // FIX-F: HitReact持続時間、Construction Day 1 で実測調整
+const HITREACT_DURATION = 0.433;     // Day 1 実測: HitReact clip = 0.433秒（3キャラ共通）
 
 class AnimationSystem implements System {
   readonly priority = 50;  // FIX-J: 確定値。Combat/Health/Movement/AI/Spawn/Weapon の後、Cleanup/Render の前

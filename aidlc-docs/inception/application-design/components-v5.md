@@ -435,9 +435,13 @@ setupEnvironment(assetManager: AssetManager):
 
 ## C-12: ProceduralMeshFactory（削除）
 
-- `src/factories/ProceduralMeshFactory.ts` を削除
-- 関連テスト削除: `tests/factories/ProceduralMeshFactory.test.ts` 系（件数は Construction着手時に grep で確定、Q2-NG-1対応）
-- 呼び出し元: SceneManager（環境生成）→ FR-07 GLTF配置に、EntityFactory（キャラ生成）→ GLTF clone に置換
+- `src/factories/ProceduralMeshFactory.ts` を**完全削除**（Day 1 実測で Option B 方針確定）
+- 関連テスト削除: `tests/factories/ProceduralMeshFactory.test.ts`
+- 呼び出し元と移設先（Day 1 grep確定）:
+  - **SceneManager**: `createRoadTile` / `createGuardrail` / `createDesertGround` を内部 private helper に**移設**
+  - **EffectManager3D**: `createMuzzleFlashMesh` を内部 private helper に**移設**（FR-08「Iter4実装流用」との整合）
+  - **EntityFactory**: GLTF SkeletonUtils.clone に置換、依存廃止
+  - **GameService**: `new ProceduralMeshFactory()` 生成と DI を全廃
 
 ---
 
@@ -478,7 +482,9 @@ export const ASSET_PATHS = {
 
 ```ts
 // src/constants/BoneAttachmentConfig.ts
-// Construction Day 1 のbone名実地調査後に確定
+// Construction Day 1 実測（2026-04-17）: 3キャラ共通の bone 命名規則
+// 注: Toon Shooter Game Kit のキャラは "Hand" bone が存在しない（Toon系で一般的）。
+//     武器は右前腕 LowerArm.R に attach する
 type BoneAttachmentConfig = Record<CharacterType, {
   handBone: string;
   offset: THREE.Vector3;
@@ -487,25 +493,25 @@ type BoneAttachmentConfig = Record<CharacterType, {
 
 export const BONE_ATTACH: BoneAttachmentConfig = {
   Soldier: {
-    handBone: 'Hand.R',  // ← Construction Day 1 で glTF inspector 実測確定
-    offset: new THREE.Vector3(0, 0, 0),  // 実装時調整
-    rotation: new THREE.Euler(0, 0, 0),  // 実装時調整
+    handBone: 'LowerArm.R',  // Day 1 実測確定、3キャラ共通
+    offset: new THREE.Vector3(0, 0, 0),  // 実装時に構えた姿勢へ微調整
+    rotation: new THREE.Euler(0, 0, 0),  // 実装時に銃身の向き調整
   },
   Enemy: {
-    handBone: 'Hand.R',  // ← 実測
+    handBone: 'LowerArm.R',
     offset: new THREE.Vector3(0, 0, 0),
     rotation: new THREE.Euler(0, 0, 0),
   },
   Hazmat: {
-    handBone: 'Hand.R',  // ← 実測
+    handBone: 'LowerArm.R',
     offset: new THREE.Vector3(0, 0, 0),
     rotation: new THREE.Euler(0, 0, 0),
   },
 };
 ```
 
-- Construction Day 1 の事前タスクで3モデルのbone名を確定（FR-05）
-- 異なる場合でもこの Record で吸収、EntityFactory側は config 参照のみ
+- 3キャラ共通で `LowerArm.R` を確定（Day 1 実測）
+- 位置/向きは実装中に試行錯誤で調整
 
 ---
 

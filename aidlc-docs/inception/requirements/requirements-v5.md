@@ -508,11 +508,12 @@ HP<=0 検知から entity 削除までを以下の順序で実行する:
 
 ### ProceduralMeshFactory 削除に伴う呼び出し元
 
-| 呼び出し元 | 現状 | 変更内容 |
+| 呼び出し元 | 現状 | 変更内容（Day 1 grep 確定、Option B移設方針） |
 |---|---|---|
-| SceneManager（環境生成） | ProceduralMeshFactory で道路/フェンス/砂漠を生成 | FR-07 GLTF 配置に置換、道路/地面タイルのみプロシージャル継続 |
+| SceneManager（環境生成） | ProceduralMeshFactory で道路/ガードレール/砂漠を生成 | **createRoadTile / createGuardrail / createDesertGround を SceneManager 内 private helper に移設** |
 | EntityFactory（Player/Ally/Enemy/Boss） | ProceduralMeshFactory でBox/Sphere/Cylinder組立 | FR-03 GLTF SkeletonUtils.clone に置換 |
-| その他 | grep 調査で該当なし確認（Construction前に最終確認） | — |
+| **EffectManager3D** | createMuzzleFlashMesh を呼出 | **EffectManager3D 内 private helper に移設**（FR-08「Iter4実装流用」と整合） |
+| GameService | `new ProceduralMeshFactory()` + DI | 生成・DI 廃止、ProceduralMeshFactory 完全削除 |
 
 ### テスト影響（Q-NG-1対応）
 
