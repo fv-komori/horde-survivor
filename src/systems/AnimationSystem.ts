@@ -2,7 +2,6 @@ import type { System } from '../ecs/System';
 import type { World } from '../ecs/World';
 import { MeshComponent } from '../components/MeshComponent';
 import { AnimationStateComponent } from '../components/AnimationStateComponent';
-import { HealthComponent } from '../components/HealthComponent';
 import { VelocityComponent } from '../components/VelocityComponent';
 import { LoopOnce, LoopRepeat, type AnimationAction } from 'three';
 import { ANIM_DURATIONS, HITREACT_DURATION } from '../config/BoneAttachmentConfig';

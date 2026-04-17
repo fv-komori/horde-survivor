@@ -101,5 +101,5 @@
 - [ ] NFR Requirements - SKIP予定（要件NFR-01〜09で定義済み）
 - [ ] NFR Design - SKIP予定（design v5で対応）
 - [ ] Infrastructure Design - SKIP予定（静的ホスティング変更なし、NFR-09で対応）
-- [ ] Code Generation - IN_PROGRESS（Day 1 + Day 2-1/2/3 完了: GLB変換・Option B移設・**GLTF本実装（MVP）完了**。GLB読込(AssetManager)、SkeletonUtils.clone、反転ハルOutline、LowerArmR武器attach、AnimationSystem、CleanupSystem dispose chain、ProceduralMeshFactory削除。ゲーム起動→プレイ動作確認OK。残: 極大キャラスケール調整、事前attach武器の非表示、環境GLB配置、Death/HitReact anim wire、tests追加、最終Playwright検証）
-- [ ] Build and Test - PENDING
+- [x] Code Generation - MVP COMPLETED（Day 1 + Day 2-1/2/3 完了: GLB変換・Option B移設・GLTF本実装・スケール/武器visibility調整）
+- [x] Build and Test - MVP COMPLETED [build-and-test-summary-v5.md]（tsc/ESLint clean, 86 tests PASS, Playwright 動作確認済み、737KB/gzip192KB）。残作業: HealthSystem→AnimationSystem結線、環境GLB配置、GameStartScreen mini-renderer、MetricsProbe、webglcontextrestored、新規テスト
