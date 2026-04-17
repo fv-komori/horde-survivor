@@ -7,7 +7,6 @@ import {
   MeshBasicMaterial,
   MeshToonMaterial,
   Mesh,
-  PlaneGeometry,
   SphereGeometry,
   type BufferGeometry,
   type Material,
@@ -83,11 +82,6 @@ export class ProceduralMeshFactory {
   private cone(r: number, h: number, seg = 8): ConeGeometry {
     const key = `cone_${r}_${h}_${seg}`;
     return this.getGeometry(key, () => new ConeGeometry(r, h, seg));
-  }
-
-  private plane(w: number, h: number): PlaneGeometry {
-    const key = `plane_${w}_${h}`;
-    return this.getGeometry(key, () => new PlaneGeometry(w, h));
   }
 
   private addMesh(group: Group, geo: BufferGeometry, mat: Material, x: number, y: number, z: number): Mesh {
@@ -392,132 +386,6 @@ export class ProceduralMeshFactory {
     }
 
     return group;
-  }
-
-  // --- 弾丸・アイテム（InstancedMesh用ジオメトリ） ---
-
-  /** 弾丸用ジオメトリ（Iter4: 細長い光るトレイル形状、Bloom映え） */
-  createBulletGeometry(): CylinderGeometry {
-    // CylinderGeometry(rTop, rBot, h, seg)。高さを進行方向（Z軸）に向けるため回転は呼び出し側で
-    return this.cylinder(0.025, 0.025, 0.18, 6);
-  }
-
-  /** 弾丸用マテリアル（emissive、Bloomで発光） */
-  createBulletMaterial(): MeshToonMaterial {
-    const mat = new MeshToonMaterial({
-      color: 0xffeb3b,
-      emissive: 0xffeb3b,
-      emissiveIntensity: 0.8,
-    });
-    return mat;
-  }
-
-  /** アイテム用ジオメトリ（八面体ジェム） */
-  createItemGeometry(): BufferGeometry {
-    const key = 'item_gem';
-    return this.getGeometry(key, () => new SphereGeometry(0.08, 4, 2));
-  }
-
-  /** 敵NORMAL用ジオメトリ（簡易Box） */
-  createEnemyNormalGeometry(): BoxGeometry {
-    return this.box(0.3, 0.7, 0.2);
-  }
-
-  /** 敵NORMAL用マテリアル */
-  createEnemyNormalMaterial(): MeshToonMaterial {
-    return this.getToonMaterial(0xf44336);
-  }
-
-  // --- エフェクト用メッシュ生成（Iter4） ---
-
-  /** マズルフラッシュ用メッシュ（平面放射、emissive、Bloom映え） */
-  createMuzzleFlashMesh(): Mesh {
-    const geo = this.plane(0.25, 0.25);
-    const mat = new MeshBasicMaterial({
-      color: 0xffee58,
-      transparent: true,
-      opacity: 0.9,
-      depthWrite: false,
-    });
-    const mesh = new Mesh(geo, mat);
-    mesh.castShadow = false;
-    mesh.receiveShadow = false;
-    return mesh;
-  }
-
-  // --- 背景メッシュ ---
-
-  /** 道路タイルメッシュ作成（BL-03） */
-  createRoadTile(): Group {
-    const cfg = GAME_CONFIG.three.road;
-    const group = new Group();
-    group.name = 'road_tile';
-
-    // 道路面
-    const roadGeo = this.box(cfg.width, 0.02, cfg.length);
-    const road = new Mesh(roadGeo, this.getToonMaterial(cfg.color));
-    road.position.y = 0;
-    road.receiveShadow = true;
-    group.add(road);
-
-    // 白い車線マーキング（破線を等間隔に配置）
-    const dashCount = Math.floor(cfg.length / 0.6);
-    const lineMat = this.getToonMaterial(cfg.lineColor);
-    for (let i = 0; i < dashCount; i++) {
-      const dash = new Mesh(this.box(cfg.lineWidth, 0.025, 0.3), lineMat);
-      dash.position.set(0, 0.015, -cfg.length / 2 + 0.3 + i * 0.6);
-      group.add(dash);
-    }
-
-    return group;
-  }
-
-  /** ガードレール作成（Iter4: 木製フェンス=縦杭+横木2本） */
-  createGuardrail(side: 'left' | 'right'): Group {
-    const cfg = GAME_CONFIG.three.guardrail;
-    const roadCfg = GAME_CONFIG.three.road;
-    const group = new Group();
-    group.name = `guardrail_${side}`;
-
-    const xPos = side === 'left' ? -roadCfg.width / 2 - 0.05 : roadCfg.width / 2 + 0.05;
-    const postMat = this.getToonMaterial(cfg.color);
-    const railMat = this.getToonMaterial(cfg.topRailColor);
-
-    // 縦杭（Iter4: 太めの木杭）
-    const postCount = Math.floor(roadCfg.length / cfg.postSpacing) + 1;
-    for (let i = 0; i < postCount; i++) {
-      const post = new Mesh(this.box(0.08, cfg.height, 0.08), postMat);
-      post.position.set(xPos, cfg.height / 2, -i * cfg.postSpacing);
-      post.castShadow = true;
-      group.add(post);
-    }
-
-    // 横木上段
-    const railTop = new Mesh(this.box(0.05, 0.05, roadCfg.length), railMat);
-    railTop.position.set(xPos, cfg.height * 0.9, -roadCfg.length / 2);
-    railTop.castShadow = true;
-    group.add(railTop);
-
-    // 横木中段
-    const railMid = new Mesh(this.box(0.05, 0.05, roadCfg.length), railMat);
-    railMid.position.set(xPos, cfg.height * 0.5, -roadCfg.length / 2);
-    railMid.castShadow = true;
-    group.add(railMid);
-
-    return group;
-  }
-
-  /** 砂漠地面作成（FR-02） */
-  createDesertGround(): Mesh {
-    const cfg = GAME_CONFIG.three.desert;
-    const roadCfg = GAME_CONFIG.three.road;
-    const totalDepth = roadCfg.length * roadCfg.tileCount + 20;
-    const geo = this.box(cfg.width, 0.01, totalDepth);
-    const mesh = new Mesh(geo, this.getToonMaterial(cfg.color));
-    mesh.position.set(GAME_CONFIG.three.camera.lookAt.x, -0.01, -totalDepth / 2 + 5);
-    mesh.receiveShadow = true;
-    mesh.name = 'desert_ground';
-    return mesh;
   }
 
   // --- キャッシュ管理 ---

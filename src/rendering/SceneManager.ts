@@ -1,19 +1,20 @@
 import {
   AmbientLight,
   BackSide,
+  BoxGeometry,
   Color,
   DirectionalLight,
   Fog,
   Group,
   HemisphereLight,
   Mesh,
+  MeshToonMaterial,
   Object3D,
   Scene,
   ShaderMaterial,
   SphereGeometry,
 } from 'three';
 import { GAME_CONFIG } from '../config/gameConfig';
-import { ProceduralMeshFactory } from '../factories/ProceduralMeshFactory';
 import type { InstancedMeshPool } from './InstancedMeshPool';
 
 /** 背景タイルセット */
@@ -39,7 +40,11 @@ export class SceneManager {
   /** InstancedMeshプール参照（dispose一元化用） */
   private readonly pools: InstancedMeshPool[] = [];
 
-  constructor(private readonly meshFactory: ProceduralMeshFactory) {
+  /** 背景用 Material / Geometry キャッシュ（Iter5: ProceduralMeshFactory から移設 Option B） */
+  private readonly envMaterials = new Map<string, MeshToonMaterial>();
+  private readonly envGeometries = new Map<string, BoxGeometry>();
+
+  constructor() {
     this.scene = new Scene();
   }
 
@@ -96,9 +101,9 @@ export class SceneManager {
 
     // 道路タイル循環配置（BL-03）
     for (let i = 0; i < roadCfg.tileCount; i++) {
-      const road = this.meshFactory.createRoadTile();
-      const guardrailL = this.meshFactory.createGuardrail('left');
-      const guardrailR = this.meshFactory.createGuardrail('right');
+      const road = this.createRoadTile();
+      const guardrailL = this.createGuardrail('left');
+      const guardrailR = this.createGuardrail('right');
 
       const zPos = -i * roadCfg.length;
       road.position.set(GAME_CONFIG.three.camera.lookAt.x, 0, zPos);
@@ -113,8 +118,98 @@ export class SceneManager {
     }
 
     // 砂漠地面
-    this.desertGround = this.meshFactory.createDesertGround();
+    this.desertGround = this.createDesertGround();
     this.scene.add(this.desertGround);
+  }
+
+  // --- 環境メッシュ生成ヘルパー（Iter5: Option B 移設） ---
+
+  private getEnvMaterial(color: number): MeshToonMaterial {
+    const key = color.toString(16);
+    let mat = this.envMaterials.get(key);
+    if (!mat) {
+      mat = new MeshToonMaterial({ color });
+      this.envMaterials.set(key, mat);
+    }
+    return mat;
+  }
+
+  private getEnvBox(w: number, h: number, d: number): BoxGeometry {
+    const key = `box_${w}_${h}_${d}`;
+    let geo = this.envGeometries.get(key);
+    if (!geo) {
+      geo = new BoxGeometry(w, h, d);
+      this.envGeometries.set(key, geo);
+    }
+    return geo;
+  }
+
+  /** 道路タイル（BL-03） */
+  private createRoadTile(): Group {
+    const cfg = GAME_CONFIG.three.road;
+    const group = new Group();
+    group.name = 'road_tile';
+
+    const road = new Mesh(this.getEnvBox(cfg.width, 0.02, cfg.length), this.getEnvMaterial(cfg.color));
+    road.position.y = 0;
+    road.receiveShadow = true;
+    group.add(road);
+
+    const dashCount = Math.floor(cfg.length / 0.6);
+    const lineMat = this.getEnvMaterial(cfg.lineColor);
+    const dashGeo = this.getEnvBox(cfg.lineWidth, 0.025, 0.3);
+    for (let i = 0; i < dashCount; i++) {
+      const dash = new Mesh(dashGeo, lineMat);
+      dash.position.set(0, 0.015, -cfg.length / 2 + 0.3 + i * 0.6);
+      group.add(dash);
+    }
+    return group;
+  }
+
+  /** ガードレール（Iter4: 縦杭+横木2本） */
+  private createGuardrail(side: 'left' | 'right'): Group {
+    const cfg = GAME_CONFIG.three.guardrail;
+    const roadCfg = GAME_CONFIG.three.road;
+    const group = new Group();
+    group.name = `guardrail_${side}`;
+
+    const xPos = side === 'left' ? -roadCfg.width / 2 - 0.05 : roadCfg.width / 2 + 0.05;
+    const postMat = this.getEnvMaterial(cfg.color);
+    const railMat = this.getEnvMaterial(cfg.topRailColor);
+
+    const postGeo = this.getEnvBox(0.08, cfg.height, 0.08);
+    const postCount = Math.floor(roadCfg.length / cfg.postSpacing) + 1;
+    for (let i = 0; i < postCount; i++) {
+      const post = new Mesh(postGeo, postMat);
+      post.position.set(xPos, cfg.height / 2, -i * cfg.postSpacing);
+      post.castShadow = true;
+      group.add(post);
+    }
+
+    const railGeo = this.getEnvBox(0.05, 0.05, roadCfg.length);
+    const railTop = new Mesh(railGeo, railMat);
+    railTop.position.set(xPos, cfg.height * 0.9, -roadCfg.length / 2);
+    railTop.castShadow = true;
+    group.add(railTop);
+
+    const railMid = new Mesh(railGeo, railMat);
+    railMid.position.set(xPos, cfg.height * 0.5, -roadCfg.length / 2);
+    railMid.castShadow = true;
+    group.add(railMid);
+
+    return group;
+  }
+
+  /** 砂漠地面（FR-02） */
+  private createDesertGround(): Mesh {
+    const cfg = GAME_CONFIG.three.desert;
+    const roadCfg = GAME_CONFIG.three.road;
+    const totalDepth = roadCfg.length * roadCfg.tileCount + 20;
+    const mesh = new Mesh(this.getEnvBox(cfg.width, 0.01, totalDepth), this.getEnvMaterial(cfg.color));
+    mesh.position.set(GAME_CONFIG.three.camera.lookAt.x, -0.01, -totalDepth / 2 + 5);
+    mesh.receiveShadow = true;
+    mesh.name = 'desert_ground';
+    return mesh;
   }
 
   /** グラデ空ドーム（Iter4: FR-07） */
@@ -318,7 +413,10 @@ export class SceneManager {
     for (const pool of this.pools) {
       pool.dispose();
     }
-    this.meshFactory.disposeAll();
+    for (const m of this.envMaterials.values()) m.dispose();
+    this.envMaterials.clear();
+    for (const g of this.envGeometries.values()) g.dispose();
+    this.envGeometries.clear();
     this.clearScene();
   }
 }

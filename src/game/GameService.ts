@@ -9,6 +9,7 @@ import { AssetManager } from '../managers/AssetManager';
 import { InputHandler } from '../input/InputHandler';
 
 // Three.js rendering
+import { BoxGeometry, CylinderGeometry, MeshToonMaterial, SphereGeometry, type BufferGeometry } from 'three';
 import { SceneManager } from '../rendering/SceneManager';
 import { InstancedMeshPool } from '../rendering/InstancedMeshPool';
 import { QualityManager } from '../rendering/QualityManager';
@@ -215,22 +216,22 @@ export class GameService {
   private initThreeJS(): void {
     // ファクトリ・マネージャー
     this.meshFactory = new ProceduralMeshFactory();
-    this.sceneManager = new SceneManager(this.meshFactory);
+    this.sceneManager = new SceneManager();
 
-    // InstancedMeshプール作成（BL-05）
+    // InstancedMeshプール作成（BL-05、Iter5 Option B: ProceduralMeshFactoryから本体内 helper へ移設）
     this.bulletPool = new InstancedMeshPool(
-      this.meshFactory.createBulletGeometry(),
-      this.meshFactory.createBulletMaterial(),
+      this.createBulletGeometry(),
+      this.createBulletMaterial(),
       GAME_CONFIG.limits.maxBullets,
     );
     this.enemyNormalPool = new InstancedMeshPool(
-      this.meshFactory.createEnemyNormalGeometry(),
-      this.meshFactory.createEnemyNormalMaterial(),
+      this.createEnemyNormalGeometry(),
+      this.createEnemyNormalMaterial(),
       100, // maxCount for enemy normal pool
     );
     this.itemPool = new InstancedMeshPool(
-      this.meshFactory.createItemGeometry(),
-      this.meshFactory.createBulletMaterial(), // 仮マテリアル（個別色はsetColorで設定）
+      this.createItemGeometry(),
+      this.createBulletMaterial(), // 仮マテリアル（個別色はsetColorで設定）
       GAME_CONFIG.limits.maxItems,
     );
 
@@ -241,7 +242,7 @@ export class GameService {
     this.qualityManager = new QualityManager(this.sceneManager);
 
     // エフェクト管理
-    this.effectManager3D = new EffectManager3D(this.sceneManager, this.qualityManager, this.meshFactory);
+    this.effectManager3D = new EffectManager3D(this.sceneManager, this.qualityManager);
 
     // CleanupSystem（後でinitThree呼び出し）
     this.cleanupSystem = new CleanupSystem();
@@ -318,28 +319,29 @@ export class GameService {
 
     // シーンを再構築
     this.sceneManager.dispose();
+    this.meshFactory.disposeAll();
     this.meshFactory = new ProceduralMeshFactory();
-    this.sceneManager = new SceneManager(this.meshFactory);
+    this.sceneManager = new SceneManager();
 
     this.bulletPool = new InstancedMeshPool(
-      this.meshFactory.createBulletGeometry(),
-      this.meshFactory.createBulletMaterial(),
+      this.createBulletGeometry(),
+      this.createBulletMaterial(),
       GAME_CONFIG.limits.maxBullets,
     );
     this.enemyNormalPool = new InstancedMeshPool(
-      this.meshFactory.createEnemyNormalGeometry(),
-      this.meshFactory.createEnemyNormalMaterial(),
+      this.createEnemyNormalGeometry(),
+      this.createEnemyNormalMaterial(),
       100,
     );
     this.itemPool = new InstancedMeshPool(
-      this.meshFactory.createItemGeometry(),
-      this.meshFactory.createBulletMaterial(),
+      this.createItemGeometry(),
+      this.createBulletMaterial(),
       GAME_CONFIG.limits.maxItems,
     );
 
     this.sceneManager.init([this.bulletPool, this.enemyNormalPool, this.itemPool]);
     this.qualityManager = new QualityManager(this.sceneManager);
-    this.effectManager3D = new EffectManager3D(this.sceneManager, this.qualityManager, this.meshFactory);
+    this.effectManager3D = new EffectManager3D(this.sceneManager, this.qualityManager);
 
     // Iter4: PostFXManagerは新SceneManagerのsceneを指すよう再構築（旧参照を破棄）
     this.postFXManager?.dispose();
@@ -601,5 +603,38 @@ export class GameService {
       : 'An unexpected error occurred.';
     overlay.showFallbackMessage(`${displayMessage}\nClick to reload`);
     this.container.addEventListener('click', () => location.reload(), { once: true });
+  }
+
+  // --- InstancedMesh プール用 Geometry / Material（Iter5 Option B 移設）---
+  // プール dispose 時に InstancedMeshPool が geometry/material を dispose するため、
+  // ここは都度 new して返す（小サイズ、キャッシュ不要）。
+
+  /** 弾丸用 Geometry（Iter4: 細長い光るトレイル形状、Bloom映え） */
+  private createBulletGeometry(): CylinderGeometry {
+    return new CylinderGeometry(0.025, 0.025, 0.18, 6);
+  }
+
+  /** 弾丸用 Material（emissive、Bloomで発光） */
+  private createBulletMaterial(): MeshToonMaterial {
+    return new MeshToonMaterial({
+      color: 0xffeb3b,
+      emissive: 0xffeb3b,
+      emissiveIntensity: 0.8,
+    });
+  }
+
+  /** アイテム用 Geometry（八面体ジェム） */
+  private createItemGeometry(): BufferGeometry {
+    return new SphereGeometry(0.08, 4, 2);
+  }
+
+  /** 敵 NORMAL 用 Geometry（簡易 Box、InstancedMesh 用） */
+  private createEnemyNormalGeometry(): BoxGeometry {
+    return new BoxGeometry(0.3, 0.7, 0.2);
+  }
+
+  /** 敵 NORMAL 用 Material（赤系） */
+  private createEnemyNormalMaterial(): MeshToonMaterial {
+    return new MeshToonMaterial({ color: 0xf44336 });
   }
 }
