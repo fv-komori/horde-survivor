@@ -4,7 +4,7 @@
 - **Project Type**: Brownfield
 - **Start Date**: 2026-04-09T00:00:00Z
 - **Original Start**: 2026-04-07T00:00:00Z
-- **Current Stage**: INCEPTION - Requirements Analysis COMPLETED（Iteration 5）、次は Workflow Planning or Application Design
+- **Current Stage**: INCEPTION - Application Design COMPLETED（Iteration 5）、次は Units Generation or Construction
 - **Iteration**: 5（GLTFモデル導入: Toon Shooter Game Kit）
 
 ## Workspace State
@@ -91,15 +91,15 @@
 - **アセットパック配置**: public/models/toon-shooter/ に配置完了（characters×3, guns×3, environment×6, LICENSE.txt）
 - [x] Workspace Detection - COMPLETED（Brownfield継続、Iter4成果物維持）
 - [x] Requirements Analysis - COMPLETED（requirements-v5.md）[AutoReviewed: reviews/inception/requirements-auto-review-v4, PASS（2 iter、全軸≥7）]
-- [ ] User Stories - PENDING（技術移行のためSKIP想定）
-- [ ] Workflow Planning - PENDING
-- [ ] Application Design - PENDING
-- [ ] Units Generation - PENDING
+- [x] User Stories - SKIP（技術移行のためユーザー機能追加なし）
+- [x] Workflow Planning - SKIP（1 Unit一括想定、Construction初日PoCで成立確認）
+- [x] Application Design - COMPLETED（components-v5 / services-v5 / component-dependency-v5 / component-methods-v5）[AutoReviewed: reviews/inception/application-design-auto-review-v5, PASS（2 iter、全軸≥7、7.25→7.88）]
+- [x] Units Generation - SKIP（1 Unit一括、運用停止中のためIter3/4同様に分割不要）
 
 ### CONSTRUCTION PHASE (Iteration 5 - GLTFモデル導入)
-- [ ] Functional Design - PENDING
-- [ ] NFR Requirements - PENDING
-- [ ] NFR Design - PENDING
-- [ ] Infrastructure Design - PENDING
-- [ ] Code Generation - PENDING
+- [ ] Functional Design - SKIP予定（application-design v5 で実装レベルまで詳述、ビジネスルール追加なし）
+- [ ] NFR Requirements - SKIP予定（要件NFR-01〜09で定義済み）
+- [ ] NFR Design - SKIP予定（design v5で対応）
+- [ ] Infrastructure Design - SKIP予定（静的ホスティング変更なし、NFR-09で対応）
+- [ ] Code Generation - PENDING（Construction Day 1: bone調査・反転ハルPoC → 本実装）
 - [ ] Build and Test - PENDING
