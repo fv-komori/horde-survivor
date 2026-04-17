@@ -880,3 +880,40 @@
 - test-screenshots/iter4-final-combat.png（目視確認）
 
 ---
+
+## 2026-04-17 — Iteration 5 開始（GLTFモデル導入）
+
+### 経緯
+
+Iter4のビジュアルリッチ化ポリッシュで「チビキャラのプロポーション」「輪郭線」「光量感」は一段上げたが、依然としてプロシージャルBox/Cylinder組み合わせの限界（シルエットの角ばり、銃を構えた姿勢を作れない）が残存。GLTFスケルトンアニメ導入でこの天井を突破する。
+
+### アセット選定・配置
+
+- **使用パック**: Toon Shooter Game Kit（by Quaternius, CC0, Dec 2022版）
+- **入手元**: https://quaternius.com/packs/toonshootergamekit.html
+- **パック全体**: Characters 3 / Guns 16 / Environment 54 / Textures 1（Fence.png）
+- **今回採用範囲**: Characters全3体 + Guns 3種（AK/Pistol/Shotgun）+ Environment 6種（Barrier_Single/Crate/SackTrench/Fence/Fence_Long/Tree_1）
+- **配置先**: `public/models/toon-shooter/{characters,guns,environment}/`
+- **形式**: glTF 2.0 単一ファイル完結（base64埋込、外部.bin/PNG参照なし）→ Viteビルド設定変更不要
+- **合計サイズ**: 7.0MB（キャラが94%占有、17アニメ/キャラ込み）
+- **アニメ確認**: Character_Soldier で17種確認（Idle, Idle_Shoot, Run_Shoot, Walk_Shoot, HitReact, Death, Jump系, Wave等）
+- **LICENSE**: public/models/toon-shooter/LICENSE.txt にCC0と出典を明記
+
+### 敵バリエーション方針
+
+参考画像（LAST WAR）同様の単一モデル + scale/tint運用:
+- NORMAL: Character_Enemy 等倍
+- FAST: 0.85倍 + tint
+- TANK: 1.3倍 + 暗装甲tint
+- BOSS: 1.8倍 + 特殊色（or Character_Hazmat流用候補）
+
+### 次のアクション
+
+Requirements Analysis（requirements-v5.md）へ進む。アーキテクチャ変更点:
+- GLTFLoader + SkeletonUtils.clone() per-entity
+- AnimationMixer / 新規AnimationSystem（ECS）
+- MeshComponent 拡張（mixer + animationsマップ）
+- EntityFactory の GLTF対応改修
+- AssetManager プリロード（ローダー画面）
+- Outline: 反転ハル → OutlinePass（postprocessing）
+- Weapon attach: キャラbone hierarchy（手）にglTF Gun をattach

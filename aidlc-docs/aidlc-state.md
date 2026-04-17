@@ -4,8 +4,8 @@
 - **Project Type**: Brownfield
 - **Start Date**: 2026-04-09T00:00:00Z
 - **Original Start**: 2026-04-07T00:00:00Z
-- **Current Stage**: CONSTRUCTION - Build and Test COMPLETED（Iteration 4）
-- **Iteration**: 4（ビジュアルリッチ化ポリッシュ）
+- **Current Stage**: INCEPTION - Requirements Analysis COMPLETED（Iteration 5）、次は Workflow Planning or Application Design
+- **Iteration**: 5（GLTFモデル導入: Toon Shooter Game Kit）
 
 ## Workspace State
 - **Existing Code**: Yes
@@ -84,3 +84,22 @@
 - [x] Infrastructure Design - SKIP（静的ホスティング変更なし）
 - [x] Code Generation - COMPLETED
 - [x] Build and Test - COMPLETED（tsc/ESLint clean, 86テストPASS, Playwright目視確認済み）
+
+### INCEPTION PHASE (Iteration 5 - GLTFモデル導入)
+- **Worktree**: /Users/komori/fv-genai-specialforce/fv-game.worktrees/iter5-gltf
+- **Branch**: iter5-gltf-models
+- **アセットパック配置**: public/models/toon-shooter/ に配置完了（characters×3, guns×3, environment×6, LICENSE.txt）
+- [x] Workspace Detection - COMPLETED（Brownfield継続、Iter4成果物維持）
+- [x] Requirements Analysis - COMPLETED（requirements-v5.md）[AutoReviewed: reviews/inception/requirements-auto-review-v4, PASS（2 iter、全軸≥7）]
+- [ ] User Stories - PENDING（技術移行のためSKIP想定）
+- [ ] Workflow Planning - PENDING
+- [ ] Application Design - PENDING
+- [ ] Units Generation - PENDING
+
+### CONSTRUCTION PHASE (Iteration 5 - GLTFモデル導入)
+- [ ] Functional Design - PENDING
+- [ ] NFR Requirements - PENDING
+- [ ] NFR Design - PENDING
+- [ ] Infrastructure Design - PENDING
+- [ ] Code Generation - PENDING
+- [ ] Build and Test - PENDING
