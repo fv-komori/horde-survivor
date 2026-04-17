@@ -13,6 +13,7 @@ import { SceneManager } from '../rendering/SceneManager';
 import { InstancedMeshPool } from '../rendering/InstancedMeshPool';
 import { QualityManager } from '../rendering/QualityManager';
 import { EffectManager3D } from '../rendering/EffectManager3D';
+import { PostFXManager } from '../rendering/PostFXManager';
 import { HTMLOverlayManager } from '../ui/HTMLOverlayManager';
 import { ThreeJSRenderSystem } from '../systems/ThreeJSRenderSystem';
 
@@ -71,6 +72,7 @@ export class GameService {
   private sceneManager!: SceneManager;
   private qualityManager!: QualityManager;
   private effectManager3D!: EffectManager3D;
+  private postFXManager: PostFXManager | null = null;
   private overlayManager!: HTMLOverlayManager;
   private renderSystem!: ThreeJSRenderSystem;
   private cleanupSystem!: CleanupSystem;
@@ -239,7 +241,7 @@ export class GameService {
     this.qualityManager = new QualityManager(this.sceneManager);
 
     // エフェクト管理
-    this.effectManager3D = new EffectManager3D(this.sceneManager, this.qualityManager);
+    this.effectManager3D = new EffectManager3D(this.sceneManager, this.qualityManager, this.meshFactory);
 
     // CleanupSystem（後でinitThree呼び出し）
     this.cleanupSystem = new CleanupSystem();
@@ -251,6 +253,16 @@ export class GameService {
       this.qualityManager,
       null, // overlayManagerは後で設定
     );
+
+    // Iter4: PostFXManager（初期化失敗時はnull→renderer直接レンダにフォールバック）
+    this.postFXManager = PostFXManager.tryCreate(
+      this.renderSystem.renderer,
+      this.sceneManager.scene,
+      this.renderSystem.camera,
+    );
+    this.renderSystem.setPostFXManager(this.postFXManager);
+    this.qualityManager.setPostFXManager(this.postFXManager);
+    this.qualityManager.setRenderer(this.renderSystem.renderer);
   }
 
   /** WebGL2サポートチェック（BL-12） */
@@ -327,7 +339,18 @@ export class GameService {
 
     this.sceneManager.init([this.bulletPool, this.enemyNormalPool, this.itemPool]);
     this.qualityManager = new QualityManager(this.sceneManager);
-    this.effectManager3D = new EffectManager3D(this.sceneManager, this.qualityManager);
+    this.effectManager3D = new EffectManager3D(this.sceneManager, this.qualityManager, this.meshFactory);
+
+    // Iter4: PostFXManagerは新SceneManagerのsceneを指すよう再構築（旧参照を破棄）
+    this.postFXManager?.dispose();
+    this.postFXManager = PostFXManager.tryCreate(
+      this.renderSystem.renderer,
+      this.sceneManager.scene,
+      this.renderSystem.camera,
+    );
+    this.renderSystem.setPostFXManager(this.postFXManager);
+    this.qualityManager.setPostFXManager(this.postFXManager);
+    this.qualityManager.setRenderer(this.renderSystem.renderer);
     this.cleanupSystem.initThree(this.sceneManager);
     this.entityFactory.initThree(
       this.meshFactory,
@@ -407,9 +430,13 @@ export class GameService {
           );
           this.titleUIShown = true;
         }
-        // Three.js背景レンダリング
+        // Three.js背景レンダリング（Iter4: PostFX経由）
         this.sceneManager.updateBackgroundScroll(dt);
-        this.renderSystem.renderer.render(this.sceneManager.scene, this.renderSystem.camera);
+        if (this.postFXManager) {
+          this.postFXManager.render(dt);
+        } else {
+          this.renderSystem.renderer.render(this.sceneManager.scene, this.renderSystem.camera);
+        }
         // 設定画面描画
         this.renderSettingsOverlay();
         this.handleTitleInput();
@@ -452,8 +479,12 @@ export class GameService {
           });
           this.gameOverUIShown = true;
         }
-        // Three.js描画のみ（フリーズ）
-        this.renderSystem.renderer.render(this.sceneManager.scene, this.renderSystem.camera);
+        // Three.js描画のみ（フリーズ、Iter4: PostFX経由）
+        if (this.postFXManager) {
+          this.postFXManager.render(0);
+        } else {
+          this.renderSystem.renderer.render(this.sceneManager.scene, this.renderSystem.camera);
+        }
         break;
     }
   }

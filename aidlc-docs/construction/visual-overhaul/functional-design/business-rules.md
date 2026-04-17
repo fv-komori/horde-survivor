@@ -113,9 +113,63 @@
 - 車線は破線（一定間隔で配置）
 
 ### BR-BG03: ガードレールデザイン
-- 道路の左右にメタルグレー(0xaaaaaa)のBoxGeometry
-- 支柱を等間隔(1.0unit)に配置
-- 上部にレール（CylinderGeometry）
+- 道路の左右に木製風（0x8b5a3c 焼け木色）のBoxGeometry
+- 縦杭を等間隔(0.8unit)に配置
+- 横木2本（上段 height*0.9 / 中段 height*0.5、濃色 0x6b4223）
+
+### BR-BG04: 空ドーム（グラデーション背景）
+- SphereGeometry(radius=40) + BackSide + ShaderMaterial（静的GLSLリテラル、動的結合禁止）
+- uniforms: uTopColor=0x87ceeb / uBottomColor=0xc9a96e / uOffset=0 / uExponent=0.6
+- material.fog=false（Fogの影響を受けない）、depthWrite=false、renderOrder=-1
+- scene.backgroundは設定しない（空ドームで置換）
+
+## BR-LIGHT: ライティングルール
+
+### BR-LT01: 三層ライティング
+- AmbientLight（0xfff5e6, intensity 0.7）
+- HemisphereLight（sky=0x87ceeb, ground=0xc9a96e, intensity 0.4）: Low品質で intensity=0、Directional×1.15 で補正
+- DirectionalLight（0xfff4e0 暖色, intensity 1.0, castShadow quality依存）
+
+### BR-LT02: Fog
+- Fog(0xc9a96e, near=15, far=45)
+- setFogEnabled(false) 時は far=9999 に設定（scene.fog=null はシェーダ再コンパイル発生のため避ける）
+
+## BR-OUTLINE: 輪郭線（反転ハル）ルール
+
+### BR-OL01: Outline適用対象
+- 対象: Group描画のキャラ（Player/Ally/Enemy×4）・武器のみ
+- 対象外: InstancedMesh描画の弾丸・アイテム、Sprite/半透明エフェクト
+- 視認性: InstancedMesh系は emissive + Bloom で確保
+
+### BR-OL02: Outline実装
+- 反転ハル法: 各Mesh に対し BackSide + MeshBasicMaterial(depthWrite=false, transparent=false) のシェルを兄弟として親Groupに追加
+- 厚み: scale * (1 + thickness=0.04)、親Groupのscaleに影響しない子Mesh単位で適用
+- マテリアルはFactoryキャッシュ共有（ゲームライフサイクル中保持、Factory.disposeAll()で一括release）
+- 各シェルに userData.isOutline=true を設定
+
+### BR-OL03: Outline切替
+- SceneManager.setOutlineEnabled(enabled): scene.traverse で userData.isOutline=true のメッシュを visible 切替
+- 生成/破棄を伴わないためスパイク（GC・シェーダ再コンパイル）を回避
+
+## BR-POSTFX: PostFXルール
+
+### BR-PX01: EffectComposer構成
+- 順序: RenderPass → UnrealBloomPass → OutputPass
+- OutputPass により renderer.toneMapping (ACESFilmicToneMapping) と sRGBColorSpace を正しく適用
+- 失敗時は PostFXManager.tryCreate が null を返し、renderer.render 直接呼びにフォールバック
+
+### BR-PX02: Bloomパラメータ
+- strength=0.6, radius=0.4, threshold=0.85（emissive中心のみ発光）
+- 品質Low時は PostFXManager.setEnabled(false) で composer 無効化
+
+### BR-PX03: RenderTargetサイズ制限
+- dpr上限 Math.min(devicePixelRatio, 2)、RenderTarget最大サイズ 2048 でクランプ
+- HiDPI/巨大ウィンドウ時のGPUメモリ枯渇DoS対策
+
+### BR-PX04: コンテキストロスト復帰
+- handleContextLost: contextLost=true、composer.render呼び出し抑止
+- handleContextRestored: 既存composer/bloomPass/renderPass/outputPassをdispose→再生成、失敗時はenabled=false永続化
+- 復帰順序: SceneManager再構築 → PostFXManager.handleContextRestored → QualityManager再適用
 
 ## BR-EFFECT: エフェクトルール
 

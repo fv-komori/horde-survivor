@@ -7,3 +7,4 @@ coverage/
 .playwright-mcp/
 .playwright-screenshots/
 test-screenshots/
+**/.DS_Store

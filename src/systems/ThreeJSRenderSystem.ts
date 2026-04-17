@@ -1,4 +1,6 @@
 import {
+  ACESFilmicToneMapping,
+  PCFSoftShadowMap,
   PerspectiveCamera,
   Vector3,
   WebGLRenderer,
@@ -11,6 +13,7 @@ import type { System } from '../ecs/System';
 import type { World } from '../ecs/World';
 import type { SceneManager } from '../rendering/SceneManager';
 import type { QualityManager } from '../rendering/QualityManager';
+import type { PostFXManager } from '../rendering/PostFXManager';
 import type { HTMLOverlayManager } from '../ui/HTMLOverlayManager';
 
 const LOG_PREFIX = GAME_CONFIG.logPrefix;
@@ -28,15 +31,21 @@ export class ThreeJSRenderSystem implements System {
   /** 再利用用ベクトル */
   private readonly _worldPos = new Vector3();
 
+  /** Iter4: PostFXManager参照（GameServiceから初期化後に注入、nullでフォールバック） */
+  private postFXManager: PostFXManager | null = null;
+
   constructor(
     private readonly container: HTMLElement,
     private sceneManager: SceneManager,
     private qualityManager: QualityManager,
     private overlayManager: HTMLOverlayManager | null,
   ) {
-    // WebGLRenderer初期化
+    // WebGLRenderer初期化（Iter4: PCFSoftShadow + ACES Tonemapping）
     this.renderer = new WebGLRenderer({ antialias: true, alpha: false });
     this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = PCFSoftShadowMap;
+    this.renderer.toneMapping = ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = GAME_CONFIG.three.lighting.toneMappingExposure;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.updateRendererSize();
     this.container.appendChild(this.renderer.domElement);
@@ -74,8 +83,12 @@ export class ThreeJSRenderSystem implements System {
       this.overlayManager.updatePositions(world, this.camera);
     }
 
-    // レンダリング
-    this.renderer.render(this.sceneManager.scene, this.camera);
+    // Iter4: PostFXManager経由でレンダ（内部でenabled/contextLost分岐）、nullの場合は直接
+    if (this.postFXManager) {
+      this.postFXManager.render(dt);
+    } else {
+      this.renderer.render(this.sceneManager.scene, this.camera);
+    }
   }
 
   /** エンティティの2D論理座標→3Dワールド座標を同期（BL-02） */
@@ -113,6 +126,8 @@ export class ThreeJSRenderSystem implements System {
     const aspect = this.renderer.domElement.width / this.renderer.domElement.height;
     this.camera.aspect = aspect;
     this.camera.updateProjectionMatrix();
+    // Iter4: PostFXManagerのRenderTargetも同期
+    this.postFXManager?.resize(this.container.clientWidth, this.container.clientHeight);
   };
 
   private updateRendererSize(): void {
@@ -126,6 +141,8 @@ export class ThreeJSRenderSystem implements System {
   private handleContextLost = (event: Event): void => {
     event.preventDefault();
     console.warn(`${LOG_PREFIX} WebGL context lost`);
+    // Iter4: PostFXManagerのcomposer.render呼び出しも抑止
+    this.postFXManager?.handleContextLost();
   };
 
   private handleContextRestored = (): void => {
@@ -134,6 +151,9 @@ export class ThreeJSRenderSystem implements System {
       this.sceneManager.recompileAllMaterials();
       this.sceneManager.reuploadAllTextures();
       this.sceneManager.rebuildPools();
+      // Iter4: PostFX復帰 → QualityManager再適用の順で復元
+      this.postFXManager?.handleContextRestored();
+      this.qualityManager.setManualOverride(this.qualityManager.getCurrentTier());
     } catch (e) {
       console.error(`${LOG_PREFIX} Failed to restore WebGL context`, e);
     }
@@ -142,6 +162,11 @@ export class ThreeJSRenderSystem implements System {
   /** HTMLOverlayManager設定（init後に呼び出し） */
   setOverlayManager(overlayManager: HTMLOverlayManager): void {
     this.overlayManager = overlayManager;
+  }
+
+  /** Iter4: PostFXManager注入（GameService.init後） */
+  setPostFXManager(postFX: PostFXManager | null): void {
+    this.postFXManager = postFX;
   }
 
   /** シーンマネージャー/品質マネージャー更新（ゲームリセット時） */
@@ -160,6 +185,7 @@ export class ThreeJSRenderSystem implements System {
     window.removeEventListener('resize', this.handleResize);
     this.renderer.domElement.removeEventListener('webglcontextlost', this.handleContextLost);
     this.renderer.domElement.removeEventListener('webglcontextrestored', this.handleContextRestored);
+    this.postFXManager?.dispose();
     this.renderer.dispose();
   }
 }

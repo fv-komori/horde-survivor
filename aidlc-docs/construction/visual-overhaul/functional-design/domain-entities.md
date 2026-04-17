@@ -49,8 +49,8 @@ interface QualitySettings {
 }
 
 const QUALITY_PRESETS: Record<'high' | 'low', QualitySettings> = {
-  high: { shadowEnabled: true, shadowMapSize: 1024, maxParticles: 50, maxBulletInstances: 200, postProcessEnabled: true },
-  low:  { shadowEnabled: false, shadowMapSize: 0, maxParticles: 15, maxBulletInstances: 100, postProcessEnabled: false },
+  high: { shadowEnabled: true, shadowMapSize: 1024, maxParticles: 50, maxBulletInstances: 200, postProcessEnabled: true, outlineEnabled: true, hemisphereEnabled: true, fogEnabled: true },
+  low:  { shadowEnabled: false, shadowMapSize: 0, maxParticles: 15, maxBulletInstances: 100, postProcessEnabled: false, outlineEnabled: false, hemisphereEnabled: false, fogEnabled: false },
 };
 ```
 
@@ -99,12 +99,14 @@ interface BackgroundTile {
 ## Three.jsシーン階層（更新版）
 
 ```
-THREE.Scene
-├─ AmbientLight (intensity: 0.6)
-├─ DirectionalLight (intensity: 0.8, shadow: quality依存)
+THREE.Scene（fog: 0xc9a96e, near=15, far=45）
+├─ AmbientLight (intensity: 0.7)
+├─ HemisphereLight (sky=0x87ceeb, ground=0xc9a96e, intensity=0.4)
+├─ DirectionalLight (intensity: 1.0, color=0xfff4e0 暖色, shadow: quality依存)
+├─ Sky Dome (SphereGeometry radius=40 BackSide + ShaderMaterial gradient, fog=false)
 │
 ├─ Background Group
-│  ├─ BackgroundTile[0] (road + guardrails + ground)
+│  ├─ BackgroundTile[0] (road + wooden guardrails + ground)
 │  ├─ BackgroundTile[1]
 │  └─ BackgroundTile[2]
 │
@@ -138,11 +140,16 @@ three: {
   },
   lighting: {
     ambientIntensity: 0.7,
-    ambientColor: 0xfff5e6,  // 暖色系アンビエント
+    ambientColor: 0xfff5e6,                   // 暖色系アンビエント
     directionalIntensity: 1.0,
-    directionalColor: 0xffffff,
+    directionalColor: 0xfff4e0,               // 暖色系の太陽光
     directionalPosition: { x: 5, y: 15, z: -5 },
     shadowMapSize: 1024,
+    hemisphereSkyColor: 0x87ceeb,             // 空色→地面色バウンス
+    hemisphereGroundColor: 0xc9a96e,
+    hemisphereIntensity: 0.4,
+    directionalBoostWhenHemiOff: 1.15,        // Hemi OFF時のDirectional補正係数
+    toneMappingExposure: 1.0,
   },
   coordinate: {
     scale: 0.01,
@@ -159,7 +166,8 @@ three: {
   guardrail: {
     height: 0.4,
     postSpacing: 0.8,
-    color: 0xbbbbbb,
+    color: 0x8b5a3c,             // 木製風（焼け木色）
+    topRailColor: 0x6b4223,      // 横木の濃色
   },
   desert: {
     color: 0xd4a574,
@@ -181,6 +189,30 @@ three: {
     bullet: 0.5,
     itemBase: 0.3,
     itemBobAmplitude: 0.1,
+  },
+  fog: {
+    color: 0xc9a96e,
+    near: 15,
+    far: 45,
+    disabledFar: 9999,           // setFogEnabled(false) 時の値
+  },
+  sky: {
+    topColor: 0x87ceeb,          // グラデ空ドーム上部
+    bottomColor: 0xc9a96e,       // Fog色と統一
+    radius: 40,                  // Fog far=45 より内側
+    offset: 0.0,
+    exponent: 0.6,
+  },
+  postFX: {
+    bloomStrength: 0.6,
+    bloomRadius: 0.4,
+    bloomThreshold: 0.85,
+    maxPixelRatio: 2,
+    maxRenderTargetSize: 2048,
+  },
+  outline: {
+    color: 0x000000,
+    thickness: 0.04,             // 反転ハル拡大率
   },
 }
 ```

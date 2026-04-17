@@ -127,9 +127,15 @@ export const GAME_CONFIG = deepFreeze({
       ambientIntensity: 0.7,
       ambientColor: 0xfff5e6,    // 暖色系アンビエント
       directionalIntensity: 1.0,
-      directionalColor: 0xffffff,
+      directionalColor: 0xfff4e0,              // Iter4: 暖色に変更
       directionalPosition: { x: 5, y: 15, z: -5 },
       shadowMapSize: 1024,
+      // Iter4 追加: HemisphereLight（空色→地面色バウンス）
+      hemisphereSkyColor: 0x87ceeb,
+      hemisphereGroundColor: 0xc9a96e,
+      hemisphereIntensity: 0.4,
+      directionalBoostWhenHemiOff: 1.15,       // Hemi OFF時のDirectional補正係数
+      toneMappingExposure: 1.0,
     },
     coordinate: {
       scale: 0.01,
@@ -146,7 +152,8 @@ export const GAME_CONFIG = deepFreeze({
     guardrail: {
       height: 0.4,
       postSpacing: 0.8,
-      color: 0xbbbbbb,
+      color: 0x8b5a3c,        // Iter4: 木製風（焼け木色）
+      topRailColor: 0x6b4223, // Iter4: 横木の濃色
     },
     desert: {
       color: 0xd4a574,
@@ -169,6 +176,34 @@ export const GAME_CONFIG = deepFreeze({
       bullet: 0.5,
       itemBase: 0.3,
       itemBobAmplitude: 0.1,
+    },
+    // Iter4: Fog
+    fog: {
+      color: 0xc9a96e,
+      near: 15,
+      far: 45,
+      disabledFar: 9999,       // setFogEnabled(false) 時の値（far planeより十分大きい）
+    },
+    // Iter4: グラデーション空ドーム
+    sky: {
+      topColor: 0x87ceeb,       // 空の上部（空色）
+      bottomColor: 0xc9a96e,    // 空の下部（Fog色と統一）
+      radius: 40,               // Fog far=45 より内側に配置して距離逆転を回避
+      offset: 0.0,              // グラデ中心位置
+      exponent: 0.6,            // グラデ急峻度
+    },
+    // Iter4: PostFX（UnrealBloom + OutputPass）
+    postFX: {
+      bloomStrength: 0.6,
+      bloomRadius: 0.4,
+      bloomThreshold: 0.85,
+      maxPixelRatio: 2,
+      maxRenderTargetSize: 2048,
+    },
+    // Iter4: Outline（反転ハル）
+    outline: {
+      color: 0x000000,
+      thickness: 0.04,          // メッシュサイズに対する拡大率
     },
   },
 } as const);

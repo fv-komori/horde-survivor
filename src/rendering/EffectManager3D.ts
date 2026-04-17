@@ -1,5 +1,6 @@
 import {
   BoxGeometry,
+  CanvasTexture,
   Color,
   CylinderGeometry,
   Group,
@@ -8,10 +9,13 @@ import {
   MeshToonMaterial,
   Object3D,
   PointLight,
+  Sprite,
+  SpriteMaterial,
   Vector3,
 } from 'three';
 import type { SceneManager } from './SceneManager';
 import type { QualityManager } from './QualityManager';
+import type { ProceduralMeshFactory } from '../factories/ProceduralMeshFactory';
 
 /** 3Dエフェクト情報 */
 interface ActiveEffect {
@@ -20,6 +24,8 @@ interface ActiveEffect {
   duration: number;
   type: EffectKind;
   particles?: Particle[];
+  /** Iter4: Smoke/MuzzleFlash など Factory キャッシュ由来の素材を使うエフェクトの dispose をスキップ */
+  skipMeshDispose?: boolean;
 }
 
 /** パーティクル */
@@ -28,43 +34,108 @@ interface Particle {
   velocity: Vector3;
 }
 
-type EffectKind = 'muzzle_flash' | 'enemy_destroy' | 'buff_column' | 'item_rotate';
+type EffectKind = 'muzzle_flash' | 'enemy_destroy' | 'buff_column' | 'item_rotate' | 'smoke_puff';
 
-/** 3Dエフェクト管理（BL-08, BR-EF01〜EF04） */
+/** 3Dエフェクト管理（BL-08, BR-EF01〜EF04, Iter4: MuzzleFlash強化 + SmokePuff追加） */
 export class EffectManager3D {
   private activeEffects: ActiveEffect[] = [];
   private readonly gravity = -9.8;
 
+  /** Iter4: Smoke用共有SpriteMaterialキャッシュ（CanvasTexture含む） */
+  private smokeMaterial: SpriteMaterial | null = null;
+
   constructor(
     private readonly sceneManager: SceneManager,
     private readonly qualityManager: QualityManager,
+    private readonly meshFactory?: ProceduralMeshFactory,
   ) {}
 
-  /** マズルフラッシュ（BR-EF01） */
+  /** マズルフラッシュ（BR-EF01, Iter4: 平面放射+emissive+Bloom映え） */
   spawnMuzzleFlash(worldPos: Vector3): void {
     const quality = this.qualityManager.getSettings();
     const group = new Group();
     group.position.copy(worldPos);
 
+    // High品質: PointLightで周囲を照らす
     if (quality.shadowEnabled) {
-      // High品質: PointLight付き
-      const light = new PointLight(0xffff00, 2.0, 1.0);
+      const light = new PointLight(0xffee58, 3.0, 1.5);
       group.add(light);
     }
 
-    // 小さな発光パーティクル
-    const flashGeo = new BoxGeometry(0.05, 0.05, 0.05);
-    const flashMat = new MeshBasicMaterial({ color: 0xffff00 });
-    const flashMesh = new Mesh(flashGeo, flashMat);
-    group.add(flashMesh);
+    // 平面放射メッシュ（Factoryキャッシュ共有）
+    if (this.meshFactory) {
+      const flash = this.meshFactory.createMuzzleFlashMesh();
+      flash.lookAt(new Vector3(worldPos.x, worldPos.y + 10, worldPos.z));
+      group.add(flash);
+    } else {
+      // Fallback: 小さなBox
+      const geo = new BoxGeometry(0.08, 0.08, 0.08);
+      const mat = new MeshBasicMaterial({ color: 0xffee58 });
+      group.add(new Mesh(geo, mat));
+    }
 
     this.sceneManager.addEntity(group);
     this.activeEffects.push({
       object: group,
       elapsed: 0,
-      duration: 0.05,
+      duration: 0.08,
       type: 'muzzle_flash',
+      skipMeshDispose: this.meshFactory != null, // Factoryキャッシュ共有のためdispose不要
     });
+  }
+
+  /** Iter4: 着弾・撃破時の煙パフ（Sprite + 共有Material、ビルボード自動、LRU運用） */
+  spawnSmokePuff(worldPos: Vector3): void {
+    const quality = this.qualityManager.getSettings();
+    // maxParticles 上限を超える場合は最古を即座にクリア（LRU: S-NG-3-iter2対応）
+    const currentSmokeCount = this.activeEffects.filter(e => e.type === 'smoke_puff').length;
+    if (currentSmokeCount >= quality.maxParticles) {
+      const idx = this.activeEffects.findIndex(e => e.type === 'smoke_puff');
+      if (idx >= 0) {
+        const old = this.activeEffects[idx];
+        this.sceneManager.removeEntity(old.object);
+        this.disposeEffect(old);
+        this.activeEffects.splice(idx, 1);
+      }
+    }
+
+    const mat = this.getSmokeMaterial();
+    const sprite = new Sprite(mat);
+    sprite.scale.set(0.4, 0.4, 1);
+    sprite.position.copy(worldPos);
+    this.sceneManager.addEntity(sprite);
+    this.activeEffects.push({
+      object: sprite,
+      elapsed: 0,
+      duration: 0.5,
+      type: 'smoke_puff',
+      skipMeshDispose: true, // SpriteMaterialはキャッシュ共有
+    });
+  }
+
+  /** Smoke用SpriteMaterial取得（CanvasTextureで白グラデ円、キャッシュ共有） */
+  private getSmokeMaterial(): SpriteMaterial {
+    if (this.smokeMaterial) return this.smokeMaterial;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      const grad = ctx.createRadialGradient(32, 32, 2, 32, 32, 30);
+      grad.addColorStop(0, 'rgba(255,255,255,0.9)');
+      grad.addColorStop(0.5, 'rgba(255,255,255,0.35)');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 64, 64);
+    }
+    const tex = new CanvasTexture(canvas);
+    this.smokeMaterial = new SpriteMaterial({
+      map: tex,
+      transparent: true,
+      depthWrite: false,
+    });
+    return this.smokeMaterial;
   }
 
   /** 敵撃破パーティクル（BR-EF02） */
@@ -100,6 +171,9 @@ export class EffectManager3D {
       type: 'enemy_destroy',
       particles,
     });
+
+    // Iter4: 撃破時に煙パフも追加
+    this.spawnSmokePuff(worldPos);
   }
 
   /** バフ取得光の柱（BR-EF03） */
@@ -128,20 +202,21 @@ export class EffectManager3D {
       effect.elapsed += dt;
 
       if (effect.elapsed >= effect.duration) {
-        // 完了 → 除去
         this.sceneManager.removeEntity(effect.object);
         this.disposeEffect(effect);
         this.activeEffects.splice(i, 1);
         continue;
       }
 
-      // タイプ別アニメーション
       switch (effect.type) {
         case 'enemy_destroy':
           this.updateDestroyParticles(effect, dt);
           break;
         case 'buff_column':
           this.updateBuffColumn(effect);
+          break;
+        case 'smoke_puff':
+          this.updateSmokePuff(effect);
           break;
       }
     }
@@ -155,7 +230,6 @@ export class EffectManager3D {
       p.mesh.position.y += p.velocity.y * dt;
       p.mesh.position.z += p.velocity.z * dt;
     }
-    // フェードアウト
     const alpha = 1 - effect.elapsed / effect.duration;
     effect.object.traverse((child) => {
       if (child instanceof Mesh && child.material instanceof MeshToonMaterial) {
@@ -168,9 +242,7 @@ export class EffectManager3D {
   private updateBuffColumn(effect: ActiveEffect): void {
     const progress = effect.elapsed / effect.duration;
     const targetHeight = 2.0;
-    // 柱が上方向に伸びる
     effect.object.scale.set(1, 1 + progress * targetHeight, 1);
-    // フェードアウト
     effect.object.traverse((child) => {
       if (child instanceof Mesh && child.material instanceof MeshBasicMaterial) {
         child.material.opacity = 0.8 * (1 - progress);
@@ -178,7 +250,24 @@ export class EffectManager3D {
     });
   }
 
+  private updateSmokePuff(effect: ActiveEffect): void {
+    const progress = effect.elapsed / effect.duration;
+    // 上昇しつつフェードアウト&膨張
+    const sprite = effect.object as Sprite;
+    sprite.position.y += 0.6 * 0.016; // おおよそ 0.6 m/s
+    const scale = 0.4 + progress * 0.6;
+    sprite.scale.set(scale, scale, 1);
+    if (sprite.material instanceof SpriteMaterial) {
+      sprite.material.opacity = 1 - progress;
+    }
+  }
+
+  /** Iter4: Factoryキャッシュ由来のmesh/materialはスキップし、per-effect生成物のみdispose */
   private disposeEffect(effect: ActiveEffect): void {
+    if (effect.skipMeshDispose) {
+      // Factoryキャッシュ共有のためスキップ（二重破棄防止）
+      return;
+    }
     effect.object.traverse((child) => {
       if (child instanceof Mesh) {
         child.geometry.dispose();
@@ -198,5 +287,15 @@ export class EffectManager3D {
       this.disposeEffect(effect);
     }
     this.activeEffects.length = 0;
+  }
+
+  /** リソース解放（Smoke共有Material含む） */
+  dispose(): void {
+    this.clearAll();
+    if (this.smokeMaterial) {
+      if (this.smokeMaterial.map) this.smokeMaterial.map.dispose();
+      this.smokeMaterial.dispose();
+      this.smokeMaterial = null;
+    }
   }
 }

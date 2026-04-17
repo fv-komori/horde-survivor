@@ -824,3 +824,59 @@
 **Context**: INCEPTION - Workflow Planning → Application Design
 
 ---
+
+## Iteration 4 - 開始・Requirements Analysis完了
+**Timestamp**: 2026-04-17T00:52:28Z
+**User Input**: "ビジュアルをもう少し参考画像のようなリッチな見た目に近づけたい" + 追加参考画像 `lastwar.jpeg` 提示
+**AI Response**: Iteration 3完了状態から新イテレーション開始。現状ゲームスクショとreference-visual.png/lastwar.jpegを目視比較しギャップを特定。ユーザーと4領域スコープ合意（キャラ表現力、輪郭線+影、ライティング+PostFX、環境背景）、バレル等ゲームロジック追加は対象外。requirements-v4.md / questions-summary-v4.md 作成。
+**Context**: CONSTRUCTION(Iter3) 完了 → INCEPTION(Iter4) - Requirements Analysis完了、承認待ち
+
+---
+
+## Iteration 4 - Application Design 自動レビューPASS
+**Timestamp**: 2026-04-17T01:30:00Z
+**User Input**: "/dlc-review:dlc-review-auto"
+**AI Response**: application-design-v4に対する自動レビュー。4ロール（architect/frontend/security/ops、backend・infraはスキップ）並列実行。iter1で30件指摘→FAIL（A保守性6、O設計品質6）。10件のHIGH信頼FIX + 4件AUTO-DECIDEDを設計書に反映し、iter2で平均8.125でPASS（全軸≥7）。重要指摘28件解消、継続1件、新規important 3件はConstruction時対応。
+**Context**: INCEPTION完了、CONSTRUCTION進行可
+**Outputs**: 
+- aidlc-docs/reviews/inception/application-design-auto-review-v4-iter1.md
+- aidlc-docs/reviews/inception/application-design-auto-review-v4.md（最終）
+- aidlc-docs/inception/application-design/components-v4.md（修正適用済み）
+
+---
+
+## Iteration 4 - Construction完了（Code Generation + Build&Test）
+**Timestamp**: 2026-04-17T01:50:00Z
+**User Input**: "進めます"
+**AI Response**: 
+- FD/NFR/Infra: SKIP（設計書v4で網羅）
+- Code Generation完了（9ファイル改修 + 1新規）:
+  - ProceduralMeshFactory: 顔・帽子ツバ・靴・Outline・味方青系・木製フェンス・弾丸トレイル
+  - SceneManager: HemisphereLight・Fog・グラデ空ShaderMaterial・setOutline/Hemi/Fog切替
+  - PostFXManager（新規）: EffectComposer+UnrealBloom+OutputPass・tryCreate・handleContextLost/Restored・dispose・resize（dpr/maxクランプ）
+  - EffectManager3D: Sprite-SmokePuff（LRUプール）・MuzzleFlash平面+emissive
+  - QualityManager: outlineEnabled/hemisphereEnabled/fogEnabled・getRenderStats・fail-open setQuality
+  - ThreeJSRenderSystem: PCFSoftShadowMap・ACESFilmicToneMapping・PostFX統合・contextLost連携
+  - GameService: PostFXManager初期化・配線・resetGame時の再構築
+  - gameConfig: hemisphere/fog/sky/postFX/outline パラメータ追加
+- Build&Test:
+  - tsc --noEmit: clean
+  - ESLint: 0 errors（既存warning 3のみ）
+  - vite build: 成功（gzipped 161.83KB、設計予算+70KB内）
+  - Jest: 86/86 PASS
+- Playwright目視確認: 参考画像に大幅に近づいた（木製フェンス、青空グラデ、キャラ顔・帽子、光る弾丸トレイル、ソフト影）
+- 実装時バグ1件修正: resetGame時にpostFXManagerが旧scene参照 → 新sceneで再構築する処理追加
+
+**Context**: CONSTRUCTION完了、Iteration 4完了
+**Outputs**: 
+- src/factories/ProceduralMeshFactory.ts（全面刷新）
+- src/rendering/SceneManager.ts（拡張）
+- src/rendering/PostFXManager.ts（新規）
+- src/rendering/EffectManager3D.ts（拡張）
+- src/rendering/QualityManager.ts（拡張）
+- src/systems/ThreeJSRenderSystem.ts（拡張）
+- src/game/GameService.ts（拡張）
+- src/config/gameConfig.ts（拡張）
+- test-screenshots/iter4-final-combat.png（目視確認）
+
+---
