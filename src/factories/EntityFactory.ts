@@ -60,6 +60,13 @@ uniform vec3 outlineColor;
 void main() { gl_FragColor = vec4(outlineColor, 1.0); }
 `;
 
+/**
+ * Iter5: GLTF キャラは実寸 ~1.8m で配置されているが、ゲームの world 座標系では
+ * 旧プロシージャルキャラ（~0.9 unit tall）相当のサイズ感を期待している。
+ * 全キャラに共通で適用する基本スケール（1.0/1.8 ≒ 0.55）。
+ */
+const CHAR_BASE_SCALE = 0.55;
+
 /** 敵 type → (CharacterKey, scale, tint) 変換表（Iter5: 単一モデル + scale/tint方針） */
 const ENEMY_VARIANT: Record<EnemyType, { key: CharacterKey; scale: number; tint: number | null }> = {
   [EnemyType.NORMAL]: { key: 'ENEMY', scale: 1.0, tint: null },
@@ -67,6 +74,16 @@ const ENEMY_VARIANT: Record<EnemyType, { key: CharacterKey; scale: number; tint:
   [EnemyType.TANK]: { key: 'ENEMY', scale: 1.3, tint: 0x7b1fa2 },
   [EnemyType.BOSS]: { key: 'HAZMAT', scale: 1.8, tint: 0xb71c1c },
 };
+
+/**
+ * Toon Shooter Game Kit のキャラ GLTF には複数の武器メッシュ（AK / Pistol / Shotgun / Knife 等）が
+ * あらかじめ各 bone に attach されている。Iter5 では GunKey で指定した武器のみを見せたいため、
+ * 不要な兄弟武器メッシュを非表示化する（削除は skeleton 参照を壊し得るため visible=false に留める）。
+ */
+const KNOWN_GUN_NAMES = new Set([
+  'AK', 'GrenadeLauncher', 'Knife_1', 'Knife_2', 'Pistol', 'Revolver',
+  'Revolver_Small', 'RocketLauncher', 'ShortCannon', 'Shotgun', 'Shovel', 'SMG',
+]);
 
 /**
  * S-SVC-03: エンティティ生成ファクトリ（Iter5: GLTF テンプレートを SkeletonUtils.clone）
@@ -200,13 +217,22 @@ export class EntityFactory {
     options: { scale?: number; tint?: number | null } = {},
   ): { root: Group; mixer: AnimationMixer; anims: Map<string, AnimationClip>; outlineMesh: Group } {
     const { root, mixer, anims } = this.cloneCharacter(charKey);
-    if (options.scale && options.scale !== 1.0) root.scale.setScalar(options.scale);
+    const variantScale = options.scale ?? 1.0;
+    root.scale.setScalar(CHAR_BASE_SCALE * variantScale);
     if (options.tint != null) this.applyTint(root, options.tint);
+    this.hidePreAttachedGuns(root);
     const outlineMesh = this.createOutlineMesh(root);
     if (gunKey) this.attachGun(root, gunKey, charKey);
     this.sceneManager?.addEntity(root);
     world.addComponent(id, new AnimationStateComponent('Idle'));
     return { root, mixer, anims, outlineMesh };
+  }
+
+  /** GLTF に元から attach されている兄弟武器メッシュを非表示化（ナイフ等の持ち物も含む） */
+  private hidePreAttachedGuns(root: Object3D): void {
+    root.traverse((obj) => {
+      if (KNOWN_GUN_NAMES.has(obj.name)) obj.visible = false;
+    });
   }
 
   // ---------- エンティティ生成 ----------
