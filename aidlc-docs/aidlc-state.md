@@ -105,9 +105,9 @@
   - HealthSystem/CollisionSystem/DefenseLineSystem → AnimationSystem.playHitReact/playDeath 結線（3324be5）
 - [x] Build and Test - MVP COMPLETED [build-and-test-summary-v5.md]（tsc/ESLint clean, 86 tests PASS, Playwright 動作確認済み、737KB/gzip192KB）
 - 残作業（Iter5 完了に向けて）:
-  - [ ] 環境 GLB（Barrier_Single / Crate / SackTrench / Fence / Tree_1）を SceneManager に配置
+  - [x] 環境 GLB（Barrier_Single / Crate / SackTrench / Fence / Tree_1 / Fence_Long）を SceneManager に配置（a9bbf55）
   - [ ] GameStartScreen mini-renderer（キャラプレビュー）
-  - [ ] MetricsProbe（drawCall / triangles 実測）
+  - [x] MetricsProbe（heap5min 差分、Chrome 限定、S-SVC-08 / NFR-07）
   - [ ] webglcontextlost/restored ハンドラ結線
   - [ ] AssetManager 用 LoaderScreen（任意）
   - [ ] 新規テスト（AssetManager / AnimationSystem / AnimationStateComponent / EntityFactory.gltf）

@@ -55,9 +55,9 @@
 ## Iter5 残作業（次セッション以降）
 
 - [x] HealthSystem/CollisionSystem/DefenseLineSystem から AnimationSystem.playHitReact / playDeath を呼び出す結線（3324be5）
-- [ ] 環境 GLB（Barrier_Single / Crate / SackTrench / Fence / Tree_1）を SceneManager に配置
+- [x] 環境 GLB（Barrier_Single / Crate / SackTrench / Fence / Fence_Long / Tree_1）を SceneManager に配置（a9bbf55）
 - [ ] GameStartScreen mini-renderer（キャラプレビュー）
-- [ ] MetricsProbe 新規（drawCall / triangles の実測）
+- [x] MetricsProbe 新規（S-SVC-08: heap 5 分差分を console に出力、Chrome 限定 NFR-07 検証用）
 - [ ] webglcontextlost/restored ハンドラ結線
 - [ ] AssetManager 用 LoaderScreen（現状はローディング UI 無し、一瞬で完了する想定）
 - [ ] 新規テスト（AssetManager / AnimationSystem / AnimationStateComponent / EntityFactory.gltf パス）

@@ -42,6 +42,7 @@ import { WeaponComponent } from '../components/WeaponComponent';
 import { AudioManager } from '../audio/AudioManager';
 import { SettingsManager } from './SettingsManager';
 import { SettingsScreen } from '../ui/SettingsScreen';
+import { MetricsProbe } from '../services/MetricsProbe';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { GameState, WeaponType } from '../types';
 import type { EntityId } from '../ecs/Entity';
@@ -67,6 +68,7 @@ export class GameService {
   private audioManager: AudioManager;
   private settingsManager!: SettingsManager;
   private settingsScreen!: SettingsScreen;
+  private metricsProbe: MetricsProbe;
 
   // Three.js
   private sceneManager!: SceneManager;
@@ -109,6 +111,7 @@ export class GameService {
     this.weaponSystem = new WeaponSystem(this.entityFactory, this.audioManager);
     this.allyConversionSystem = new AllyConversionSystem(this.entityFactory, this.audioManager);
     this.allyFireRateSystem = new AllyFireRateSystem();
+    this.metricsProbe = new MetricsProbe();
   }
 
   /** 初期化 */
@@ -211,6 +214,9 @@ export class GameService {
 
     // UI操作リスナー
     this.inputHandler.enableUITapListener();
+
+    // Iter5 S-SVC-08: MetricsProbe 開始（Chrome なら 5 分後に heap 差分を console に出力）
+    this.metricsProbe.start();
   }
 
   /** Three.js初期化 */
@@ -298,6 +304,7 @@ export class GameService {
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
     }
+    this.metricsProbe.stop();
   }
 
   /** ゲーム状態リセット */
