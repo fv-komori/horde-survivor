@@ -298,7 +298,7 @@ class EntityFactory {
     });
   }
 
-  /** FR-06: 反転ハル、geometry clone + skeleton 共有 bind 方式（FIX-C / FIX-D対応） */
+  /** FR-06: 反転ハル、geometry clone + skeleton 共有 bind 方式（FIX-C / FIX-D対応、PoC成立確認済） */
   private createOutlineMesh(bodyRoot: THREE.Object3D): THREE.Object3D {
     // FIX-D: SkeletonUtils.clone は使わない（独自 skeleton が生成され本体と同期しないため）
     const outlineRoot = new THREE.Group();

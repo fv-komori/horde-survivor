@@ -101,5 +101,5 @@
 - [ ] NFR Requirements - SKIP予定（要件NFR-01〜09で定義済み）
 - [ ] NFR Design - SKIP予定（design v5で対応）
 - [ ] Infrastructure Design - SKIP予定（静的ホスティング変更なし、NFR-09で対応）
-- [ ] Code Generation - IN_PROGRESS（Day 1 調査5/5完了 + Day 2-1 GLB変換完了: bone=LowerArm.R、HitReact=0.433s、Option B移設方針確定、payload実測OK、**反転ハルPoC成立**、**全12アセット.glb化 (27〜41%サイズ削減)**、dev CSP `data:`削除で厳格化復帰。残: ProceduralMeshFactory Option B移設 + GLTF 本実装）
+- [ ] Code Generation - IN_PROGRESS（Day 1 + Day 2-1/2/3 完了: GLB変換・Option B移設・**GLTF本実装（MVP）完了**。GLB読込(AssetManager)、SkeletonUtils.clone、反転ハルOutline、LowerArmR武器attach、AnimationSystem、CleanupSystem dispose chain、ProceduralMeshFactory削除。ゲーム起動→プレイ動作確認OK。残: 極大キャラスケール調整、事前attach武器の非表示、環境GLB配置、Death/HitReact anim wire、tests追加、最終Playwright検証）
 - [ ] Build and Test - PENDING

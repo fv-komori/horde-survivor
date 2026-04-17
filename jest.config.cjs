@@ -5,6 +5,8 @@ module.exports = {
   roots: ['<rootDir>/tests'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    '^three/examples/jsm/utils/SkeletonUtils\\.js$': '<rootDir>/tests/__mocks__/SkeletonUtils.ts',
+    '^three/examples/jsm/loaders/GLTFLoader\\.js$': '<rootDir>/tests/__mocks__/GLTFLoader.ts',
   },
   collectCoverageFrom: [
     'src/**/*.ts',

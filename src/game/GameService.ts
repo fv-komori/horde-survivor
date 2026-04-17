@@ -2,7 +2,6 @@ import { World } from '../ecs/World';
 import { GameStateManager } from './GameStateManager';
 import { ScoreService } from './ScoreService';
 import { EntityFactory } from '../factories/EntityFactory';
-import { ProceduralMeshFactory } from '../factories/ProceduralMeshFactory';
 import { WaveManager } from '../managers/WaveManager';
 import { SpawnManager } from '../managers/SpawnManager';
 import { AssetManager } from '../managers/AssetManager';
@@ -33,6 +32,7 @@ import { AllyConversionSystem } from '../systems/AllyConversionSystem';
 import { AllyFireRateSystem } from '../systems/AllyFireRateSystem';
 import { EffectSystem } from '../systems/EffectSystem';
 import { CleanupSystem } from '../systems/CleanupSystem';
+import { AnimationSystem } from '../systems/AnimationSystem';
 
 // Components
 import { HealthComponent } from '../components/HealthComponent';
@@ -69,7 +69,6 @@ export class GameService {
   private settingsScreen!: SettingsScreen;
 
   // Three.js
-  private meshFactory!: ProceduralMeshFactory;
   private sceneManager!: SceneManager;
   private qualityManager!: QualityManager;
   private effectManager3D!: EffectManager3D;
@@ -77,6 +76,7 @@ export class GameService {
   private overlayManager!: HTMLOverlayManager;
   private renderSystem!: ThreeJSRenderSystem;
   private cleanupSystem!: CleanupSystem;
+  private animationSystem!: AnimationSystem;
 
   // InstancedMeshプール
   private bulletPool!: InstancedMeshPool;
@@ -160,12 +160,11 @@ export class GameService {
     this.settingsManager = new SettingsManager(this.audioManager, this.inputHandler);
     this.settingsScreen = new SettingsScreen(this.settingsManager, this.inputHandler, this.overlayCanvas);
 
-    // EntityFactoryにThree.js依存を注入
+    // EntityFactoryにThree.js依存を注入（Iter5: AssetManager 渡し、enemyNormalPool 不要）
     this.entityFactory.initThree(
-      this.meshFactory,
+      this.assetManager,
       this.sceneManager,
       this.bulletPool,
-      this.enemyNormalPool,
       this.itemPool,
     );
 
@@ -196,6 +195,7 @@ export class GameService {
     this.world.addSystem(this.allyConversionSystem);
     this.world.addSystem(this.allyFireRateSystem);
     this.world.addSystem(new EffectSystem());
+    this.world.addSystem(this.animationSystem);
     this.world.addSystem(this.cleanupSystem);
     this.world.addSystem(this.renderSystem);
 
@@ -214,11 +214,10 @@ export class GameService {
 
   /** Three.js初期化 */
   private initThreeJS(): void {
-    // ファクトリ・マネージャー
-    this.meshFactory = new ProceduralMeshFactory();
+    // シーンマネージャー
     this.sceneManager = new SceneManager();
 
-    // InstancedMeshプール作成（BL-05、Iter5 Option B: ProceduralMeshFactoryから本体内 helper へ移設）
+    // InstancedMeshプール作成（BL-05、Iter5: enemyNormal は個別 GLTF Mesh 化のため enemyNormalPool は弾丸サイズ用に縮退=Boxプレースホルダ）
     this.bulletPool = new InstancedMeshPool(
       this.createBulletGeometry(),
       this.createBulletMaterial(),
@@ -227,11 +226,11 @@ export class GameService {
     this.enemyNormalPool = new InstancedMeshPool(
       this.createEnemyNormalGeometry(),
       this.createEnemyNormalMaterial(),
-      100, // maxCount for enemy normal pool
+      100, // 未使用 pool（将来削除予定、現状 SceneManager.init シグネチャ互換のため保持）
     );
     this.itemPool = new InstancedMeshPool(
       this.createItemGeometry(),
-      this.createBulletMaterial(), // 仮マテリアル（個別色はsetColorで設定）
+      this.createBulletMaterial(),
       GAME_CONFIG.limits.maxItems,
     );
 
@@ -244,8 +243,9 @@ export class GameService {
     // エフェクト管理
     this.effectManager3D = new EffectManager3D(this.sceneManager, this.qualityManager);
 
-    // CleanupSystem（後でinitThree呼び出し）
+    // CleanupSystem / AnimationSystem（後でinitThree呼び出し）
     this.cleanupSystem = new CleanupSystem();
+    this.animationSystem = new AnimationSystem();
 
     // レンダリングシステム
     this.renderSystem = new ThreeJSRenderSystem(
@@ -319,8 +319,6 @@ export class GameService {
 
     // シーンを再構築
     this.sceneManager.dispose();
-    this.meshFactory.disposeAll();
-    this.meshFactory = new ProceduralMeshFactory();
     this.sceneManager = new SceneManager();
 
     this.bulletPool = new InstancedMeshPool(
@@ -342,6 +340,7 @@ export class GameService {
     this.sceneManager.init([this.bulletPool, this.enemyNormalPool, this.itemPool]);
     this.qualityManager = new QualityManager(this.sceneManager);
     this.effectManager3D = new EffectManager3D(this.sceneManager, this.qualityManager);
+    this.animationSystem.reset();
 
     // Iter4: PostFXManagerは新SceneManagerのsceneを指すよう再構築（旧参照を破棄）
     this.postFXManager?.dispose();
@@ -355,10 +354,9 @@ export class GameService {
     this.qualityManager.setRenderer(this.renderSystem.renderer);
     this.cleanupSystem.initThree(this.sceneManager);
     this.entityFactory.initThree(
-      this.meshFactory,
+      this.assetManager,
       this.sceneManager,
       this.bulletPool,
-      this.enemyNormalPool,
       this.itemPool,
     );
 
