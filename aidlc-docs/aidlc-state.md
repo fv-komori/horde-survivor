@@ -4,7 +4,7 @@
 - **Project Type**: Brownfield
 - **Start Date**: 2026-04-09T00:00:00Z
 - **Original Start**: 2026-04-07T00:00:00Z
-- **Current Stage**: INCEPTION - Application Design COMPLETED（Iteration 5）、次は Units Generation or Construction
+- **Current Stage**: CONSTRUCTION - Iter5 MVP+HitReact/Death結線完了、残作業（環境GLB/mini-renderer/MetricsProbe/webglcontext/テスト/最終確認）着手中
 - **Iteration**: 5（GLTFモデル導入: Toon Shooter Game Kit）
 
 ## Workspace State
@@ -101,5 +101,14 @@
 - [ ] NFR Requirements - SKIP予定（要件NFR-01〜09で定義済み）
 - [ ] NFR Design - SKIP予定（design v5で対応）
 - [ ] Infrastructure Design - SKIP予定（静的ホスティング変更なし、NFR-09で対応）
-- [x] Code Generation - MVP COMPLETED（Day 1 + Day 2-1/2/3 完了: GLB変換・Option B移設・GLTF本実装・スケール/武器visibility調整）
-- [x] Build and Test - MVP COMPLETED [build-and-test-summary-v5.md]（tsc/ESLint clean, 86 tests PASS, Playwright 動作確認済み、737KB/gzip192KB）。残作業: HealthSystem→AnimationSystem結線、環境GLB配置、GameStartScreen mini-renderer、MetricsProbe、webglcontextrestored、新規テスト
+- [x] Code Generation - MVP COMPLETED（Day 1 + Day 2-1/2/3 + HitReact/Death結線完了）
+  - HealthSystem/CollisionSystem/DefenseLineSystem → AnimationSystem.playHitReact/playDeath 結線（3324be5）
+- [x] Build and Test - MVP COMPLETED [build-and-test-summary-v5.md]（tsc/ESLint clean, 86 tests PASS, Playwright 動作確認済み、737KB/gzip192KB）
+- 残作業（Iter5 完了に向けて）:
+  - [ ] 環境 GLB（Barrier_Single / Crate / SackTrench / Fence / Tree_1）を SceneManager に配置
+  - [ ] GameStartScreen mini-renderer（キャラプレビュー）
+  - [ ] MetricsProbe（drawCall / triangles 実測）
+  - [ ] webglcontextlost/restored ハンドラ結線
+  - [ ] AssetManager 用 LoaderScreen（任意）
+  - [ ] 新規テスト（AssetManager / AnimationSystem / AnimationStateComponent / EntityFactory.gltf）
+  - [ ] 最終 Playwright 目視確認（アニメ再生、敵撃破、仲間生成、ダメージ演出）

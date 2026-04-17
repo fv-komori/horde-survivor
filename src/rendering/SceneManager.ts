@@ -16,12 +16,14 @@ import {
 } from 'three';
 import { GAME_CONFIG } from '../config/gameConfig';
 import type { InstancedMeshPool } from './InstancedMeshPool';
+import type { AssetManager } from '../managers/AssetManager';
 
 /** 背景タイルセット */
 interface BackgroundTile {
   road: Group;
   guardrailL: Group;
   guardrailR: Group;
+  decoration?: Group;
 }
 
 /** Three.jsシーン管理（BL-02, BL-03, Iter4: Hemi/Fog/Sky/Outline切替） */
@@ -269,12 +271,77 @@ export class SceneManager {
       tile.road.position.z += cfg.scrollSpeed * dt;
       tile.guardrailL.position.z += cfg.scrollSpeed * dt;
       tile.guardrailR.position.z += cfg.scrollSpeed * dt;
+      if (tile.decoration) tile.decoration.position.z += cfg.scrollSpeed * dt;
 
       if (tile.road.position.z > resetThreshold) {
         tile.road.position.z -= totalLength;
         tile.guardrailL.position.z -= totalLength;
         tile.guardrailR.position.z -= totalLength;
+        if (tile.decoration) tile.decoration.position.z -= totalLength;
       }
+    }
+  }
+
+  /** Iter5: 環境GLB配置（FR-01 環境GLTF、タイル毎の装飾を backgroundTile に連動させる） */
+  setupEnvironment(assetManager: AssetManager): void {
+    const roadCfg = GAME_CONFIG.three.road;
+    const lookX = GAME_CONFIG.three.camera.lookAt.x;
+    const shoulderOffset = roadCfg.width / 2 + 0.4; // 路肩オフセット
+    const outerOffset = roadCfg.width / 2 + 2.4;    // 外側（樹木）
+
+    // 環境プリセット（各タイルの相対Z/Xで配置）
+    const presets: Array<Array<{ key: 'Barrier_Single' | 'Crate' | 'SackTrench' | 'Fence' | 'Fence_Long' | 'Tree_1'; x: number; z: number; rotY?: number; scale?: number }>> = [
+      [
+        { key: 'Tree_1', x: -outerOffset - 0.6, z: -roadCfg.length * 0.35 },
+        { key: 'Tree_1', x: outerOffset + 0.8, z: -roadCfg.length * 0.1, rotY: Math.PI * 0.4 },
+        { key: 'Crate', x: shoulderOffset, z: -roadCfg.length * 0.2 },
+        { key: 'Fence_Long', x: -outerOffset, z: roadCfg.length * 0.15, rotY: 0 },
+      ],
+      [
+        { key: 'Barrier_Single', x: -shoulderOffset, z: -roadCfg.length * 0.15, rotY: Math.PI * 0.5 },
+        { key: 'SackTrench', x: shoulderOffset + 0.3, z: -roadCfg.length * 0.35, rotY: -Math.PI * 0.5 },
+        { key: 'Tree_1', x: outerOffset + 1.2, z: roadCfg.length * 0.2, rotY: Math.PI },
+        { key: 'Fence', x: -outerOffset + 0.2, z: -roadCfg.length * 0.3 },
+      ],
+      [
+        { key: 'Crate', x: -shoulderOffset - 0.1, z: -roadCfg.length * 0.3 },
+        { key: 'Crate', x: -shoulderOffset + 0.6, z: -roadCfg.length * 0.2, rotY: Math.PI * 0.25 },
+        { key: 'Tree_1', x: -outerOffset - 1.0, z: roadCfg.length * 0.1 },
+        { key: 'Barrier_Single', x: shoulderOffset, z: roadCfg.length * 0.1, rotY: -Math.PI * 0.5 },
+      ],
+      [
+        { key: 'SackTrench', x: -shoulderOffset - 0.2, z: -roadCfg.length * 0.2, rotY: Math.PI * 0.5 },
+        { key: 'Fence_Long', x: outerOffset, z: -roadCfg.length * 0.1, rotY: Math.PI },
+        { key: 'Tree_1', x: outerOffset + 1.6, z: -roadCfg.length * 0.4, rotY: Math.PI * 0.7 },
+        { key: 'Tree_1', x: -outerOffset - 1.4, z: -roadCfg.length * 0.1, rotY: Math.PI * 0.2 },
+      ],
+    ];
+
+    for (let i = 0; i < this.backgroundTiles.length; i++) {
+      const tile = this.backgroundTiles[i];
+      const preset = presets[i % presets.length];
+
+      const decoration = new Group();
+      decoration.name = 'env_decoration';
+      decoration.position.set(lookX, 0, -i * roadCfg.length);
+
+      for (const p of preset) {
+        const template = assetManager.getEnv(p.key).scene;
+        const clone = template.clone(true);
+        clone.position.set(p.x, 0, p.z);
+        if (p.rotY !== undefined) clone.rotation.y = p.rotY;
+        if (p.scale !== undefined) clone.scale.setScalar(p.scale);
+        clone.traverse((child) => {
+          if (child instanceof Mesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
+        decoration.add(clone);
+      }
+
+      this.scene.add(decoration);
+      tile.decoration = decoration;
     }
   }
 

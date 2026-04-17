@@ -54,7 +54,7 @@
 
 ## Iter5 残作業（次セッション以降）
 
-- [ ] HealthSystem から AnimationSystem.playHitReact / playDeath を呼び出す結線
+- [x] HealthSystem/CollisionSystem/DefenseLineSystem から AnimationSystem.playHitReact / playDeath を呼び出す結線（3324be5）
 - [ ] 環境 GLB（Barrier_Single / Crate / SackTrench / Fence / Tree_1）を SceneManager に配置
 - [ ] GameStartScreen mini-renderer（キャラプレビュー）
 - [ ] MetricsProbe 新規（drawCall / triangles の実測）

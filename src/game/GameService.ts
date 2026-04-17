@@ -238,6 +238,9 @@ export class GameService {
     // シーン初期化（ライト・背景・プール追加）
     this.sceneManager.init([this.bulletPool, this.enemyNormalPool, this.itemPool]);
 
+    // Iter5: 環境GLB配置（AssetManager は init() で先にロード済）
+    this.sceneManager.setupEnvironment(this.assetManager);
+
     // 品質管理
     this.qualityManager = new QualityManager(this.sceneManager);
 
@@ -339,6 +342,7 @@ export class GameService {
     );
 
     this.sceneManager.init([this.bulletPool, this.enemyNormalPool, this.itemPool]);
+    this.sceneManager.setupEnvironment(this.assetManager);
     this.qualityManager = new QualityManager(this.sceneManager);
     this.effectManager3D = new EffectManager3D(this.sceneManager, this.qualityManager);
     this.animationSystem.reset();
