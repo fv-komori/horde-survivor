@@ -108,7 +108,7 @@
   - [x] 環境 GLB（Barrier_Single / Crate / SackTrench / Fence / Tree_1 / Fence_Long）を SceneManager に配置（a9bbf55）
   - [ ] GameStartScreen mini-renderer（キャラプレビュー）
   - [x] MetricsProbe（heap5min 差分、Chrome 限定、S-SVC-08 / NFR-07）
-  - [ ] webglcontextlost/restored ハンドラ結線
+  - [x] webglcontextlost/restored: AssetManager.restoreTextures() 追加し ThreeJSRenderSystem.handleContextRestored から呼び出し、Playwright lose→restore で復帰確認
   - [ ] AssetManager 用 LoaderScreen（任意）
   - [ ] 新規テスト（AssetManager / AnimationSystem / AnimationStateComponent / EntityFactory.gltf）
   - [ ] 最終 Playwright 目視確認（アニメ再生、敵撃破、仲間生成、ダメージ演出）

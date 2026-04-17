@@ -1,4 +1,4 @@
-import { AnimationClip, Group } from 'three';
+import { AnimationClip, Group, Mesh, MeshStandardMaterial, Texture } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { GAME_CONFIG } from '../config/gameConfig';
 import {
@@ -103,5 +103,34 @@ export class AssetManager {
 
   hasCharacter(key: CharacterKey): boolean {
     return this.characters.has(key);
+  }
+
+  /**
+   * Iter5 / BL-07 / S-SVC-06b:
+   * WebGL コンテキスト復帰時に全テンプレートのテクスチャを needsUpdate=true にする。
+   * clone 側 material / texture はテンプレートと参照共有のため、テンプレート側を更新すれば全 entity に波及する。
+   */
+  restoreTextures(): void {
+    const markTextures = (root: Group): void => {
+      root.traverse((child) => {
+        if (!(child instanceof Mesh)) return;
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        for (const mat of materials) {
+          if (!mat) continue;
+          const textureKeys: Array<keyof MeshStandardMaterial> = [
+            'map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap', 'alphaMap',
+          ];
+          for (const k of textureKeys) {
+            const tex = (mat as unknown as Record<string, unknown>)[k as string];
+            if (tex instanceof Texture) tex.needsUpdate = true;
+          }
+          mat.needsUpdate = true;
+        }
+      });
+    };
+
+    for (const t of this.characters.values()) markTextures(t.scene);
+    for (const t of this.guns.values()) markTextures(t.scene);
+    for (const t of this.envs.values()) markTextures(t.scene);
   }
 }

@@ -15,6 +15,7 @@ import type { SceneManager } from '../rendering/SceneManager';
 import type { QualityManager } from '../rendering/QualityManager';
 import type { PostFXManager } from '../rendering/PostFXManager';
 import type { HTMLOverlayManager } from '../ui/HTMLOverlayManager';
+import type { AssetManager } from '../managers/AssetManager';
 
 const LOG_PREFIX = GAME_CONFIG.logPrefix;
 
@@ -33,6 +34,9 @@ export class ThreeJSRenderSystem implements System {
 
   /** Iter4: PostFXManager参照（GameServiceから初期化後に注入、nullでフォールバック） */
   private postFXManager: PostFXManager | null = null;
+
+  /** Iter5: AssetManager参照（context restored 時に restoreTextures を呼ぶ、null は非GLTFセッション） */
+  private assetManager: AssetManager | null = null;
 
   constructor(
     private readonly container: HTMLElement,
@@ -148,6 +152,8 @@ export class ThreeJSRenderSystem implements System {
   private handleContextRestored = (): void => {
     console.info(`${LOG_PREFIX} WebGL context restored, rebuilding...`);
     try {
+      // Iter5 / S-SVC-06b: GLTF テンプレート側のテクスチャを needsUpdate=true（clone へ波及）
+      this.assetManager?.restoreTextures();
       this.sceneManager.recompileAllMaterials();
       this.sceneManager.reuploadAllTextures();
       this.sceneManager.rebuildPools();
@@ -167,6 +173,11 @@ export class ThreeJSRenderSystem implements System {
   /** Iter4: PostFXManager注入（GameService.init後） */
   setPostFXManager(postFX: PostFXManager | null): void {
     this.postFXManager = postFX;
+  }
+
+  /** Iter5: AssetManager注入（context restored 時に textures 再アップロードのため） */
+  setAssetManager(am: AssetManager): void {
+    this.assetManager = am;
   }
 
   /** シーンマネージャー/品質マネージャー更新（ゲームリセット時） */

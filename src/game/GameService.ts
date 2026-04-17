@@ -274,6 +274,9 @@ export class GameService {
     this.renderSystem.setPostFXManager(this.postFXManager);
     this.qualityManager.setPostFXManager(this.postFXManager);
     this.qualityManager.setRenderer(this.renderSystem.renderer);
+
+    // Iter5 / S-SVC-06b: context restored 時に AssetManager.restoreTextures を呼ぶため注入
+    this.renderSystem.setAssetManager(this.assetManager);
   }
 
   /** WebGL2サポートチェック（BL-12） */

@@ -58,7 +58,7 @@
 - [x] 環境 GLB（Barrier_Single / Crate / SackTrench / Fence / Fence_Long / Tree_1）を SceneManager に配置（a9bbf55）
 - [ ] GameStartScreen mini-renderer（キャラプレビュー）
 - [x] MetricsProbe 新規（S-SVC-08: heap 5 分差分を console に出力、Chrome 限定 NFR-07 検証用）
-- [ ] webglcontextlost/restored ハンドラ結線
+- [x] webglcontextlost/restored: AssetManager.restoreTextures() 新規＋ThreeJSRenderSystem から呼び出し（S-SVC-06b 準拠、WEBGL_lose_context で lose→restore 動作確認）
 - [ ] AssetManager 用 LoaderScreen（現状はローディング UI 無し、一瞬で完了する想定）
 - [ ] 新規テスト（AssetManager / AnimationSystem / AnimationStateComponent / EntityFactory.gltf パス）
 - [ ] 最終 Playwright 目視確認（アニメ再生、敵撃破、仲間生成、ダメージ演出）
