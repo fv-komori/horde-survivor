@@ -61,7 +61,7 @@
 - [x] webglcontextlost/restored: AssetManager.restoreTextures() 新規＋ThreeJSRenderSystem から呼び出し（S-SVC-06b 準拠、WEBGL_lose_context で lose→restore 動作確認）
 - [ ] AssetManager 用 LoaderScreen（現状はローディング UI 無し、一瞬で完了する想定）
 - [x] 新規テスト: AnimationStateComponent（3 tests）/ AnimationSystem（6 tests、playHitReact/playDeath/reset）/ AssetManager（3 tests、初期状態と restoreTextures no-throw）計 12 tests 追加、全 98 tests PASS
-- [ ] 最終 Playwright 目視確認（アニメ再生、敵撃破、仲間生成、ダメージ演出）
+- [x] 最終 Playwright 目視確認: タイトル（mini-renderer）→プレイ（8 kills, 環境GLB全種可視）→HP減少（30/100）→GAMEOVER（10 kills, Hazmat仲間生成痕跡）。favicon 404 以外 console error なし
 
 ## 設計書整合性
 

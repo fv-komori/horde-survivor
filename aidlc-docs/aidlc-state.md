@@ -111,4 +111,4 @@
   - [x] webglcontextlost/restored: AssetManager.restoreTextures() 追加し ThreeJSRenderSystem.handleContextRestored から呼び出し、Playwright lose→restore で復帰確認
   - [ ] AssetManager 用 LoaderScreen（任意）
   - [x] 新規テスト（AssetManager / AnimationSystem / AnimationStateComponent）10 tests 追加、98 tests PASS（EntityFactory.gltf は initThree 依存のため後続対応）
-  - [ ] 最終 Playwright 目視確認（アニメ再生、敵撃破、仲間生成、ダメージ演出）
+  - [x] 最終 Playwright 目視確認（タイトル mini-renderer / プレイ中環境GLB+アニメ / Hazmat仲間生成 / HP減少 / GAMEOVER遷移 を4カット撮影、console error なし）
