@@ -101,5 +101,5 @@
 - [ ] NFR Requirements - SKIP予定（要件NFR-01〜09で定義済み）
 - [ ] NFR Design - SKIP予定（design v5で対応）
 - [ ] Infrastructure Design - SKIP予定（静的ホスティング変更なし、NFR-09で対応）
-- [ ] Code Generation - PENDING（Construction Day 1: bone調査・反転ハルPoC → 本実装）
+- [ ] Code Generation - IN_PROGRESS（Day 1 調査4/5完了: bone=LowerArm.R、HitReact=0.433s、Option B移設方針確定、payload実測OK。残: 反転ハルPoC+移設+本実装は次セッション）
 - [ ] Build and Test - PENDING
