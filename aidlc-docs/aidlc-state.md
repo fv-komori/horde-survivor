@@ -128,4 +128,20 @@
 - [x] User Stories - SKIP（Iter3/4/5同様に技術寄り、ユーザー機能追加のみで新ペルソナ不要）
 - [x] Workflow Planning - SKIP（1 Unit一括想定、運用停止中のためIter3/4/5同様）
 - [x] Application Design - COMPLETED（components-v6 / services-v6 / component-methods-v6 / component-dependency-v6）[AutoReviewed: reviews/inception/application-design-auto-review-v6, PASS（2 iter、全軸≥7、7.33→8.04）]
-- [ ] Units Generation - PENDING
+- [x] Units Generation - SKIP（1 Unit一括、運用停止中のためIter3/4/5同様に分割不要）
+
+### CONSTRUCTION PHASE (Iteration 6 - アイテム刷新)
+- [x] Functional Design - SKIP（application-design v6 で実装レベルまで詳述、ビジネスルール追加なし）
+- [x] NFR Requirements - SKIP（要件NFR-01〜09で定義済み）
+- [x] NFR Design - SKIP（design v6で対応）
+- [x] Infrastructure Design - SKIP（静的ホスティング変更なし）
+- [ ] Code Generation - IN PROGRESS
+  - Plan: `construction/plans/iter6-items-code-generation-plan.md`（7 フェーズ: Phase 0 調査 / 1 Debug 基盤 / 2a 旧削除独立系 / 2b enum 切替 / 3 Components+Factory / 4 Systems+拡張 / 5 Overlay Facade / 6 Build&Test）
+  - [x] Phase 0 - COMPLETED（`construction/plans/iter6-phase0-findings.md`: Math.random 参照マップ、localStorage 永続化なし確認、旧 enum 参照マップ）
+  - [x] Phase 1 - COMPLETED（EventLogger / DeterministicRng / DebugConfigLoader / ForceSpawnApi 導入、vite define + jest globals 配線、production DCE 確認、gzip 195.99KB）
+  - [ ] Phase 2a - NEXT（旧独立系削除: AllyConversionSystem / ItemDropManager / ItemCollectionSystem / ItemDropComponent / ITEM_COLORS / itemSpawn 等）
+  - [ ] Phase 2b - PENDING
+  - [ ] Phase 3 - PENDING
+  - [ ] Phase 4 - PENDING
+  - [ ] Phase 5 - PENDING
+- [ ] Build and Test - PENDING（Phase 6）

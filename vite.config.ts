@@ -1,7 +1,11 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  define: {
+    __DEBUG_API__: JSON.stringify(mode !== 'production'),
+    'import.meta.env.VITE_DEBUG_LOG': JSON.stringify(process.env.VITE_DEBUG_LOG ?? ''),
+  },
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
@@ -28,4 +32,4 @@ export default defineConfig({
     sourcemap: true,
     minify: 'esbuild',
   },
-});
+}));

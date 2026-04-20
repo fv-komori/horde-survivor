@@ -44,6 +44,10 @@ import { AudioManager } from '../audio/AudioManager';
 import { SettingsManager } from './SettingsManager';
 import { SettingsScreen } from '../ui/SettingsScreen';
 import { MetricsProbe } from '../services/MetricsProbe';
+import { EventLogger } from '../services/EventLogger';
+import { DebugConfigLoader } from '../services/DebugConfigLoader';
+import { DeterministicRng } from '../services/DeterministicRng';
+import { ForceSpawnApi } from '../services/ForceSpawnApi';
 import { GameStartScreen } from '../ui/GameStartScreen';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { GameState, WeaponType } from '../types';
@@ -119,6 +123,12 @@ export class GameService {
 
   /** 初期化 */
   async init(): Promise<void> {
+    // Iter6: debug 基盤を最優先で初期化（error ログ経路を他より先に確保）
+    EventLogger.init();
+    const debugCfg = DebugConfigLoader.load();
+    DeterministicRng.init(debugCfg.rngSeed);
+    ForceSpawnApi.init({ forcedBarrel: debugCfg.forceNextBarrel, forcedGate: debugCfg.forceNextGate });
+
     this.setupErrorHandlers();
 
     // WebGL2チェック（BL-12）

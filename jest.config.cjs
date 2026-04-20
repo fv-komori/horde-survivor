@@ -3,6 +3,9 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/tests'],
+  globals: {
+    __DEBUG_API__: true,
+  },
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^three/examples/jsm/utils/SkeletonUtils\\.js$': '<rootDir>/tests/__mocks__/SkeletonUtils.ts',
