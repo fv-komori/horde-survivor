@@ -558,8 +558,8 @@ export class EntityFactory {
     rightBase.position.set(xOffset, 0.04, 0);
     group.add(rightBase);
 
-    // 柱頂点のフィニアル（小さな球でソフトに見せる）
-    const capGeo = new SphereGeometry(0.08, 12, 8);
+    // 柱頂点のフィニアル（小さな球でソフトに見せる、旧アイテム球 r=0.08 と衝突しない r=0.09）
+    const capGeo = new SphereGeometry(0.09, 12, 8);
     const leftCap = new Mesh(capGeo, solidMat);
     leftCap.position.set(-xOffset, pillarHeight, 0);
     group.add(leftCap);
