@@ -8,7 +8,8 @@ import { AssetManager } from '../managers/AssetManager';
 import { InputHandler } from '../input/InputHandler';
 
 // Three.js rendering
-import { BoxGeometry, CylinderGeometry, MeshToonMaterial, SphereGeometry, type BufferGeometry } from 'three';
+import { BoxGeometry, ConeGeometry, CylinderGeometry, MeshToonMaterial, SphereGeometry, type BufferGeometry } from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { SceneManager } from '../rendering/SceneManager';
 import { InstancedMeshPool } from '../rendering/InstancedMeshPool';
 import { QualityManager } from '../rendering/QualityManager';
@@ -632,17 +633,34 @@ export class GameService {
   // プール dispose 時に InstancedMeshPool が geometry/material を dispose するため、
   // ここは都度 new して返す（小サイズ、キャッシュ不要）。
 
-  /** 弾丸用 Geometry（Iter4: 細長い光るトレイル形状、Bloom映え） */
-  private createBulletGeometry(): CylinderGeometry {
-    return new CylinderGeometry(0.025, 0.025, 0.18, 6);
+  /** 弾丸用 Geometry（Iter5: 円筒ケース + 円錐先端、-Z 軸沿いに向ける） */
+  private createBulletGeometry(): BufferGeometry {
+    // 軸方向: CylinderGeometry/ConeGeometry は既定で Y 軸沿い
+    // 本体ケース（ジャケット相当）
+    const body = new CylinderGeometry(0.028, 0.028, 0.13, 8);
+    // 先端コーン
+    const tip = new ConeGeometry(0.028, 0.07, 8);
+    tip.translate(0, 0.065 + 0.035, 0); // 本体上端 (+0.065) からコーン半長 (0.035) だけ上に
+
+    const merged = mergeGeometries([body, tip], false);
+    if (!merged) {
+      // 失敗時は本体のみ返す（発生想定なし、型安全のため）
+      return body;
+    }
+    body.dispose();
+    tip.dispose();
+
+    // 弾丸は -Z 方向へ飛ぶので、Y 軸沿い → -Z 軸沿いへ回転
+    merged.rotateX(-Math.PI / 2);
+    return merged;
   }
 
-  /** 弾丸用 Material（emissive、Bloomで発光） */
+  /** 弾丸用 Material（Iter5: 真鍮/ゴールド系、発光控えめで金属感） */
   private createBulletMaterial(): MeshToonMaterial {
     return new MeshToonMaterial({
-      color: 0xffeb3b,
-      emissive: 0xffeb3b,
-      emissiveIntensity: 0.8,
+      color: 0xd4a94a,
+      emissive: 0xd4a94a,
+      emissiveIntensity: 0.15,
     });
   }
 
