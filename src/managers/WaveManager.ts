@@ -16,8 +16,21 @@ export class WaveManager {
   private hitCountMultiplier: number = 1.0;
   private hitCountScalingTimer: number = 0;
 
+  /** Iter6: Wave 境目ボーナス発火済み時刻（秒）集合（B-NG-3 多重発火防止） */
+  private readonly bonusFiredAt: Set<number> = new Set();
+
   constructor() {
     this.bossTimer = BOSS_CONFIG.firstSpawnTime;
+  }
+
+  /** Iter6: 指定時刻のボーナスが既に発火済みか */
+  hasBonusFired(t: number): boolean {
+    return this.bonusFiredAt.has(t);
+  }
+
+  /** Iter6: ボーナス発火時刻を記録 */
+  markBonusFired(t: number): void {
+    this.bonusFiredAt.add(t);
   }
 
   /** ウェーブ進行を更新 */
@@ -139,5 +152,6 @@ export class WaveManager {
     this.bossTimer = BOSS_CONFIG.firstSpawnTime;
     this.hitCountMultiplier = 1.0;
     this.hitCountScalingTimer = 0;
+    this.bonusFiredAt.clear();
   }
 }

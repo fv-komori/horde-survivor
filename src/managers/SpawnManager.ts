@@ -1,5 +1,7 @@
 import type { World } from '../ecs/World';
 import { EnemyComponent } from '../components/EnemyComponent';
+import { AllyComponent } from '../components/AllyComponent';
+import { PlayerComponent } from '../components/PlayerComponent';
 import { EntityFactory } from '../factories/EntityFactory';
 import { WaveManager } from './WaveManager';
 import type { AudioManager } from '../audio/AudioManager';
@@ -64,6 +66,19 @@ export class SpawnManager {
 
   private getEnemyCount(world: World): number {
     return world.query(EnemyComponent).length;
+  }
+
+  /**
+   * Iter6: ALLY_ADD ゲート発動時に呼ばれ、1 体の仲間を生成する（成功時 true）。
+   * 上限到達時は no-op で false を返す。
+   */
+  spawnAlly(world: World, elapsedTime: number): boolean {
+    const playerIds = world.query(PlayerComponent);
+    if (playerIds.length === 0) return false;
+    const currentAllies = world.query(AllyComponent).length;
+    if (currentAllies >= GAME_CONFIG.ally.maxCount) return false;
+    this.entityFactory.createAlly(world, playerIds[0], currentAllies, elapsedTime);
+    return true;
   }
 
   reset(): void {

@@ -7,23 +7,26 @@ import { PositionComponent } from '../components/PositionComponent';
 import { VelocityComponent } from '../components/VelocityComponent';
 import { ColliderComponent } from '../components/ColliderComponent';
 import { HitCountComponent } from '../components/HitCountComponent';
+import { BarrelItemComponent } from '../components/BarrelItemComponent';
 import { EntityFactory } from '../factories/EntityFactory';
 import { AnimationSystem } from './AnimationSystem';
+import type { WeaponSwitchSystem } from './WeaponSwitchSystem';
 import { ScoreService } from '../game/ScoreService';
 import { AnimationStateComponent } from '../components/AnimationStateComponent';
 import type { AudioManager } from '../audio/AudioManager';
 import { EffectType } from '../types';
 
 /**
- * S-06: 衝突判定システム（優先度5）
- * Iter6 Phase 2a: 旧アイテム射撃破壊ロジックと仲間化（AllyConversion）を削除
+ * S-06: 衝突判定システム（priority 5）
+ * Iter6 Phase 4: BULLET↔BARREL 衝突を追加、HP=0 で WeaponSwitchSystem.enqueueSwitch を呼ぶ。
  */
 export class CollisionSystem implements System {
   readonly priority = 5;
-  private entityFactory: EntityFactory;
-  private scoreService: ScoreService;
-  private audioManager: AudioManager;
-  private animationSystem: AnimationSystem | null;
+  private readonly entityFactory: EntityFactory;
+  private readonly scoreService: ScoreService;
+  private readonly audioManager: AudioManager;
+  private readonly animationSystem: AnimationSystem | null;
+  private weaponSwitchSystem: WeaponSwitchSystem | null = null;
 
   constructor(
     entityFactory: EntityFactory,
@@ -37,13 +40,19 @@ export class CollisionSystem implements System {
     this.animationSystem = animationSystem;
   }
 
+  setWeaponSwitchSystem(ws: WeaponSwitchSystem): void {
+    this.weaponSwitchSystem = ws;
+  }
+
   update(world: World, _dt: number): void {
     const bulletIds = world.query(BulletComponent, PositionComponent, ColliderComponent);
     const enemyIds = world.query(EnemyComponent, PositionComponent, ColliderComponent, HitCountComponent);
+    const barrelIds = world.query(BarrelItemComponent, PositionComponent, ColliderComponent);
 
     const defeatedEnemies: EntityId[] = [];
     const defeatedSet = new Set<EntityId>();
     const destroyedBullets = new Set<EntityId>();
+    const destroyedBarrels = new Set<EntityId>();
 
     for (const bulletId of bulletIds) {
       if (destroyedBullets.has(bulletId)) continue;
@@ -52,6 +61,9 @@ export class CollisionSystem implements System {
       const bPos = world.getComponent(bulletId, PositionComponent)!;
       const bCol = world.getComponent(bulletId, ColliderComponent)!;
 
+      let bulletDestroyed = false;
+
+      // --- 弾 vs 敵 ---
       for (const enemyId of enemyIds) {
         if (defeatedSet.has(enemyId)) continue;
         const enemyAnim = world.getComponent(enemyId, AnimationStateComponent);
@@ -78,19 +90,53 @@ export class CollisionSystem implements System {
           } else {
             world.destroyEntity(bulletId);
             destroyedBullets.add(bulletId);
+            bulletDestroyed = true;
             break;
           }
         }
       }
+
+      if (bulletDestroyed) continue;
+
+      // --- 弾 vs 樽（Iter6） ---
+      for (const barrelId of barrelIds) {
+        if (destroyedBarrels.has(barrelId)) continue;
+        if (bullet.isPiercing && bullet.hitEntities.has(barrelId)) continue;
+
+        const bpos2 = world.getComponent(barrelId, PositionComponent)!;
+        const bcol2 = world.getComponent(barrelId, ColliderComponent)!;
+        if (!this.checkCircleCollision(bPos, bCol.radius, bpos2, bcol2.radius)) continue;
+
+        const barrel = world.getComponent(barrelId, BarrelItemComponent)!;
+        const hc = world.getComponent(barrelId, HitCountComponent);
+        barrel.hp -= bullet.hitCountReduction;
+        if (hc) {
+          hc.currentHits = barrel.hp;
+          hc.flashTimer = 0.1;
+        }
+
+        if (barrel.hp <= 0) {
+          destroyedBarrels.add(barrelId);
+          this.weaponSwitchSystem?.enqueueSwitch(barrelId, barrel.type);
+        }
+
+        if (bullet.isPiercing) {
+          bullet.hitEntities.add(barrelId);
+        } else {
+          world.destroyEntity(bulletId);
+          destroyedBullets.add(bulletId);
+          break;
+        }
+      }
     }
 
+    // 敵撃破キュー消費
     for (const enemyId of defeatedEnemies) {
       const ePos = world.getComponent(enemyId, PositionComponent);
       const enemy = world.getComponent(enemyId, EnemyComponent);
       if (!ePos || !enemy) continue;
 
       const position = { x: ePos.x, y: ePos.y };
-
       this.scoreService.incrementKills();
       this.audioManager.playSE('enemy_destroy');
       this.entityFactory.createEffect(world, EffectType.ENEMY_DESTROY, position);
@@ -104,6 +150,8 @@ export class CollisionSystem implements System {
         world.destroyEntity(enemyId);
       }
     }
+
+    // 樽破壊後の entity 破棄は WeaponSwitchSystem 側に委ねる（transferWeaponMesh が mesh 参照を必要とするため）
   }
 
   checkCircleCollision(

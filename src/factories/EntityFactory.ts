@@ -31,6 +31,7 @@ import { EffectComponent } from '../components/EffectComponent';
 import { AnimationStateComponent } from '../components/AnimationStateComponent';
 import { BarrelItemComponent } from '../components/BarrelItemComponent';
 import { GateComponent } from '../components/GateComponent';
+import { PlayerWeaponComponent } from '../components/PlayerWeaponComponent';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { ENEMY_CONFIG } from '../config/enemyConfig';
 import { WEAPON_PARAMS } from '../config/weaponConfig';
@@ -277,6 +278,7 @@ export class EntityFactory {
 
     const weaponCfg = WEAPON_PARAMS[WeaponGenre.RIFLE];
     world.addComponent(id, new WeaponComponent(WeaponGenre.RIFLE, weaponCfg.fireInterval));
+    world.addComponent(id, new PlayerWeaponComponent(WeaponGenre.RIFLE));
 
     return id;
   }

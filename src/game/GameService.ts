@@ -32,6 +32,10 @@ import { AllyFireRateSystem } from '../systems/AllyFireRateSystem';
 import { EffectSystem } from '../systems/EffectSystem';
 import { CleanupSystem } from '../systems/CleanupSystem';
 import { AnimationSystem } from '../systems/AnimationSystem';
+import { ItemBarrelSpawner } from '../systems/ItemBarrelSpawner';
+import { GateSpawner } from '../systems/GateSpawner';
+import { GateTriggerSystem } from '../systems/GateTriggerSystem';
+import { WeaponSwitchSystem } from '../systems/WeaponSwitchSystem';
 
 // Components
 import { HealthComponent } from '../components/HealthComponent';
@@ -68,6 +72,11 @@ export class GameService {
   private inputHandler!: InputHandler;
   private weaponSystem: WeaponSystem;
   private allyFireRateSystem: AllyFireRateSystem;
+  private itemBarrelSpawner!: ItemBarrelSpawner;
+  private gateSpawner!: GateSpawner;
+  private gateTriggerSystem!: GateTriggerSystem;
+  private weaponSwitchSystem!: WeaponSwitchSystem;
+  private buffSystemRef!: BuffSystem;
   private audioManager: AudioManager;
   private settingsManager!: SettingsManager;
   private settingsScreen!: SettingsScreen;
@@ -189,21 +198,35 @@ export class GameService {
       this.cleanupSystem.cleanupMesh(this.world, entityId);
     });
 
-    // ECSシステム登録
-    this.world.addSystem(new InputSystem(this.inputHandler));
-    this.world.addSystem(new PlayerMovementSystem());
-    this.world.addSystem(new MovementSystem());
-    this.world.addSystem(new AllyFollowSystem());
-    this.world.addSystem(this.weaponSystem);
-    this.world.addSystem(new CollisionSystem(
+    // Iter6: 新 Systems をインスタンス化（相互参照のため先に生成）
+    this.buffSystemRef = new BuffSystem();
+    this.itemBarrelSpawner = new ItemBarrelSpawner(this.entityFactory, this.waveManager);
+    this.gateSpawner = new GateSpawner(this.entityFactory, this.waveManager);
+    this.gateTriggerSystem = new GateTriggerSystem(this.spawnManager, this.buffSystemRef);
+    this.weaponSwitchSystem = new WeaponSwitchSystem(this.assetManager);
+    const collisionSystem = new CollisionSystem(
       this.entityFactory,
       this.scoreService,
       this.audioManager,
       this.animationSystem,
-    ));
+    );
+    collisionSystem.setWeaponSwitchSystem(this.weaponSwitchSystem);
+    this.cleanupSystem.setGateTriggerSystem(this.gateTriggerSystem);
+
+    // ECSシステム登録（priority 昇順で実行される）
+    this.world.addSystem(new InputSystem(this.inputHandler));
+    this.world.addSystem(new PlayerMovementSystem());
+    this.world.addSystem(new MovementSystem());
+    this.world.addSystem(new AllyFollowSystem());
+    this.world.addSystem(this.itemBarrelSpawner);    // priority 3
+    this.world.addSystem(this.gateSpawner);          // priority 4
+    this.world.addSystem(this.weaponSystem);
+    this.world.addSystem(collisionSystem);
+    this.world.addSystem(this.gateTriggerSystem);    // priority 6
+    this.world.addSystem(this.weaponSwitchSystem);   // priority 6
     this.world.addSystem(new DefenseLineSystem(this.audioManager, this.animationSystem));
     this.world.addSystem(new HealthSystem(this.gameStateManager, this.animationSystem));
-    this.world.addSystem(new BuffSystem());
+    this.world.addSystem(this.buffSystemRef);
     this.world.addSystem(this.allyFireRateSystem);
     this.world.addSystem(new EffectSystem());
     this.world.addSystem(this.animationSystem);
@@ -326,6 +349,16 @@ export class GameService {
     this.spawnManager.reset();
     this.weaponSystem.reset();
     this.allyFireRateSystem.reset();
+    // Iter6: 新 Systems の state リセット（O-NG-11）
+    this.itemBarrelSpawner.reset();
+    this.gateSpawner.reset();
+    this.gateTriggerSystem.reset();
+    this.weaponSwitchSystem.reset();
+    this.itemBarrelSpawner.enabled = true;
+    this.gateSpawner.enabled = true;
+    this.gateTriggerSystem.enabled = true;
+    this.weaponSwitchSystem.enabled = true;
+    this.buffSystemRef.enabled = true;
     this.inputHandler.reset();
     this.audioManager.reset();
     this.titleBGMStarted = false;
@@ -464,6 +497,11 @@ export class GameService {
         this.waveManager.update(elapsed + dt);
         this.spawnManager.update(this.world, dt, elapsed + dt);
         this.allyFireRateSystem.setElapsedTime(elapsed + dt);
+        // Iter6: elapsedTime 依存の新 Systems に同期
+        this.itemBarrelSpawner.setElapsedTime(elapsed + dt);
+        this.gateSpawner.setElapsedTime(elapsed + dt);
+        this.gateTriggerSystem.setElapsedTime(elapsed + dt);
+        this.weaponSwitchSystem.setElapsedTime(elapsed + dt);
 
         const allyCount = this.world.query(AllyComponent).length;
         this.scoreService.setAllyCount(allyCount);
@@ -483,6 +521,12 @@ export class GameService {
         if (!this.gameOverBGMStarted) {
           this.audioManager.playBGM('gameover');
           this.gameOverBGMStarted = true;
+          // Iter6: GAME_OVER 遷移直後に 1 度だけ Spawner/Trigger/Switch を停止（AC-08）
+          this.itemBarrelSpawner.enabled = false;
+          this.gateSpawner.enabled = false;
+          this.gateTriggerSystem.enabled = false;
+          this.weaponSwitchSystem.enabled = false;
+          this.buffSystemRef.enabled = false;
         }
         // ゲームオーバーUI（初回のみ表示）
         if (!this.gameOverUIShown) {
