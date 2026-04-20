@@ -40,6 +40,31 @@ describe('AnimationSystem', () => {
       const id = world.createEntity();
       expect(() => system.playHitReact(world, id)).not.toThrow();
     });
+
+    it('skips retrigger while more than half of HITREACT_DURATION remains (rapid-fire throttle)', () => {
+      const id = world.createEntity();
+      world.addComponent(id, new AnimationStateComponent('Idle'));
+
+      system.playHitReact(world, id);
+      const anim = world.getComponent(id, AnimationStateComponent)!;
+      const firstRemaining = anim.oneShotRemaining;
+      // 連射相当の即時再呼び出し: 残り時間が減らないことを期待
+      system.playHitReact(world, id);
+      expect(anim.oneShotRemaining).toBeCloseTo(firstRemaining);
+    });
+
+    it('allows retrigger once remaining falls to half or below', () => {
+      const id = world.createEntity();
+      world.addComponent(id, new AnimationStateComponent('Idle'));
+
+      system.playHitReact(world, id);
+      const anim = world.getComponent(id, AnimationStateComponent)!;
+      // HitReact 再生中盤に進める
+      anim.oneShotRemaining = HITREACT_DURATION * 0.4;
+
+      system.playHitReact(world, id);
+      expect(anim.oneShotRemaining).toBeCloseTo(HITREACT_DURATION);
+    });
   });
 
   describe('playDeath', () => {

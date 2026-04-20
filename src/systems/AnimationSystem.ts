@@ -90,6 +90,9 @@ export class AnimationSystem implements System {
   playHitReact(world: World, id: number): void {
     const anim = world.getComponent(id, AnimationStateComponent);
     if (!anim || anim.current === 'Death') return;
+    // Iter5: 連射中に HitReact 冒頭で固定されないよう、残り時間が半分超なら再トリガしない
+    // （Run モーションが走らず位置だけ前進する「滑り」現象の回避。定期的に recoil は見える）
+    if (anim.current === 'HitReact' && anim.oneShotRemaining > HITREACT_DURATION * 0.5) return;
     anim.current = 'HitReact';
     anim.oneShotRemaining = HITREACT_DURATION;
   }
