@@ -41,7 +41,7 @@ export class CoordinateMapper {
   }
 
   /** エンティティタイプ別Y高さ（BL-01） */
-  static getEntityHeight(spriteType: SpriteType, time?: number): number {
+  static getEntityHeight(spriteType: SpriteType, _time?: number): number {
     const h = GAME_CONFIG.three.entityHeight;
     switch (spriteType) {
       case 'player': return h.player;
@@ -51,8 +51,6 @@ export class CoordinateMapper {
       case 'enemy_tank': return h.enemyTank;
       case 'enemy_boss': return h.enemyBoss;
       case 'bullet': return h.bullet;
-      case 'item_drop':
-        return h.itemBase + Math.sin((time ?? 0) * 3) * h.itemBobAmplitude;
       default: return 0;
     }
   }

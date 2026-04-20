@@ -13,10 +13,10 @@ import { AllyComponent } from '../../src/components/AllyComponent';
 import { HitCountComponent } from '../../src/components/HitCountComponent';
 import { BuffComponent } from '../../src/components/BuffComponent';
 import { EffectComponent } from '../../src/components/EffectComponent';
-import { EnemyType, WeaponType, EffectType } from '../../src/types';
+import { EnemyType, WeaponGenre, EffectType } from '../../src/types';
 import { GAME_CONFIG } from '../../src/config/gameConfig';
 import { ENEMY_CONFIG } from '../../src/config/enemyConfig';
-import { WEAPON_CONFIG } from '../../src/config/weaponConfig';
+import { WEAPON_PARAMS } from '../../src/config/weaponConfig';
 
 describe('EntityFactory', () => {
   let world: World;
@@ -54,11 +54,11 @@ describe('EntityFactory', () => {
       expect(health.maxHp).toBe(GAME_CONFIG.player.baseHp);
     });
 
-    it('should have FORWARD weapon with correct fire interval', () => {
+    it('should have RIFLE weapon with correct fire interval', () => {
       const id = factory.createPlayer(world);
       const weapon = world.getComponent(id, WeaponComponent)!;
-      expect(weapon.weaponType).toBe(WeaponType.FORWARD);
-      expect(weapon.fireInterval).toBe(WEAPON_CONFIG[WeaponType.FORWARD].fireInterval);
+      expect(weapon.weaponGenre).toBe(WeaponGenre.RIFLE);
+      expect(weapon.fireInterval).toBe(WEAPON_PARAMS[WeaponGenre.RIFLE].fireInterval);
     });
 
     it('should have empty BuffComponent', () => {
@@ -176,13 +176,13 @@ describe('EntityFactory', () => {
       expect(ally.joinTime).toBe(45.0);
     });
 
-    it('should have FORWARD weapon', () => {
+    it('should have RIFLE weapon', () => {
       const playerId = factory.createPlayer(world);
       const id = factory.createAlly(world, playerId, 0, 10.0);
 
       const weapon = world.getComponent(id, WeaponComponent)!;
-      expect(weapon.weaponType).toBe(WeaponType.FORWARD);
-      expect(weapon.fireInterval).toBe(WEAPON_CONFIG[WeaponType.FORWARD].fireInterval);
+      expect(weapon.weaponGenre).toBe(WeaponGenre.RIFLE);
+      expect(weapon.fireInterval).toBe(WEAPON_PARAMS[WeaponGenre.RIFLE].fireInterval);
     });
   });
 

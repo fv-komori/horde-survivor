@@ -1,4 +1,6 @@
-/** 武器タイプ別パラメータ定義（Iteration 2: レベルなし固定パラメータ） */
+/** 武器ジャンル別パラメータ定義（Iter6 Phase 2b: WeaponGenre ベースに再設計） */
+
+import { WeaponGenre } from '../types';
 
 function deepFreeze<T extends object>(obj: T): T {
   Object.freeze(obj);
@@ -10,17 +12,18 @@ function deepFreeze<T extends object>(obj: T): T {
   return obj;
 }
 
-export interface WeaponTypeConfig {
-  fireInterval: number;    // 秒
+export interface WeaponGenreConfig {
+  fireInterval: number;
   bulletCount: number;
-  bulletSpeed: number;     // px/秒
-  spreadAngle: number;     // 度（0=直線）
+  bulletSpeed: number;
+  spreadAngle: number;
   isPiercing: boolean;
-  bulletOffset: number;    // 複数弾の水平オフセット(px)
+  bulletOffset: number;
 }
 
-export const WEAPON_CONFIG: Record<string, WeaponTypeConfig> = deepFreeze({
-  FORWARD: {
+/** 武器ジャンル別パラメータ（Iter6: RIFLE / SHOTGUN / MACHINEGUN の 3 種） */
+export const WEAPON_PARAMS: Record<WeaponGenre, WeaponGenreConfig> = deepFreeze({
+  [WeaponGenre.RIFLE]: {
     fireInterval: 0.15,
     bulletCount: 1,
     bulletSpeed: 600,
@@ -28,20 +31,20 @@ export const WEAPON_CONFIG: Record<string, WeaponTypeConfig> = deepFreeze({
     isPiercing: false,
     bulletOffset: 20,
   },
-  SPREAD: {
-    fireInterval: 0.25,
-    bulletCount: 3,
+  [WeaponGenre.SHOTGUN]: {
+    fireInterval: 0.35,
+    bulletCount: 5,
     bulletSpeed: 500,
     spreadAngle: 60,
     isPiercing: false,
     bulletOffset: 0,
   },
-  PIERCING: {
-    fireInterval: 0.4,
+  [WeaponGenre.MACHINEGUN]: {
+    fireInterval: 0.07,
     bulletCount: 1,
-    bulletSpeed: 400,
-    spreadAngle: 0,
-    isPiercing: true,
+    bulletSpeed: 650,
+    spreadAngle: 8,
+    isPiercing: false,
     bulletOffset: 20,
   },
 });

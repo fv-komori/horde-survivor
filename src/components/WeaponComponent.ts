@@ -1,14 +1,14 @@
 import { Component } from '../ecs/Component';
-import { WeaponType } from '../types';
+import { WeaponGenre } from '../types';
 
-/** C-09: 武器データコンポーネント（Iteration 2: レベルなし、固定パラメータ） */
+/** C-09: 武器データコンポーネント（Iter6 Phase 2b: WeaponGenre に置換） */
 export class WeaponComponent extends Component {
   static readonly componentName = 'WeaponComponent';
 
   public lastFiredAt: number = 0;
 
   constructor(
-    public weaponType: WeaponType,
+    public weaponGenre: WeaponGenre,
     public fireInterval: number,
   ) {
     super();

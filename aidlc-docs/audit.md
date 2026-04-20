@@ -1504,3 +1504,57 @@ Phase 2a（旧独立系コード削除）に進む。旧 `ItemType` / `WeaponTyp
 
 ### 次アクション
 Phase 2b へ進む。旧 enum 削除 + 新 `WeaponGenre` / `BarrelItemType` / `GateType` 追加 + WeaponSystem/BulletComponent を `WeaponGenre` 参照に置換。完了後に Playwright でゴールデンパス（RIFLE で敵撃破）を目視確認。
+
+---
+
+## 2026-04-20 — Iter6 Construction Phase 2b 完了（enum 切替 + 武器系置換）
+
+### 変更内容
+
+**削除**（src/types/index.ts）:
+- `ItemType` enum（6 値）
+- `WeaponType` enum（FORWARD/SPREAD/PIERCING）
+- `ITEM_COLORS` / `itemTypeToBuff` / `itemTypeToWeapon`
+- `ColliderType.ITEM`（BULLET/ENEMY/PLAYER のみ残す）
+- `SpriteType 'item_drop'`
+
+**追加**:
+- `WeaponGenre` enum（RIFLE / SHOTGUN / MACHINEGUN）
+- `BarrelItemType` enum（WEAPON_RIFLE / WEAPON_SHOTGUN / WEAPON_MACHINEGUN）
+- `GateType` enum（ALLY_ADD / ATTACK_UP / SPEED_UP / HEAL）
+- `barrelItemTypeToGenre()` 変換ヘルパ
+- `src/config/barrelConfig.ts`: BARREL_HP (baseHp: RIFLE=30/SHOTGUN=40/MACHINEGUN=50) + BARREL_SPAWN
+- `src/config/gateConfig.ts`: GATE_EFFECTS (ALLY_ADD=+5人/ATTACK_UP=+30% 10秒/SPEED_UP=+20% 10秒/HEAL=+40) + isValidGateAmount() + GATE_SPAWN + WAVE_BONUS_TIMES
+- `src/config/i18nStrings.ts`: I18N_WEAPON_LABEL / I18N_GATE_LABEL / I18N_TOAST（XSS 対策、数値は Number().toString()）
+
+**再設計**:
+- `src/config/weaponConfig.ts`: `WEAPON_CONFIG: Record<string, WeaponTypeConfig>` → `WEAPON_PARAMS: Record<WeaponGenre, WeaponGenreConfig>`
+  - RIFLE: fireInterval=0.15, bulletCount=1, bulletSpeed=600, spreadAngle=0
+  - SHOTGUN: fireInterval=0.35, bulletCount=5, bulletSpeed=500, spreadAngle=60
+  - MACHINEGUN: fireInterval=0.07, bulletCount=1, bulletSpeed=650, spreadAngle=8
+- `src/components/WeaponComponent.ts`: `weaponType: WeaponType` → `weaponGenre: WeaponGenre`
+- `HUDState.weaponType` → `weaponGenre`
+- `GAME_CONFIG.buff.barrageSpread` のキー: FORWARD/SPREAD/PIERCING → RIFLE/SHOTGUN/MACHINEGUN
+
+**参照置換**（全ファイル）:
+- `src/systems/WeaponSystem.ts`: WEAPON_CONFIG → WEAPON_PARAMS、WeaponType.SPREAD → WeaponGenre.SHOTGUN
+- `src/factories/EntityFactory.ts`: WeaponType.FORWARD → WeaponGenre.RIFLE（createPlayer / createAlly）
+- `src/ui/HTMLOverlayManager.ts`: WEAPON_LABELS 定義削除、I18N_WEAPON_LABEL を import
+- `src/ui/SettingsScreen.ts`: help page 4（武器）を RIFLE/SHOTGUN/MACHINEGUN に書き換え
+- `src/utils/CoordinateMapper.ts`: `'item_drop'` case 削除
+- `src/game/GameService.ts`: WeaponType.FORWARD → WeaponGenre.RIFLE、weaponType → weaponGenre
+- `tests/systems/WeaponSystem.test.ts` + `tests/factories/EntityFactory.test.ts`: 同上 + EnemyComponent の旧 5 引数呼出を 2 引数に訂正（Phase 2a で見落とし）
+
+### 検証結果
+- tsc / ESLint clean（既存 warning 3 件のみ）
+- Jest 10 suites / 93 tests PASS
+- production build OK、gzip 194.91KB（Phase 2a 比 +0.02KB）
+- Playwright 目視確認（http://localhost:5173/）:
+  - タイトル画面: mini-renderer + FV DEFENSE ロゴ正常
+  - プレイ中: 左上 HUD に **"RIFLE"** 表示、HP 90/100、Timer 0:15、**1 kills**
+  - プレイヤーの射撃→敵撃破が成立（ゴールデンパス OK）
+  - 旧アイテム降下・旧仲間変換なし（意図通り）
+  - console error: favicon 404 のみ（ゲーム系 0 件）
+
+### 次アクション
+Phase 3（新 Components + EntityFactory）へ進む。BarrelItemComponent / GateComponent / PlayerWeaponComponent / ActiveBuffsComponent を追加、EntityFactory.createBarrelItem / createGate と AssetManager.cloneBarrelTemplate / cloneWeaponTemplate を新設。

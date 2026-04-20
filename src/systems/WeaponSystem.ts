@@ -11,8 +11,8 @@ import { MeshComponent } from '../components/MeshComponent';
 import { EntityFactory } from '../factories/EntityFactory';
 import type { AudioManager } from '../audio/AudioManager';
 import { GAME_CONFIG } from '../config/gameConfig';
-import { WEAPON_CONFIG } from '../config/weaponConfig';
-import { WeaponType, BuffType, EffectType } from '../types';
+import { WEAPON_PARAMS } from '../config/weaponConfig';
+import { WeaponGenre, BuffType, EffectType } from '../types';
 import type { EntityId } from '../ecs/Entity';
 
 /**
@@ -60,7 +60,7 @@ export class WeaponSystem implements System {
     weapon: WeaponComponent,
     buffs: BuffComponent | undefined,
   ): void {
-    const config = WEAPON_CONFIG[weapon.weaponType];
+    const config = WEAPON_PARAMS[weapon.weaponGenre];
     if (!config) return;
 
     // バフ適用: 発射間隔
@@ -94,7 +94,7 @@ export class WeaponSystem implements System {
     // 弾丸生成
     const useBarrageSpread = buffs?.hasBuff(BuffType.BARRAGE) ?? false;
     this.fireBullets(
-      world, ownerId, muzzle, weapon.weaponType,
+      world, ownerId, muzzle, weapon.weaponGenre,
       bulletCount, config.bulletSpeed, config.isPiercing,
       config.spreadAngle, config.bulletOffset,
       hitCountReduction, useBarrageSpread,
@@ -116,7 +116,7 @@ export class WeaponSystem implements System {
     weapon: WeaponComponent,
     ally: AllyComponent,
   ): void {
-    const config = WEAPON_CONFIG[weapon.weaponType];
+    const config = WEAPON_PARAMS[weapon.weaponGenre];
     if (!config) return;
 
     // 仲間の連射ボーナス適用（BR-AL04）
@@ -132,7 +132,7 @@ export class WeaponSystem implements System {
 
     // 仲間弾丸は常にhitCountReduction = 1（BR-AL03）
     this.fireBullets(
-      world, allyId, muzzle, weapon.weaponType,
+      world, allyId, muzzle, weapon.weaponGenre,
       config.bulletCount, config.bulletSpeed, config.isPiercing,
       config.spreadAngle, config.bulletOffset,
       1, false,
@@ -148,7 +148,7 @@ export class WeaponSystem implements System {
     world: World,
     ownerId: EntityId,
     origin: { x: number; y: number },
-    weaponType: WeaponType,
+    weaponGenre: WeaponGenre,
     bulletCount: number,
     bulletSpeed: number,
     isPiercing: boolean,
@@ -165,10 +165,10 @@ export class WeaponSystem implements System {
 
     // BARRAGE時は扇状発射に切り替え
     const effectiveSpreadAngle = useBarrageSpread
-      ? (GAME_CONFIG.buff.barrageSpread[weaponType] ?? 30)
+      ? (GAME_CONFIG.buff.barrageSpread[weaponGenre] ?? 30)
       : spreadAngle;
 
-    if (effectiveSpreadAngle > 0 || (weaponType === WeaponType.SPREAD && spreadAngle > 0)) {
+    if (effectiveSpreadAngle > 0 || (weaponGenre === WeaponGenre.SHOTGUN && spreadAngle > 0)) {
       // 拡散射撃 / BARRAGE: 扇状に均等配置
       const angleRad = (effectiveSpreadAngle * Math.PI) / 180;
       const baseAngle = Math.atan2(targetDirY, targetDirX);

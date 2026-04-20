@@ -48,7 +48,7 @@ import { DeterministicRng } from '../services/DeterministicRng';
 import { ForceSpawnApi } from '../services/ForceSpawnApi';
 import { GameStartScreen } from '../ui/GameStartScreen';
 import { GAME_CONFIG } from '../config/gameConfig';
-import { GameState, WeaponType } from '../types';
+import { GameState, WeaponGenre } from '../types';
 import type { EntityId } from '../ecs/Entity';
 
 const LOG_PREFIX = GAME_CONFIG.logPrefix;
@@ -522,7 +522,7 @@ export class GameService {
     const buffComp = this.world.getComponent(this.playerId, BuffComponent);
     const activeBuffs = buffComp?.activeBuffs ?? new Map();
     const weaponComp = this.world.getComponent(this.playerId, WeaponComponent);
-    const weaponType = weaponComp?.weaponType ?? WeaponType.FORWARD;
+    const weaponGenre = weaponComp?.weaponGenre ?? WeaponGenre.RIFLE;
     const allyCount = this.world.query(AllyComponent).length;
 
     this.overlayManager.updateHUD({
@@ -534,7 +534,7 @@ export class GameService {
       activeBuffs,
       allyCount,
       maxAllies: GAME_CONFIG.ally.maxCount,
-      weaponType,
+      weaponGenre,
     });
   }
 

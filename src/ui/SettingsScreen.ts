@@ -5,7 +5,8 @@
 
 import { GAME_CONFIG } from '../config/gameConfig';
 import { ENEMY_CONFIG } from '../config/enemyConfig';
-import { WEAPON_CONFIG } from '../config/weaponConfig';
+import { WEAPON_PARAMS } from '../config/weaponConfig';
+import { WeaponGenre } from '../types';
 import {
   SETTINGS_UI as UI,
   CONTROL_TYPE_OPTIONS,
@@ -528,13 +529,13 @@ export class SettingsScreen {
       }
 
       case 4: { // 武器
-        const weapons = [
-          { name: '前方射撃（初期）', key: 'FORWARD', desc: '正面直線' },
-          { name: '拡散射撃', key: 'SPREAD', desc: '扇状に複数弾' },
-          { name: '貫通弾', key: 'PIERCING', desc: '敵を貫通' },
+        const weapons: { name: string; genre: WeaponGenre; desc: string }[] = [
+          { name: 'RIFLE（初期）', genre: WeaponGenre.RIFLE, desc: '正面直線・標準' },
+          { name: 'SHOTGUN', genre: WeaponGenre.SHOTGUN, desc: '拡散・近距離で高火力' },
+          { name: 'MACHINEGUN', genre: WeaponGenre.MACHINEGUN, desc: '高連射・低威力' },
         ];
         for (const w of weapons) {
-          const cfg = WEAPON_CONFIG[w.key];
+          const cfg = WEAPON_PARAMS[w.genre];
           y = this.drawHelpLine(ctx, x, y, lh, `🔫 ${w.name}`);
           y = this.drawHelpLine(ctx, x + 20, y, lh, `${w.desc}  間隔:${cfg.fireInterval}秒  弾数:${cfg.bulletCount}`);
           y += lh / 2;

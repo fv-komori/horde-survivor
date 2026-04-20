@@ -63,9 +63,9 @@ export const GAME_CONFIG = deepFreeze({
     speedMultiplier: 1.5,       // 移動速度1.5倍
     barrageBulletMultiplier: 3, // 弾数3倍
     barrageSpread: {
-      FORWARD: 30,  // 度
-      SPREAD: 120,  // 度
-      PIERCING: 20, // 度
+      RIFLE: 30,        // 度
+      SHOTGUN: 120,     // 度
+      MACHINEGUN: 20,   // 度
     } as Record<string, number>,
     effectDuration: 0.3,        // バフ発動エフェクト時間（秒）
     effectMaxRadius: 80,        // バフエフェクト最大半径（px）

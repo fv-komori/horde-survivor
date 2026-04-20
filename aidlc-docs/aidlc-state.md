@@ -140,7 +140,8 @@
   - [x] Phase 0 - COMPLETED（`construction/plans/iter6-phase0-findings.md`: Math.random 参照マップ、localStorage 永続化なし確認、旧 enum 参照マップ）
   - [x] Phase 1 - COMPLETED（EventLogger / DeterministicRng / DebugConfigLoader / ForceSpawnApi 導入、vite define + jest globals 配線、production DCE 確認、gzip 195.99KB）
   - [x] Phase 2a - COMPLETED（5 ファイル削除: AllyConversionSystem / ItemCollectionSystem / ItemDropComponent / ItemDropManager / itemConfig。参照除去: CollisionSystem / DefenseLineSystem / EntityFactory / SpawnManager / GameService / enemyConfig / EnemyComponent / gameConfig。tests/CollisionSystem + tests/EntityFactory 修正、Jest 93/93 PASS、gzip 194.89KB）
-  - [ ] Phase 2b - NEXT（enum 切替: 旧 WeaponType/ItemType 削除、WeaponGenre/BarrelItemType/GateType 追加、WeaponSystem/BulletComponent/weaponConfig/HTMLOverlayManager/EntityFactory を新 enum に置換）
+  - [x] Phase 2b - COMPLETED（旧 ItemType/WeaponType/ITEM_COLORS/itemTypeToBuff/itemTypeToWeapon 削除、WeaponGenre/BarrelItemType/GateType 追加、barrelConfig/gateConfig/i18nStrings 新規、WEAPON_PARAMS 再設計、WeaponSystem/EntityFactory/HTMLOverlayManager/SettingsScreen/GameService/CoordinateMapper を新 enum に置換、Jest 93/93 PASS、gzip 194.91KB、Playwright 目視: RIFLE HUD 表示 + 射撃→敵撃破 golden path 成立）
+  - [ ] Phase 3 - NEXT（新 Components + EntityFactory: BarrelItem/Gate/PlayerWeapon/ActiveBuffs Component + EntityFactory.createBarrelItem/createGate + AssetManager.cloneBarrelTemplate/cloneWeaponTemplate）
   - [ ] Phase 3 - PENDING
   - [ ] Phase 4 - PENDING
   - [ ] Phase 5 - PENDING

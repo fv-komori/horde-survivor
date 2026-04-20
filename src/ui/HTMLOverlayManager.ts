@@ -7,14 +7,8 @@ import { GAME_CONFIG } from '../config/gameConfig';
 import { CoordinateMapper } from '../utils/CoordinateMapper';
 import type { World } from '../ecs/World';
 import type { HUDState, ScoreData } from '../types';
-import { BuffType, BUFF_COLORS, WeaponType } from '../types';
-
-/** 武器表示ラベル */
-const WEAPON_LABELS: Record<WeaponType, string> = {
-  [WeaponType.FORWARD]: 'RIFLE',
-  [WeaponType.SPREAD]: 'SHOTGUN',
-  [WeaponType.PIERCING]: 'SNIPER',
-};
+import { BuffType, BUFF_COLORS } from '../types';
+import { I18N_WEAPON_LABEL } from '../config/i18nStrings';
 
 /** バフ表示ラベル */
 const BUFF_LABELS: Record<BuffType, string> = {
@@ -174,7 +168,7 @@ export class HTMLOverlayManager {
 
     // 武器
     if (this.weaponText) {
-      this.weaponText.textContent = WEAPON_LABELS[state.weaponType] ?? 'RIFLE';
+      this.weaponText.textContent = I18N_WEAPON_LABEL[state.weaponGenre] ?? 'RIFLE';
     }
 
     // バフ

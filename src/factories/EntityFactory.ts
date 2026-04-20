@@ -28,9 +28,9 @@ import { EffectComponent } from '../components/EffectComponent';
 import { AnimationStateComponent } from '../components/AnimationStateComponent';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { ENEMY_CONFIG } from '../config/enemyConfig';
-import { WEAPON_CONFIG } from '../config/weaponConfig';
+import { WEAPON_PARAMS } from '../config/weaponConfig';
 import { BONE_ATTACH } from '../config/BoneAttachmentConfig';
-import { EnemyType, WeaponType, EffectType, ColliderType } from '../types';
+import { EnemyType, WeaponGenre, EffectType, ColliderType } from '../types';
 import type { Position, SpriteType } from '../types';
 import type { CharacterKey, GunKey } from '../config/AssetPaths';
 import type { AssetManager } from '../managers/AssetManager';
@@ -268,8 +268,8 @@ export class EntityFactory {
     }
     world.addComponent(id, mesh);
 
-    const weaponCfg = WEAPON_CONFIG[WeaponType.FORWARD];
-    world.addComponent(id, new WeaponComponent(WeaponType.FORWARD, weaponCfg.fireInterval));
+    const weaponCfg = WEAPON_PARAMS[WeaponGenre.RIFLE];
+    world.addComponent(id, new WeaponComponent(WeaponGenre.RIFLE, weaponCfg.fireInterval));
 
     return id;
   }
@@ -369,8 +369,8 @@ export class EntityFactory {
     }
     world.addComponent(id, mesh);
 
-    const weaponCfg = WEAPON_CONFIG[WeaponType.FORWARD];
-    world.addComponent(id, new WeaponComponent(WeaponType.FORWARD, weaponCfg.fireInterval));
+    const weaponCfg = WEAPON_PARAMS[WeaponGenre.RIFLE];
+    world.addComponent(id, new WeaponComponent(WeaponGenre.RIFLE, weaponCfg.fireInterval));
 
     return id;
   }
