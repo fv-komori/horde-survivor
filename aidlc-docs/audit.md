@@ -1758,3 +1758,22 @@ Phase 6（Build & Test + Polish）へ。まず AC ベースの Playwright シナ
 
 ### 次アクション
 Iter6 実装完結。PR 作成（iter6-items → main）、Iter6 クローズ処理。
+
+---
+
+## 2026-04-20T14:30:00Z — Iter6 Construction COMPLETED, PR #2 作成
+
+### アクション
+- `iter6-items` ブランチを `origin` に push（Phase 5 以降の 2 コミット）
+- PR #2 作成: https://github.com/fv-komori/horde-survivor/pull/2 (iter6-items → main)
+- PR 本文には Summary / 主な変更（追加・削除・基盤）/ 品質ゲート表 / Test plan / 持ち越し を記載
+- aidlc-state.md を PR レビュー待ち状態に更新、Iter7 向け持ち越し（難易度バランス）を明記
+
+### PR 概要
+- 78 files changed, 7998 insertions(+), 811 deletions(-)
+- 8 コミット（Iter6 Inception 完了コミット 1df36f0 + Phase 1〜6 の 7 commits）
+
+### 次アクション
+- PR レビュー・マージ
+- マージ後に Iter6 正式クローズ（aidlc-state.md 更新）
+- Iter7 「難易度バランス調整」の Inception を別 worktree で開始

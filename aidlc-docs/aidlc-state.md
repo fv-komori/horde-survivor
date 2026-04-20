@@ -4,10 +4,12 @@
 - **Project Type**: Brownfield
 - **Start Date**: 2026-04-09T00:00:00Z
 - **Original Start**: 2026-04-07T00:00:00Z
-- **Current Stage**: Iter6 Inception — Requirements Analysis 実施中
-- **Iteration**: 5 完了 / Iter6 開始（アイテムのビジュアル刷新＋種類整理）
+- **Current Stage**: Iter6 Construction 完了 / PR レビュー待ち（PR #2）
+- **Iteration**: 5 完了 / Iter6 Construction 完了（アイテム刷新、PR #2 レビュー待ち）
 - **Iter5 クローズ日**: 2026-04-20
 - **Iter6 開始日**: 2026-04-20
+- **Iter6 PR**: https://github.com/fv-komori/horde-survivor/pull/2 (iter6-items → main)
+- **Iter6 Construction 完了日**: 2026-04-20
 
 ## Workspace State
 - **Existing Code**: Yes
@@ -135,7 +137,7 @@
 - [x] NFR Requirements - SKIP（要件NFR-01〜09で定義済み）
 - [x] NFR Design - SKIP（design v6で対応）
 - [x] Infrastructure Design - SKIP（静的ホスティング変更なし）
-- [ ] Code Generation - IN PROGRESS
+- [x] Code Generation - COMPLETED
   - Plan: `construction/plans/iter6-items-code-generation-plan.md`（7 フェーズ: Phase 0 調査 / 1 Debug 基盤 / 2a 旧削除独立系 / 2b enum 切替 / 3 Components+Factory / 4 Systems+拡張 / 5 Overlay Facade / 6 Build&Test）
   - [x] Phase 0 - COMPLETED（`construction/plans/iter6-phase0-findings.md`: Math.random 参照マップ、localStorage 永続化なし確認、旧 enum 参照マップ）
   - [x] Phase 1 - COMPLETED（EventLogger / DeterministicRng / DebugConfigLoader / ForceSpawnApi 導入、vite define + jest globals 配線、production DCE 確認、gzip 195.99KB）
@@ -145,8 +147,15 @@
   - [x] Phase 4 - COMPLETED（ItemBarrelSpawner/GateSpawner/GateTriggerSystem/WeaponSwitchSystem 実装、CollisionSystem BULLET↔BARREL 拡張、CleanupSystem 樽/ゲート dispose 分岐、BuffSystem.applyOrExtend 追加、WaveManager.bonusFiredAt 追加、SpawnManager.spawnAlly 追加、EntityFactory.createPlayer に PlayerWeaponComponent 付与、GameService で新 Systems 登録+GAME_OVER フック+elapsedTime 配線、Jest 107/107 PASS、gzip 198.72KB（+2.5KB）、Playwright golden path: 樽撃破→武器切替(RIFLE→SHOTGUN→RIFLE)、ALLY_ADD ゲート通過で Allies 0→5、Wave 2 到達、console error なし）
   - [x] Phase 5 - COMPLETED（HTMLOverlayManager Facade 化、4 サブクラス新設: WorldToScreenLabel[pool 6, bonus rollover, ResizeObserver] / ActiveBuffIcon[3 slots] / WeaponHudPanel[0.3s flash] / ToastQueue[FIFO, 上限3, 同種延長]、30Hz ドレイン型スロットリング、WeaponSwitchSystem/GateTriggerSystem/EntityFactory/CollisionSystem/CleanupSystem への DI 直接配線、ESLint no-restricted-syntax で innerHTML/outerHTML/insertAdjacentHTML/document.write 禁止、tests/ui 4 ファイル +12 tests[XSS 回帰テスト込み]、Jest 119/119 PASS、gzip 200.92KB（+2.2KB）、Playwright: WEAPON HUD=MACHINEGUN + 樽HP"67" + ゲート"+5""+20%"表示、Wave 2 到達、console error なし）
   - [x] Phase 6 - COMPLETED（Build & Test + Polish: size-limit 導入[215KB gzip budget, 実測 200.45KB]、AC-01 grep 自動検証 17 tests[削除対象 0 件保証]、AC-08 GAME_OVER BuffSystem enabled 2 tests、Wave 境目 WAVE トースト発火[ItemBarrelSpawner/GateSpawner→ToastQueue DI, 45s/90s/180s]、ToastQueue dispose 時の data-kind クリーン、Playwright Golden Path: AC-02 樽撃破→武器切替[RIFLE→SHOTGUN→MACHINEGUN]、AC-03 HEAL MAX toast + ALLY_ADD +5 仲間、AC-04 Wave 2→3 境目ボーナス MACHINEGUN樽 + +45%ゲート[30%×1.5]発火、AC-06 webglcontextlost→restored 後 console error 0・プレイ継続、AC-08 自然 GAME_OVER 到達で Wave 3/Kills 45/Allies 5 スコア表示、Jest 138/138 PASS[+19 tests]、gzip 201.03KB[+0.1KB]、ESLint clean）
-- [ ] Build and Test - COMPLETED（Phase 6 の Build&Test で統合）
-- Iter6 持ち越し（将来イテレーション）:
-  - AC-05 90秒fps計測自動化 + renderer.info.programs.length Iter5 ベースライン比較
-  - AC-07 5分プレイ heapDiff5min < 10MB（MetricsProbe 既存で手動確認は可能）
-  - WAVE toast の視覚強調度アップ + bonus emissive 装飾の Playwright 画像差分テスト
+- [x] Build and Test - COMPLETED（Phase 6 の Build&Test で統合）
+
+### Iter6 PR & マージ
+- [x] PR #2 作成（2026-04-20）: https://github.com/fv-komori/horde-survivor/pull/2
+- [ ] PR #2 マージ - PENDING（レビュー後）
+- [ ] Iter6 正式クローズ - PENDING（マージ後に本state.mdを更新）
+
+### Iter6 持ち越し（Iter7 以降の入力）
+- **難易度バランス調整（Iter7 予定）**: 初動の仲間取得依存 + 3分30秒前後の敵スポーン過多で必ず GAME_OVER になる問題 — Iter6 のスコープ外として Iter7 専用イテレーションで対応（WAVE_SCALING / 敵 hitCount 倍率 / 境目ボーナス / HP 等のバランス設計 + プレイテスト）
+- AC-05 90秒 fps 計測自動化 + `renderer.info.programs.length` Iter5 ベースライン比較
+- AC-07 5分プレイ `heapDiff5min < 10MB`（MetricsProbe 既存で手動確認は可能、Playwright 自動化は未実装）
+- WAVE トーストの視覚強調度アップ + bonus emissive 装飾の Playwright 画像差分テスト
