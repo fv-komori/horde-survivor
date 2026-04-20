@@ -1186,3 +1186,241 @@ Iteration 5（GLTFモデル導入: Toon Shooter Game Kit）を正式クローズ
 新 worktree 内で `/aidlc:start` 再実行 → Iter6 Inception へ。
 
 ---
+
+## 2026-04-20 — Iter6 Inception 開始（Requirements Analysis）
+
+### 決定
+Iteration 6（アイテム刷新）の Inception を開始。Workspace Detection はスキップ可能（Brownfield継続、Iter5成果物維持）とし、Requirements Analysis に入る。
+
+### Q&A スタイル
+aidlc-preferences.md に従い Interactive UI（ボタン選択）で実施。
+
+### 仮スコープ（audit 2026-04-20 Iter6 worktree 作成エントリより）
+- アイテムのビジュアル刷新＋種類整理
+- 参考: Last War スタイル / reference-visual.png（大型バレル＋数値ラベル）
+
+### 現状確認（コード Grep 結果）
+- `ItemType` enum: ATTACK_UP / FIRE_RATE_UP / SPEED_UP / BARRAGE / WEAPON_SPREAD / WEAPON_PIERCING（6種）
+- 見た目: `GameService.createItemGeometry()` = `SphereGeometry(0.08, 4, 2)`（簡易ジェム）
+- カラーテーブル: `ITEM_COLORS`（types/index.ts）
+- ドロップ: `ItemDropManager.determineDrops()`（敵撃破契機）
+- 既存GLBアセット: `public/models/toon-shooter/v1/environment/{Crate, Barrier_Single, SackTrench, Fence, Tree_1}.glb`（Iter5配置済）— Crate.glb が barrel/crate 代替候補
+
+### 次アクション
+ユーザーに Requirements Analysis の clarifying questions を提示（数値表示の意味 / 見た目スタイル / ピックアップモデル / 種類整理方針）。
+
+---
+
+## 2026-04-20 — Iter6 Requirements Analysis 完了（ドラフト、承認待ち）
+
+### 成果物
+- `aidlc-docs/inception/requirements/requirements-v6.md`（FR-01〜FR-08、NFR-01〜NFR-09、AC-01〜AC-05）
+- `aidlc-docs/inception/requirements/questions-summary-v6.md`（5 ラウンドの Q&A ログ）
+
+### 確定モデル
+| 要素 | メカニクス | 効果 | 見た目 |
+|---|---|---|---|
+| **武器アイテム** | 樽を撃破（HP 0 で取得） | プレイヤー武器を RIFLE / SHOTGUN / MACHINEGUN のいずれかに変更 | Crate.glb + guns/*.glb を上に乗せる |
+| **ゲート** | 通過で発動（HP なし、撃てない） | ALLY_ADD（+N人）/ ATTACK_UP / SPEED_UP / HEAL | アーチ/板型プロシージャル、効果量を大きく数値表示 |
+
+### 主な方針
+- 敵ドロップ経路は完全削除（既に dead code）
+- 画面上部から降るジェムは廃止、新メカに置換
+- 武器は 3 ジャンルに再設計、切替式（スタックしない）
+- 出現頻度: 推奨C（Wave 境目確定ボーナス + 通常ランダム）
+- 既存 GLB 流用（新規アセット追加なし）
+
+### コード現状の発見（要件確定前）
+- `ItemDropManager.determineDrops()` は定義のみで未使用（dead code）
+- `ItemCollectionSystem` は既に no-op（射撃破壊方式へ移行済）
+- 画面上部降下＋射撃破壊の仕組みは既存。Iter6 は「降る方向と見た目」を Last War 風に書き換える変更
+
+### Q&A の経緯ハイライト
+- ユーザーの当初質問「敵ドロップってどういうこと？」から現行コード調査で dead code と判明
+- 中盤「認識に齟齬ありますか」からの再確認で「ゲートは通過型」と判明（誤って HP ありと進行しかけた）
+- ラウンド 5 で武器=撃破/ゲート=通過 に確定
+
+### 次アクション
+ユーザーによる requirements-v6.md レビュー → 承認後に Workflow Planning へ進む（User Stories は技術寄りのため SKIP 提案予定）。
+
+---
+
+## 2026-04-20 — Iter6 Requirements レビュー対応完了
+
+### 実施
+第1回レビュー（reviews/inception/requirements-review-v6.md）の NG 69 件を 1 問 1 答で対応方針決定し、`requirements-v6.md` を全面改訂。
+
+### 対応集計
+- 修正済み: 64 件（統合 10 件を含む）
+- 対応不要: 2 件（O-NG-2 ロールバック戦略、O-NG-5 重複）
+- 実装段階対応（要件書外）: 1 件（O-NG-11 RELEASE.md）
+
+### 主な新設・変更
+- **FR-04 変更**: ゲート通過発動はプレイヤーのみ、効果は全仲間/対象に連動（仲間単独通過はスルー）
+- **武器再設計**: 旧 `WeaponType` 廃止 → `WeaponGenre: RIFLE/SHOTGUN/MACHINEGUN` に一本化
+- **FR-09 新設**: 運用ログ（console.info JSON）+ パラメータ上書き
+- **NFR-10 新設**: キャッシュ戦略（v1/ 維持、将来 vN/ 運用）
+- **NFR-11 新設**: テスト決定論性（PRNG シード固定、強制スポーン API、__gameState）
+- **AC-06〜08 新設**: context lost/restored、5 分 heap 基準、GAME_OVER 時停止
+- **NFR-03 定量化**: 90 秒計測で平均 ≥58fps、5% 以下で 50fps 下回り禁止
+- **NFR-02 必達化**: gzip 内訳管理 + size-limit CI、絶対値 ≦215KB
+- **dispose 責任表**: 樽/武器モデル所有権移譲/ゲート/DOM/material を表形式で明記
+- **ALLY_ADD 上限**: 既存 `GAME_CONFIG.ally.maxCount = 10` 維持、到達時は no-op + 通過 toast + 「MAX」表示
+- **Wave 境目**: 45s/90s/180s の 3 点に確定、通常キュー最優先、上限 +1 例外許容
+
+### 成果物
+- `aidlc-docs/inception/requirements/requirements-v6.md`（全面改訂）
+- `aidlc-docs/reviews/inception/requirements-review-v6-responses.md`（対応記録）
+- `aidlc-docs/aidlc-state.md`: Requirements Analysis 行末に `[Reviewed: ..., Resolved]` を追記
+
+### 次アクション
+Application Design（Iter6）へ進む。Open Issues（レーン幅、パーティクル上限具体値、console.info 除去方針、HP/効果量バランス）を設計段階で確定。
+
+---
+
+## 2026-04-20 — Iter6 User Stories / Workflow Planning スキップ → Application Design 直行
+
+### 決定
+ユーザー判断により、User Stories と Workflow Planning をスキップし Application Design へ直行。
+
+### 根拠
+- Iter3/4/5 の前例踏襲（技術寄り、ユーザー機能追加のみで新ペルソナ不要）
+- 運用停止中の Iter のため 1 Unit 一括実装想定、並列化不要
+- Units Generation も同様に SKIP 見込み（Iter5 と同じ判断）
+
+### 参照する Iter5 のアプリケーション設計資産
+- `components-v5.md` / `services-v5.md` / `component-methods-v5.md` / `component-dependency-v5.md`
+- これらを基に、Iter6 で追加/変更するコンポーネント（樽/ゲート系、WeaponSwitchSystem、HTMLOverlayManager 拡張等）のみ新設計する差分方式を採用
+
+### 次アクション
+Application Design v6 の成果物作成。差分中心の設計書を起案する。
+
+---
+
+## 2026-04-20 — Iter6 Application Design 完了（承認待ち）
+
+### 成果物
+- `aidlc-docs/inception/application-design/components-v6.md`（🆕19 / ⚙️10 / ❌9 コンポーネント一覧、Wave 境目ボーナス仕様、grep チェックリスト）
+- `aidlc-docs/inception/application-design/services-v6.md`（GameService 初期化差分、新 System 詳細、ランタイムフロー例 2 本）
+- `aidlc-docs/inception/application-design/component-methods-v6.md`（新規 Component/System の API、BR-I6-01〜14 ビジネスルール）
+- `aidlc-docs/inception/application-design/component-dependency-v6.md`（依存グラフ、依存マトリクス、priority 順序、破棄シーケンス、リスクと緩和策）
+
+### 主な設計判断
+- 差分設計書アプローチ（Iter5 v5 ファイルを土台、Iter6 は「新規/改修/削除」のみを v6 として記述）
+- 新規 System 4 本: `ItemBarrelSpawner` / `GateSpawner` / `GateTriggerSystem` / `WeaponSwitchSystem`
+- 新規 Component 3 本: `BarrelItemComponent` / `GateComponent` / `PlayerWeaponComponent`
+- HTMLOverlayManager を UI ハブとして大幅拡張: `WorldToScreenLabel` (DOM プール 6) / `ActiveBuffIcon` (3 枠) / `WeaponHudPanel` / `ToastQueue` (FIFO 上限 3)
+- CollisionSystem はレイヤマスク分離のみで拡張、新 System 乱立を避ける
+- `WeaponSwitchSystem` の `enqueueSwitch` は pending キュー方式（同フレーム内の副作用衝突回避）
+- `DeterministicRng` / `DebugConfigLoader` / `ForceSpawnApi` は `import.meta.env.PROD` ガードで production から dead-code elimination
+- dispose 責任: 武器モデルは樽破壊時にプレイヤー装備へ所有権移譲、樽本体は cloned material まで dispose、geometry は共有
+
+### grep チェックリスト（AC-01 で自動検証）
+13 パターンを列挙（`ItemDropManager` / `WEAPON_DROP_TYPES` / `enum WeaponType\s*\{` / `SphereGeometry\(0\.08` / `GAME_CONFIG\.itemSpawn` 等すべて 0 件期待）
+
+### リスク識別
+- 決定論モードの production 漏れ → Vite env ガード
+- 樽 material clone の shader 再コンパイル → `material.color` のみ変更、programs.length AC で検証
+- ゲート通過判定のフレーム落ち誤動作 → prevGateY / prevPlayerY を entity 個別に保持
+- DOM プール不足（Wave 境目例外時）→ 固定 6 スロット、不足時は最優先ロールオーバー
+
+### 次アクション
+ユーザー承認待ち。承認後、Iter3/4/5 同様に Units Generation は SKIP し Construction フェーズへ進む想定。
+
+---
+
+## 2026-04-20 — Iter6 Application Design 自動レビュー PASS
+
+### 結果
+- **判定**: PASS（2 イテレーションで全軸 ≥ 7 達成）
+- **イテレーション回数**: 2 / 3
+- **最終平均スコア**: 8.04（iter1: 7.33 → iter2: 8.04、+9.7%）
+- **最終レポート**: `aidlc-docs/reviews/inception/application-design-auto-review-v6.md`
+
+### スコア推移
+
+| ロール | 正確性 | 設計品質 | セキュリティ | 保守性 |
+|---|---|---|---|---|
+| A | 7→8 | 7→8 | 8→8 | 6→7（閾値突破） |
+| F | 7→8 | 7→8 | 9→9 | 7→7 |
+| B | 6→8（閾値突破） | 7→8 | 8→9 | 7→8 |
+| I | 7→8 | 7→8 | 8→9 | 8→8 |
+| S | 8→8 | 8→8 | 7→8 | 8→8 |
+| O | 7→8 | 7→8 | 8→9 | 7→7 |
+
+### iter 1 FAIL 軸と解消した修正
+- **A-保守性 6→7**: A-NG-3 (HTMLOverlayManager God Object 化) → Facade 降格（FIX-7〜9）で解消
+- **B-正確性 6→8**: B-NG-2 (critical, transferWeaponMesh rollback) → 3値戻り値 + try/catch + rollback（FIX-1,2）で解消
+
+### 適用修正（26 FIX、HIGH 信頼度、うち 2 件 AUTO-DECIDED）
+- 中心修正: Facade 化 / transferWeaponMesh 契約 / HealthComponent 参照訂正 / priority 細分化 / Wave 境目 Set / weaponTransferred フラグ / ActiveBuffsComponent 定義 / DebugConfigLoader サニタイズ / EventLogger DCE / webglcontextlost ハンドラ / ActiveBuffsComponent / gzip 見積り表
+- AUTO-DECIDED: SpawnManager 責務確定（FIX-25）、Wave 境目交互固定 45s=樽/90s=ゲート/180s=樽（FIX-26）
+
+### 設計上の重要発見
+- 実コード調査で `DefenseLineComponent` が**存在しない**ことが判明（HP は PlayerComponent+HealthComponent で管理、`DefenseLineSystem` は Y 座標判定のみ）
+- この結果、HEAL ゲートの対象を `HealthComponent.hp/maxHp` に訂正（B-NG-12）
+
+### 残存 medium NG（Construction で吸収）
+- EventLogger 初期化順（DebugConfigLoader より先に new）
+- GateTriggerSystem prevPlayerY 初期化
+- newGame シーケンスの state リセット追加項目
+- cloned fallback 時のプレイヤー保持武器 mesh dispose 責任
+- 上流要件 FR-04 の `DefenseLineComponent` 用語ブリッジ（任意）
+
+### 次アクション
+ユーザー承認後、Iter3/4/5 同様に Units Generation は SKIP し Construction フェーズへ進む想定。
+
+---
+
+## 2026-04-20 — Iter6 人間レビュー: 仲間入手の一本化判断
+
+### 決定
+ユーザー判断により、**AllyConversionSystem（敵→仲間の確率変換）を削除**し、仲間入手は **ALLY_ADD ゲートの通過に一本化**。
+
+### 根拠
+- 自動レビュー AUTO-DECIDED FIX-25 の確認中、ユーザーから「ゲートで仲間追加できるようになったなら変換ロジック不要では」との質問
+- Last War 風メカニクスへの統一を優先、プレイヤーへの混乱回避
+- AllyConversionSystem 起因の Iter5 コード（CollisionSystem 変換呼出、enemyConfig 変換確率）も関連削除対象
+
+### 反映した設計書
+- `components-v6.md`: 削除対象に AllyConversionSystem / CollisionSystem 変換ロジック / enemyConfig 変換確率フィールドを追加（C6-X10〜X12）
+- `components-v6.md` C6-24 SpawnManager: `spawnAlly` の呼出元を GateTriggerSystem.ALLY_ADD のみに記述変更
+- `requirements-v6.md` NFR-01: 「AllyConversionSystem 削除」を Iter6 例外として明記
+
+### 影響範囲（Construction で対応）
+- `src/systems/AllyConversionSystem.ts` 削除
+- `src/systems/CollisionSystem.ts` の変換呼出箇所削除
+- `src/config/enemyConfig.ts` の変換確率フィールド削除
+- 関連 Jest テスト削除 or ALLY_ADD ゲートテストへ置換
+- GameService の Systems 登録から AllyConversionSystem を除外
+
+---
+
+## 2026-04-20 — Iter6 Application Design 人間レビュー完了
+
+### 7 項目の判断結果
+
+| # | 項目 | 判断 |
+|---|---|---|
+| 1 | FIX-25 (AUTO-DECIDED): SpawnManager 責務 | **承認 + AllyConversionSystem 削除**（仲間入手はゲートに一本化、大きな仕様変更） |
+| 2 | FIX-26 (AUTO-DECIDED): Wave 境目交互固定 | 承認（45s=樽/90s=ゲート/180s=樽） |
+| 3 | A-NG-3r: EventLogger 初期化順 | 修正（EventLogger を最優先 new に変更） |
+| 4 | A-NG-7r: HealthComponent 用語統一 | 修正（requirements-v6 FR-04/FR-06 の DefenseLineComponent 言及を HealthComponent に） |
+| 5 | B-NG-13: GateTriggerSystem 初期化 | 修正（playerInitialized フラグ、X 幅判定意図コメント追加） |
+| 6 | B-NG-18: cloned fallback 時 dispose | 修正（PlayerWeaponComponent に currentWeaponMesh 追加、切替時 dispose） |
+| 7 | O-NG-11: newGame state リセット | 修正（bonusFiredAt/prevGateY/pendingSwitches/DeterministicRng/ForceSpawnApi 等を追加） |
+
+### 最大の判断事項
+**AllyConversionSystem の削除**（敵→仲間変換機構の廃止、ゲートに一本化）
+- NFR-01 の例外として requirements-v6 に明記
+- Iter5 機能からの意図的な機能削除、Construction 時に 5 コード変更（AllyConversionSystem.ts 削除、CollisionSystem 変換呼出削除、enemyConfig フィールド削除、関連テスト削除 or 置換、GameService Systems 登録除外）
+
+### 反映した設計書
+- requirements-v6.md: NFR-01 例外（AllyConversionSystem 削除）、FR-04/FR-06 HealthComponent 統一
+- components-v6.md: 削除リスト拡張（C6-X10〜X12）、SpawnManager 責務記述修正
+- services-v6.md: GameService.init の EventLogger 最優先化、GateTriggerSystem playerInitialized フラグ + X 幅意図コメント
+- component-methods-v6.md: PlayerWeaponComponent に currentWeaponMesh 追加
+- component-dependency-v6.md: newGame シーケンス 7→17 step に拡張
+
+### 次アクション
+Application Design 承認完了。Units Generation は Iter3/4/5 踏襲で SKIP、Construction フェーズへ。

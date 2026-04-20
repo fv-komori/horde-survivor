@@ -4,9 +4,10 @@
 - **Project Type**: Brownfield
 - **Start Date**: 2026-04-09T00:00:00Z
 - **Original Start**: 2026-04-07T00:00:00Z
-- **Current Stage**: Iter5 クローズ済み（PR #1 main マージ完了）— 次イテレーション入口で待機
-- **Iteration**: 5 完了（GLTFモデル導入: Toon Shooter Game Kit）/ 次 Iter6 未着手
+- **Current Stage**: Iter6 Inception — Requirements Analysis 実施中
+- **Iteration**: 5 完了 / Iter6 開始（アイテムのビジュアル刷新＋種類整理）
 - **Iter5 クローズ日**: 2026-04-20
+- **Iter6 開始日**: 2026-04-20
 
 ## Workspace State
 - **Existing Code**: Yes
@@ -117,3 +118,14 @@
   - 持ち越し（本PR対象外）: AssetManager 用 LoaderScreen（現状は即ロード完了のため UI 不要）、EntityFactory.gltf 経路テスト（initThree 依存で別途対応）
 - [x] PR #1 マージ完了（72963f3, 2026-04-20, iter5-gltf-models → main）
 - [x] Iter5 正式クローズ（2026-04-20）— 持ち越し項目は Iter6 以降の入力とする
+
+### INCEPTION PHASE (Iteration 6 - アイテム刷新)
+- **Worktree**: /Users/komori/fv-genai-specialforce/fv-game.worktrees/iter6-items
+- **Branch**: iter6-items（main から分岐、base: ed73978）
+- **仮スコープ**: アイテムのビジュアル刷新＋種類整理（Last War / reference-visual.png 参考、数値表示＋視覚的識別）
+- [x] Workspace Detection - COMPLETED（Brownfield継続、Iter5成果物維持）
+- [x] Requirements Analysis - COMPLETED（requirements-v6.md / questions-summary-v6.md）[Reviewed: reviews/inception/requirements-review-v6, Resolved]
+- [x] User Stories - SKIP（Iter3/4/5同様に技術寄り、ユーザー機能追加のみで新ペルソナ不要）
+- [x] Workflow Planning - SKIP（1 Unit一括想定、運用停止中のためIter3/4/5同様）
+- [x] Application Design - COMPLETED（components-v6 / services-v6 / component-methods-v6 / component-dependency-v6）[AutoReviewed: reviews/inception/application-design-auto-review-v6, PASS（2 iter、全軸≥7、7.33→8.04）]
+- [ ] Units Generation - PENDING
