@@ -15,6 +15,7 @@ import { ScoreService } from '../game/ScoreService';
 import { AnimationStateComponent } from '../components/AnimationStateComponent';
 import type { AudioManager } from '../audio/AudioManager';
 import { EffectType } from '../types';
+import type { WorldToScreenLabel } from '../ui/WorldToScreenLabel';
 
 /**
  * S-06: 衝突判定システム（priority 5）
@@ -27,6 +28,7 @@ export class CollisionSystem implements System {
   private readonly audioManager: AudioManager;
   private readonly animationSystem: AnimationSystem | null;
   private weaponSwitchSystem: WeaponSwitchSystem | null = null;
+  private worldToScreenLabel: WorldToScreenLabel | null = null;
 
   constructor(
     entityFactory: EntityFactory,
@@ -42,6 +44,11 @@ export class CollisionSystem implements System {
 
   setWeaponSwitchSystem(ws: WeaponSwitchSystem): void {
     this.weaponSwitchSystem = ws;
+  }
+
+  /** Iter6 Phase 5: 樽HP変化でラベル文字を更新 */
+  setWorldToScreenLabel(label: WorldToScreenLabel): void {
+    this.worldToScreenLabel = label;
   }
 
   update(world: World, _dt: number): void {
@@ -117,7 +124,10 @@ export class CollisionSystem implements System {
 
         if (barrel.hp <= 0) {
           destroyedBarrels.add(barrelId);
+          this.worldToScreenLabel?.release(barrelId);
           this.weaponSwitchSystem?.enqueueSwitch(barrelId, barrel.type);
+        } else {
+          this.worldToScreenLabel?.setText(barrelId, `${Math.max(0, barrel.hp)}`);
         }
 
         if (bullet.isPiercing) {

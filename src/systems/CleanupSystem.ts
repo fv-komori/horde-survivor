@@ -11,6 +11,7 @@ import { GAME_CONFIG } from '../config/gameConfig';
 import { Mesh } from 'three';
 import type { SceneManager } from '../rendering/SceneManager';
 import type { GateTriggerSystem } from './GateTriggerSystem';
+import type { WorldToScreenLabel } from '../ui/WorldToScreenLabel';
 
 /**
  * S-11: クリーンアップシステム（priority 98）
@@ -21,6 +22,7 @@ export class CleanupSystem implements System {
 
   private sceneManager: SceneManager | null = null;
   private gateTriggerSystem: GateTriggerSystem | null = null;
+  private worldToScreenLabel: WorldToScreenLabel | null = null;
 
   initThree(sceneManager: SceneManager): void {
     this.sceneManager = sceneManager;
@@ -28,6 +30,11 @@ export class CleanupSystem implements System {
 
   setGateTriggerSystem(g: GateTriggerSystem): void {
     this.gateTriggerSystem = g;
+  }
+
+  /** Iter6 Phase 5: ワールドラベル (樽HP/ゲート効果量) の release 用 */
+  setWorldToScreenLabel(label: WorldToScreenLabel): void {
+    this.worldToScreenLabel = label;
   }
 
   update(world: World, _dt: number): void {
@@ -64,6 +71,7 @@ export class CleanupSystem implements System {
         pos.y > h + margin || pos.x < -margin || pos.x > w + margin;
       if (gate.consumed || offScreen) {
         this.gateTriggerSystem?.onGateDisposed(id);
+        this.worldToScreenLabel?.release(id);
         this.cleanupMesh(world, id);
         world.destroyEntity(id);
       }
@@ -74,6 +82,7 @@ export class CleanupSystem implements System {
     for (const id of barrelIds) {
       const pos = world.getComponent(id, PositionComponent)!;
       if (pos.y > h + margin || pos.x < -margin || pos.x > w + margin) {
+        this.worldToScreenLabel?.release(id);
         this.cleanupMesh(world, id);
         world.destroyEntity(id);
       }

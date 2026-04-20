@@ -82,9 +82,9 @@ export class ThreeJSRenderSystem implements System {
     // 背景スクロール
     this.sceneManager.updateBackgroundScroll(dt);
 
-    // HP表示位置更新
+    // HP表示位置 + ワールドラベル + トースト / 武器フラッシュ (Iter6 Phase 5: 30Hz ドレイン)
     if (this.overlayManager) {
-      this.overlayManager.updatePositions(world, this.camera);
+      this.overlayManager.updateScheduled(world, this.camera, dt);
     }
 
     // Iter4: PostFXManager経由でレンダ（内部でenabled/contextLost分岐）、nullの場合は直接

@@ -213,6 +213,17 @@ export class GameService {
     collisionSystem.setWeaponSwitchSystem(this.weaponSwitchSystem);
     this.cleanupSystem.setGateTriggerSystem(this.gateTriggerSystem);
 
+    // Iter6 Phase 5: HTMLOverlayManager Facade のサブクラスを Systems に直接 DI
+    this.weaponSwitchSystem.setHudHandles(
+      this.overlayManager.toastQueue,
+      this.overlayManager.weaponHudPanel,
+    );
+    this.gateTriggerSystem.setToastQueue(this.overlayManager.toastQueue);
+    const worldLabel = this.overlayManager.worldToScreenLabel;
+    this.entityFactory.setWorldToScreenLabel(worldLabel);
+    collisionSystem.setWorldToScreenLabel(worldLabel);
+    this.cleanupSystem.setWorldToScreenLabel(worldLabel);
+
     // ECSシステム登録（priority 昇順で実行される）
     this.world.addSystem(new InputSystem(this.inputHandler));
     this.world.addSystem(new PlayerMovementSystem());

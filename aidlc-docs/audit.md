@@ -1668,3 +1668,53 @@ Phase 4（新 Systems + 既存拡張 + 登録）に進む。ItemBarrelSpawner/Ga
 
 ### 次アクション
 Phase 5（HTMLOverlayManager Facade 化）に進む。WorldToScreenLabel プール 6 / ActiveBuffIcon / WeaponHudPanel / ToastQueue を新設し、30Hz ドレイン型スロットリングで統括する。System は直接 DI で受け取る（God Object 回避）。
+
+---
+
+## 2026-04-20T13:48:00Z — Iter6 Phase 5 (HTMLOverlayManager Facade 化) COMPLETED
+
+### 成果物
+- **新規 UI サブクラス 4 種（src/ui/）**:
+  - `WorldToScreenLabel.ts` — プール 6 スロット、bonus が normal を evict するロールオーバー、ResizeObserver で canvas サイズキャッシュ更新、camera.project で NDC 変換
+  - `ActiveBuffIcon.ts` — 3 スロット、`setBuffs(ActiveBuffView[])` で BuffComponent.activeBuffs を反映
+  - `WeaponHudPanel.ts` — 0.3s フラッシュ、同じ genre への setGenre は再発火しない
+  - `ToastQueue.ts` — FIFO 上限 3、同時表示 1、0.8s 経過で次へ、同種同文言連続は extend
+- **HTMLOverlayManager リファクタ** — Facade 化。initHUD で 4 サブクラスをインスタンス化し getter 経由で公開。`updateScheduled(world, camera, dt)` が 30Hz ドレイン型スロットリングで WorldToScreenLabel.update / updatePositions（敵 HP） を呼ぶ、毎フレームは toastQueue.tick + weaponHudPanel.updateFlash。updateHUD は既存 HP/Timer/Kills/Wave/Allies + activeBuff/weapon 委譲。
+- **System への直接 DI**:
+  - `WeaponSwitchSystem.setHudHandles(toastQueue, weaponHudPanel)` — 武器切替成功時に WEAPON toast + setGenre(flash)
+  - `GateTriggerSystem.setToastQueue(toastQueue)` — ally_add/heal で GAIN|MAX toast、buff で BUFF toast
+  - `EntityFactory.setWorldToScreenLabel(label)` — createBarrelItem/createGate で acquire（bonus 時は priority='bonus'）
+  - `CollisionSystem.setWorldToScreenLabel(label)` — 樽 HP 減算時に setText、HP=0 で release
+  - `CleanupSystem.setWorldToScreenLabel(label)` — 画面外 barrel/gate と consumed gate で release
+- **XSS 対策**:
+  - `.eslintrc.json` に `no-restricted-syntax` で innerHTML / outerHTML / insertAdjacentHTML / document.write 禁止（エラー級）
+  - 全新規 UI は textContent のみ使用、i18n は `I18N_TOAST` 関数経由（Number(x).toString 通過）
+- **ThreeJSRenderSystem** — `overlayManager.updatePositions` 呼出を `overlayManager.updateScheduled` に置換（Phase 5 の 30Hz 統合）
+- **CSS 追加** — `src/styles/overlay.css` に `.hud-weapon-flash` / `.hud-toast` / `.world-label` / `[data-kind]` 別トースト色を追記
+
+### 品質ゲート
+- TypeScript `tsc --noEmit`: clean
+- ESLint: 0 errors（既存 warning 4 件はノイズ、innerHTML 系違反ゼロ）
+- Jest: **119 tests / 16 suites PASS**（Phase 4: 107 → Phase 5: +12 tests）
+  - 新規テスト: `tests/ui/ToastQueue.test.ts`（4）/ `WeaponHudPanel.test.ts`（2）/ `ActiveBuffIcon.test.ts`（2）/ `WorldToScreenLabel.test.ts`（4）
+  - XSS 回帰テスト: `<script>…</script>` / `<img onerror=…>` が textContent として保存され children が 0 件であることを assert
+  - `tests/__mocks__/dom-stub.ts` 新設（jsdom を導入せず最小 DOM スタブで対応）
+- `npm run build`: gzip **200.92 KB**（Phase 4: 198.72 → +2.2KB、上限 215KB の余裕内）
+- Playwright 目視（Chromium localhost:5173 → START）:
+  - 起動時: weaponHudPanel=RIFLE、toast visibility=hidden、world-label pool=6、buff slots=3、hud 表示、HP=100/100、Wave 1、Allies 0/10
+  - `window.__SPAWN_FORCE_NEXT = { barrel: 'WEAPON_SHOTGUN' }` 後 1.5s：worldLabel 3 枚可視（"50" barrel / "+20%" gate / "39" damaged barrel）
+  - 放置プレイ 45s: スクリーンショット `phase5-game-with-labels.png` 撮影、MACHINEGUN 装備 + 樽HP"67" + ALLY_ADD ゲート"+5" + ATK/SPD ゲート"+20%" が同画面表示、Allies 10/10、Wave 2 到達、console error なし（favicon 404 のみ）
+
+### 設計判断
+- **30Hz ドレイン型スロットリング**: 大 dt spike で連続 drain しないよう `Math.min(acc - interval, interval)` で 1 フレ 1 drain に制限
+- **敵 HP ラベル** は既存 `updatePositions` を維持（hpLabels Map、個数上限なし）。WorldToScreenLabel は barrels/gates 専用（プール 6）
+- **setter 注入** を採用（コンストラクタ拡張ではなく）— 既存 107 テストを壊さずに Phase 5 を追加
+- **XSS ESLint**: ambiguous `document.write` マッチングは `:has()` セレクタで絞り込み（テンプレ HTML の `<script>document.write...` を拾わないよう）
+
+### 持ち越し（Phase 6 = 旧 Phase 7 Build & Test + Polish に統合）
+- size-limit CI 組込（main 差分 +20KB、gzip ≤ 215KB）
+- AC-01〜08 の Playwright シナリオ化（AC-05 fps ベースライン比較、AC-06 webglcontextlost/restored、AC-07 heap 5min 差分 < 10MB など）
+- Wave 境目 45s/90s/180s 強調装飾 + WAVE toast 発火（現状は `bonusFiredAt` で重複発火防止のみ）
+
+### 次アクション
+Phase 6（Build & Test + Polish）へ。まず AC ベースの Playwright シナリオ整備と size-limit 導入。

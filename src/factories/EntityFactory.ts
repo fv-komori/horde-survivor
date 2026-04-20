@@ -44,6 +44,7 @@ import type { CharacterKey, GunKey } from '../config/AssetPaths';
 import type { AssetManager } from '../managers/AssetManager';
 import type { SceneManager } from '../rendering/SceneManager';
 import type { InstancedMeshPool } from '../rendering/InstancedMeshPool';
+import type { WorldToScreenLabel } from '../ui/WorldToScreenLabel';
 
 const OUTLINE_VERTEX_SHADER = /* glsl */ `
 #include <common>
@@ -109,6 +110,7 @@ export class EntityFactory {
   private assetManager: AssetManager | null = null;
   private sceneManager: SceneManager | null = null;
   private bulletPool: InstancedMeshPool | null = null;
+  private worldToScreenLabel: WorldToScreenLabel | null = null;
 
   /** Three.js依存を注入（DI） */
   initThree(
@@ -119,6 +121,11 @@ export class EntityFactory {
     this.assetManager = assetManager;
     this.sceneManager = sceneManager;
     this.bulletPool = bulletPool;
+  }
+
+  /** Iter6 Phase 5: ワールドラベル（樽HP / ゲート効果量）を注入 */
+  setWorldToScreenLabel(label: WorldToScreenLabel): void {
+    this.worldToScreenLabel = label;
   }
 
   // ---------- GLTF ヘルパー ----------
@@ -409,6 +416,20 @@ export class EntityFactory {
     const size = GAME_CONFIG.barrelSpawn.spriteSize;
     world.addComponent(id, new MeshComponent('barrel', size, size, { object3D: group }));
 
+    // Iter6 Phase 5: ワールドラベル取得 (HP 表示)
+    if (this.worldToScreenLabel) {
+      const acquired = this.worldToScreenLabel.acquire(
+        id,
+        `${baseHp}`,
+        () => ({ x: group.position.x, y: group.position.y + 0.9, z: group.position.z }),
+        isBonus ? 'bonus' : 'normal',
+      );
+      if (acquired) {
+        const comp = world.getComponent(id, BarrelItemComponent);
+        if (comp) comp.labelDomId = String(id);
+      }
+    }
+
     return id;
   }
 
@@ -452,7 +473,32 @@ export class EntityFactory {
     const size = GAME_CONFIG.gateSpawn.spriteSize;
     world.addComponent(id, new MeshComponent('gate', size, size, { object3D: group }));
 
+    // Iter6 Phase 5: ワールドラベル取得 (効果量表示)
+    if (this.worldToScreenLabel) {
+      const labelText = this.formatGateLabel(type, amount);
+      const acquired = this.worldToScreenLabel.acquire(
+        id,
+        labelText,
+        () => ({ x: group.position.x, y: group.position.y + 1.4, z: group.position.z }),
+        isBonus ? 'bonus' : 'normal',
+      );
+      if (acquired) {
+        const comp = world.getComponent(id, GateComponent);
+        if (comp) comp.labelDomId = String(id);
+      }
+    }
+
     return id;
+  }
+
+  private formatGateLabel(type: GateType, amount: number): string {
+    const rounded = Math.round(amount);
+    switch (type) {
+      case GateType.ALLY_ADD: return `+${rounded}`;
+      case GateType.HEAL:     return `+${rounded}`;
+      case GateType.ATTACK_UP:
+      case GateType.SPEED_UP: return `+${rounded}%`;
+    }
   }
 
   /** ボーナス装飾: 発光リング（シンプルに emissive で強調） */

@@ -143,8 +143,5 @@
   - [x] Phase 2b - COMPLETED（旧 ItemType/WeaponType/ITEM_COLORS/itemTypeToBuff/itemTypeToWeapon 削除、WeaponGenre/BarrelItemType/GateType 追加、barrelConfig/gateConfig/i18nStrings 新規、WEAPON_PARAMS 再設計、WeaponSystem/EntityFactory/HTMLOverlayManager/SettingsScreen/GameService/CoordinateMapper を新 enum に置換、Jest 93/93 PASS、gzip 194.91KB、Playwright 目視: RIFLE HUD 表示 + 射撃→敵撃破 golden path 成立）
   - [x] Phase 3 - COMPLETED（BarrelItem/Gate/PlayerWeapon/ActiveBuffs Component 追加、EntityFactory.createBarrelItem/createGate 実装、AssetManager.cloneBarrelTemplate/cloneWeaponTemplate 追加、ColliderType.BARREL/SpriteType barrel/gate/GATE_COLOR/barrelSpawn/gateSpawn 追加、Jest 107/107 PASS（+14）、gzip 196.21KB、Spawner 未接続のためゲーム内未出現）
   - [x] Phase 4 - COMPLETED（ItemBarrelSpawner/GateSpawner/GateTriggerSystem/WeaponSwitchSystem 実装、CollisionSystem BULLET↔BARREL 拡張、CleanupSystem 樽/ゲート dispose 分岐、BuffSystem.applyOrExtend 追加、WaveManager.bonusFiredAt 追加、SpawnManager.spawnAlly 追加、EntityFactory.createPlayer に PlayerWeaponComponent 付与、GameService で新 Systems 登録+GAME_OVER フック+elapsedTime 配線、Jest 107/107 PASS、gzip 198.72KB（+2.5KB）、Playwright golden path: 樽撃破→武器切替(RIFLE→SHOTGUN→RIFLE)、ALLY_ADD ゲート通過で Allies 0→5、Wave 2 到達、console error なし）
-  - [ ] Phase 5 - NEXT（HTMLOverlayManager Facade 化: WorldToScreenLabel / ActiveBuffIcon / WeaponHudPanel / ToastQueue、30Hz ドレイン型スロットリング、System 直接 DI、XSS 対策）
-  - [ ] Phase 3 - PENDING
-  - [ ] Phase 4 - PENDING
-  - [ ] Phase 5 - PENDING
-- [ ] Build and Test - PENDING（Phase 6）
+  - [x] Phase 5 - COMPLETED（HTMLOverlayManager Facade 化、4 サブクラス新設: WorldToScreenLabel[pool 6, bonus rollover, ResizeObserver] / ActiveBuffIcon[3 slots] / WeaponHudPanel[0.3s flash] / ToastQueue[FIFO, 上限3, 同種延長]、30Hz ドレイン型スロットリング、WeaponSwitchSystem/GateTriggerSystem/EntityFactory/CollisionSystem/CleanupSystem への DI 直接配線、ESLint no-restricted-syntax で innerHTML/outerHTML/insertAdjacentHTML/document.write 禁止、tests/ui 4 ファイル +12 tests[XSS 回帰テスト込み]、Jest 119/119 PASS、gzip 200.92KB（+2.2KB）、Playwright: WEAPON HUD=MACHINEGUN + 樽HP"67" + ゲート"+5""+20%"表示、Wave 2 到達、console error なし）
+  - [ ] Phase 6 - NEXT（Phase 6 = Phase 7 Build & Test + Polish: size-limit 閾値設定、AC-01〜08 Playwright シナリオ、PR 本文準備）

@@ -13,6 +13,8 @@ import { EventLogger } from '../services/EventLogger';
 import { isValidGateAmount } from '../config/gateConfig';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { GateType, BuffType } from '../types';
+import type { ToastQueue } from '../ui/ToastQueue';
+import { I18N_TOAST } from '../config/i18nStrings';
 
 /**
  * C6-06 / Iter6: ゲート通過判定システム（priority 6）
@@ -33,11 +35,17 @@ export class GateTriggerSystem implements System {
   private readonly spawnManager: SpawnManager;
   private readonly buffSystem: BuffSystem;
   private readonly eventLogger: EventLogger;
+  private toastQueue: ToastQueue | null = null;
 
   constructor(spawnManager: SpawnManager, buffSystem: BuffSystem) {
     this.spawnManager = spawnManager;
     this.buffSystem = buffSystem;
     this.eventLogger = EventLogger.instance;
+  }
+
+  /** Iter6 Phase 5: ToastQueue 直接 DI (HTMLOverlayManager Facade 経由回避) */
+  setToastQueue(toastQueue: ToastQueue): void {
+    this.toastQueue = toastQueue;
   }
 
   setElapsedTime(t: number): void {
@@ -120,6 +128,11 @@ export class GateTriggerSystem implements System {
         const target = Math.floor(gate.amount);
         const added = Math.max(0, Math.min(target, max - current));
         for (let i = 0; i < added; i++) this.spawnManager.spawnAlly(world, this.elapsedTime);
+        if (added === 0) {
+          this.toastQueue?.push({ kind: 'MAX', text: I18N_TOAST.allyMax });
+        } else {
+          this.toastQueue?.push({ kind: 'GAIN', text: I18N_TOAST.allyGain(added) });
+        }
         this.eventLogger.info('ally_add', { count: added, total: current + added });
         break;
       }
@@ -131,6 +144,11 @@ export class GateTriggerSystem implements System {
         const before = health.hp;
         health.hp = Math.min(health.hp + gate.amount, health.maxHp);
         const actual = health.hp - before;
+        if (actual === 0) {
+          this.toastQueue?.push({ kind: 'MAX', text: I18N_TOAST.healMax });
+        } else {
+          this.toastQueue?.push({ kind: 'GAIN', text: I18N_TOAST.healGain(Math.round(actual)) });
+        }
         this.eventLogger.info('heal', { amount: actual, hp: health.hp, maxHp: health.maxHp });
         break;
       }
@@ -143,6 +161,10 @@ export class GateTriggerSystem implements System {
           const buff = world.getComponent(playerIds[0], BuffComponent)!;
           this.buffSystem.applyOrExtend(buff, buffType, duration);
         }
+        this.toastQueue?.push({
+          kind: 'BUFF',
+          text: I18N_TOAST.buffGain(gate.type, Math.round(gate.amount)),
+        });
         this.eventLogger.info('gate_trigger', {
           type: gate.type, amount: gate.amount, duration,
         });
