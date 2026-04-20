@@ -51,6 +51,8 @@ export class CoordinateMapper {
       case 'enemy_tank': return h.enemyTank;
       case 'enemy_boss': return h.enemyBoss;
       case 'bullet': return h.bullet;
+      case 'barrel': return h.barrel;
+      case 'gate': return h.gate;
       default: return 0;
     }
   }

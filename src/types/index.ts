@@ -133,16 +133,19 @@ export type SpriteType =
   | 'enemy_boss'
   | 'bullet'
   | 'ally'
+  | 'barrel'
+  | 'gate'
   | 'effect_muzzle'
   | 'effect_destroy'
   | 'effect_buff'
   | 'effect_ally_convert';
 
-/** 衝突判定タイプ（Iter6: ITEM を削除、BARREL/GATE は Phase 3 で追加） */
+/** 衝突判定タイプ（Iter6: ITEM 削除、BARREL を追加。ゲートは ColliderComponent 非使用・GateComponent.widthHalf で通過判定） */
 export enum ColliderType {
   BULLET = 'BULLET',
   ENEMY = 'ENEMY',
   PLAYER = 'PLAYER',
+  BARREL = 'BARREL',
 }
 
 /** バフタイプの色マッピング */

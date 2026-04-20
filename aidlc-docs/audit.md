@@ -1558,3 +1558,54 @@ Phase 2b へ進む。旧 enum 削除 + 新 `WeaponGenre` / `BarrelItemType` / `G
 
 ### 次アクション
 Phase 3（新 Components + EntityFactory）へ進む。BarrelItemComponent / GateComponent / PlayerWeaponComponent / ActiveBuffsComponent を追加、EntityFactory.createBarrelItem / createGate と AssetManager.cloneBarrelTemplate / cloneWeaponTemplate を新設。
+
+---
+
+## 2026-04-20 — Iter6 Construction Phase 3 完了（新 Components + Factory）
+
+### 新規 Components（4 件）
+- `src/components/BarrelItemComponent.ts` (C6-01): type / hp / maxHp / labelDomId / isBonus / weaponTransferred
+- `src/components/GateComponent.ts` (C6-02): type / amount / unit / durationSec / widthHalf / consumed / labelDomId / isBonus
+- `src/components/PlayerWeaponComponent.ts` (C6-03): genre / switchedAt / currentWeaponMesh (Object3D | null)
+- `src/components/ActiveBuffsComponent.ts` (C6-03b): buffs: Map<GateType, { remaining, amount }>
+
+### EntityFactory 拡張
+- `createBarrelItem(world, type, position, isBonus=false)`:
+  - Crate.glb clone + 武器 GLTF child（assetManager 注入時）、フォールバック Box mesh
+  - HP = BARREL_HP[type].baseHp × (isBonus ? 1.5 : 1)、Math.floor で整数化
+  - ColliderType.BARREL、下方向 velocity
+  - isBonus 時 emissive=0xffcc00 を全 material に適用
+- `createGate(world, type, position, isBonus=false)`:
+  - プロシージャル: 左右 CylinderGeometry 柱 + BoxGeometry 横棒
+  - ColliderComponent なし（通過判定は GateComponent.widthHalf 経由）
+  - amount = GATE_EFFECTS[type].amount × (isBonus ? 1.5 : 1)、widthHalf 1.2x
+  - GATE_COLOR で色分け、isBonus 時サイズ 1.2x + emissive
+
+### AssetManager 拡張
+- `cloneBarrelTemplate()`: Crate.glb の Scene を clone、material clone 独立化
+- `cloneWeaponTemplate(genre)`: WeaponGenre → GunKey 変換（RIFLE→AK / SHOTGUN→Shotgun / MACHINEGUN→AK+tint 0x3a6ea5）
+  - MACHINEGUN は AK 流用 + material.color のみ変更（NFR-08 shader 再コンパイル禁止）
+- `applyTint()` / `genreToGunKey()` / `genreTint()` 内部ヘルパ
+
+### 型・config 補助追加
+- `src/types/index.ts`: `ColliderType.BARREL`、`SpriteType 'barrel' | 'gate'`
+- `src/config/gateConfig.ts`: `GATE_COLOR: Record<GateType, number>` 追加
+- `src/config/gameConfig.ts`: `barrelSpawn: { speed, colliderRadius, spriteSize, marginX }`, `gateSpawn: { speed, widthHalf, spriteSize, marginX }`, `entityHeight.barrel/gate` 追加
+- `src/utils/CoordinateMapper.ts`: getEntityHeight に 'barrel' / 'gate' case 追加
+
+### 新規テスト（14 件）
+- `tests/components/Iter6Components.test.ts`: 7 件（BarrelItem × 2 / Gate × 2 / PlayerWeapon × 1 / ActiveBuffs × 2）
+- `tests/factories/EntityFactoryIter6.test.ts`: 7 件（Barrel × 4 / Gate × 3）
+
+### 検証結果
+- tsc / ESLint clean（既存 warning 3 件のみ）
+- Jest 12 suites / **107 tests** PASS（93 → +14）
+- production build OK、gzip 196.21KB（Phase 2b 比 +1.3KB）
+
+### Phase 3 の限界（意図的）
+Phase 3 は構造のみ実装し、新 Spawner や既存 CollisionSystem との接続は Phase 4 に委ねる。
+現時点でゲームを起動しても樽/ゲートはスポーンされない（ItemBarrelSpawner/GateSpawner 未実装）。
+Phase 4 で Spawner/Systems 登録と CollisionSystem 拡張が完了すると実際にゲーム内に出現する。
+
+### 次アクション
+Phase 4（新 Systems + 既存拡張 + 登録）に進む。ItemBarrelSpawner/GateSpawner/GateTriggerSystem/WeaponSwitchSystem を実装し、CollisionSystem/BuffSystem/CleanupSystem/GameService を拡張。完了時に Playwright で樽撃破→武器切替、ゲート通過→バフ発動の golden path を目視確認。

@@ -1,6 +1,7 @@
-import { AnimationClip, Group, Mesh, MeshStandardMaterial, Texture } from 'three';
+import { AnimationClip, Group, Mesh, MeshStandardMaterial, Object3D, Texture } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { GAME_CONFIG } from '../config/gameConfig';
+import { WeaponGenre } from '../types';
 import {
   CHARACTER_PATHS,
   GUN_PATHS,
@@ -101,6 +102,67 @@ export class AssetManager {
 
   hasCharacter(key: CharacterKey): boolean {
     return this.characters.has(key);
+  }
+
+  /**
+   * Iter6 / S-SVC-02: 武器樽テンプレート（Crate.glb）を entity ごとに clone。
+   * material は clone 独立化し、武器樽ごとに tint やフラッシュを適用可能にする。
+   * geometry は共有（CleanupSystem が dispose 非対象）。
+   */
+  cloneBarrelTemplate(): Object3D {
+    const tmpl = this.getEnv('Crate');
+    const root = tmpl.scene.clone(true);
+    root.traverse((obj) => {
+      const m = obj as Mesh;
+      if (!m.isMesh) return;
+      if (Array.isArray(m.material)) m.material = m.material.map(x => x.clone());
+      else if (m.material) m.material = m.material.clone();
+    });
+    return root;
+  }
+
+  /**
+   * Iter6 / S-SVC-02: 武器ジャンル別のガン GLTF を entity ごとに clone。
+   * MACHINEGUN は AK.glb を流用し material.color のみ変更（NFR-08: shader 再コンパイル禁止）。
+   */
+  cloneWeaponTemplate(genre: WeaponGenre): Object3D {
+    const gunKey = this.genreToGunKey(genre);
+    const tmpl = this.getGun(gunKey);
+    const root = tmpl.scene.clone(true);
+    root.traverse((obj) => {
+      const m = obj as Mesh;
+      if (!m.isMesh) return;
+      if (Array.isArray(m.material)) m.material = m.material.map(x => x.clone());
+      else if (m.material) m.material = m.material.clone();
+    });
+    const tint = this.genreTint(genre);
+    if (tint !== null) this.applyTint(root, tint);
+    return root;
+  }
+
+  private genreToGunKey(genre: WeaponGenre): GunKey {
+    switch (genre) {
+      case WeaponGenre.RIFLE: return 'AK';
+      case WeaponGenre.SHOTGUN: return 'Shotgun';
+      case WeaponGenre.MACHINEGUN: return 'AK';
+    }
+  }
+
+  private genreTint(genre: WeaponGenre): number | null {
+    // MACHINEGUN は AK 流用のため tint で差別化（NFR-08: material.color のみ）
+    return genre === WeaponGenre.MACHINEGUN ? 0x3a6ea5 : null;
+  }
+
+  private applyTint(root: Object3D, color: number): void {
+    root.traverse((obj) => {
+      const m = obj as Mesh;
+      if (!m.isMesh || !m.material) return;
+      const materials = Array.isArray(m.material) ? m.material : [m.material];
+      for (const mat of materials) {
+        const c = (mat as unknown as { color?: { set: (v: number) => void } }).color;
+        if (c) c.set(color);
+      }
+    });
   }
 
   /**

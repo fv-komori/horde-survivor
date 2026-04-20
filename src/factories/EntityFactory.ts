@@ -1,8 +1,11 @@
 import {
   BackSide,
+  BoxGeometry,
   Color,
+  CylinderGeometry,
   Group,
   Mesh,
+  MeshToonMaterial,
   Object3D,
   ShaderMaterial,
   SkinnedMesh,
@@ -26,11 +29,15 @@ import { HitCountComponent } from '../components/HitCountComponent';
 import { BuffComponent } from '../components/BuffComponent';
 import { EffectComponent } from '../components/EffectComponent';
 import { AnimationStateComponent } from '../components/AnimationStateComponent';
+import { BarrelItemComponent } from '../components/BarrelItemComponent';
+import { GateComponent } from '../components/GateComponent';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { ENEMY_CONFIG } from '../config/enemyConfig';
 import { WEAPON_PARAMS } from '../config/weaponConfig';
+import { BARREL_HP } from '../config/barrelConfig';
+import { GATE_EFFECTS, GATE_COLOR } from '../config/gateConfig';
 import { BONE_ATTACH } from '../config/BoneAttachmentConfig';
-import { EnemyType, WeaponGenre, EffectType, ColliderType } from '../types';
+import { EnemyType, WeaponGenre, BarrelItemType, GateType, EffectType, ColliderType, barrelItemTypeToGenre } from '../types';
 import type { Position, SpriteType } from '../types';
 import type { CharacterKey, GunKey } from '../config/AssetPaths';
 import type { AssetManager } from '../managers/AssetManager';
@@ -346,6 +353,143 @@ export class EntityFactory {
     }
 
     return id;
+  }
+
+  /**
+   * C6-25 / Iter6: 武器樽 entity 生成
+   *
+   * Crate.glb clone + 武器ジャンル対応ガン GLTF を child として attach。
+   * BarrelItemComponent / ColliderComponent / HitCountComponent / MeshComponent を付与する。
+   * 樽は画面奥から手前へ移動（Y 正方向の速度）。
+   */
+  createBarrelItem(
+    world: World,
+    type: BarrelItemType,
+    position: Position,
+    isBonus: boolean = false,
+  ): EntityId {
+    const id = world.createEntity();
+
+    const hpCfg = BARREL_HP[type];
+    const baseHp = Math.max(1, Math.floor(hpCfg.baseHp * (isBonus ? 1.5 : 1)));
+
+    world.addComponent(id, new PositionComponent(position.x, position.y));
+    world.addComponent(id, new VelocityComponent(0, GAME_CONFIG.barrelSpawn.speed));
+    world.addComponent(id, new ColliderComponent(GAME_CONFIG.barrelSpawn.colliderRadius, ColliderType.BARREL));
+    world.addComponent(id, new HitCountComponent(baseHp, baseHp));
+    world.addComponent(id, new BarrelItemComponent(type, baseHp, baseHp, null, isBonus));
+
+    const group = new Group();
+    if (this.assetManager) {
+      const crate = this.assetManager.cloneBarrelTemplate();
+      crate.scale.setScalar(0.6);
+      group.add(crate);
+
+      const weapon = this.assetManager.cloneWeaponTemplate(barrelItemTypeToGenre(type));
+      weapon.scale.setScalar(0.55);
+      // 樽の上に載せる
+      weapon.position.set(0, 0.55, 0);
+      weapon.rotation.y = Math.PI * 0.25;
+      weapon.name = 'barrel_weapon_child';
+      group.add(weapon);
+
+      if (isBonus) {
+        this.applyBonusRing(group);
+      }
+    } else {
+      // フォールバック（テスト環境など）: 簡易 Box
+      const geo = new BoxGeometry(0.5, 0.5, 0.5);
+      const mat = new MeshToonMaterial({ color: 0x8b5a3c });
+      group.add(new Mesh(geo, mat));
+    }
+
+    this.sceneManager?.addEntity(group);
+    const size = GAME_CONFIG.barrelSpawn.spriteSize;
+    world.addComponent(id, new MeshComponent('barrel', size, size, { object3D: group }));
+
+    return id;
+  }
+
+  /**
+   * C6-25 / Iter6: ゲート entity 生成（プロシージャル、アーチ型）
+   *
+   * 左右の柱 + 横棒をプロシージャル geometry で構築。GateType によって色分けし、
+   * GateComponent / MeshComponent を付与する（ColliderComponent なし、widthHalf で通過判定）。
+   */
+  createGate(
+    world: World,
+    type: GateType,
+    position: Position,
+    isBonus: boolean = false,
+  ): EntityId {
+    const id = world.createEntity();
+
+    const cfg = GATE_EFFECTS[type];
+    const amount = cfg.amount * (isBonus ? 1.5 : 1);
+
+    world.addComponent(id, new PositionComponent(position.x, position.y));
+    world.addComponent(id, new VelocityComponent(0, GAME_CONFIG.gateSpawn.speed));
+    world.addComponent(
+      id,
+      new GateComponent(
+        type,
+        amount,
+        cfg.unit,
+        cfg.durationSec ?? null,
+        GAME_CONFIG.gateSpawn.widthHalf * (isBonus ? 1.2 : 1),
+        false,
+        null,
+        isBonus,
+      ),
+    );
+
+    const color = GATE_COLOR[type];
+    const group = this.buildGateMesh(color, isBonus);
+
+    this.sceneManager?.addEntity(group);
+    const size = GAME_CONFIG.gateSpawn.spriteSize;
+    world.addComponent(id, new MeshComponent('gate', size, size, { object3D: group }));
+
+    return id;
+  }
+
+  /** ボーナス装飾: 発光リング（シンプルに emissive で強調） */
+  private applyBonusRing(root: Object3D): void {
+    root.traverse((obj) => {
+      const m = obj as Mesh;
+      if (!m.isMesh || !m.material) return;
+      const materials = Array.isArray(m.material) ? m.material : [m.material];
+      for (const mat of materials) {
+        const emissive = (mat as unknown as { emissive?: { set: (v: number) => void } }).emissive;
+        if (emissive) emissive.set(0xffcc00);
+      }
+    });
+  }
+
+  /** ゲートアーチのプロシージャル構築（板＋柱） */
+  private buildGateMesh(color: number, isBonus: boolean): Group {
+    const group = new Group();
+    const sizeMul = isBonus ? 1.2 : 1;
+    const mat = new MeshToonMaterial({ color });
+    if (isBonus) (mat as unknown as { emissive?: { set: (v: number) => void } }).emissive?.set(0xffcc00);
+
+    // 左右の柱
+    const pillarGeo = new CylinderGeometry(0.06, 0.06, 1.0 * sizeMul, 8);
+    const xOffset = 0.9 * sizeMul;
+    const leftPillar = new Mesh(pillarGeo, mat);
+    leftPillar.position.set(-xOffset, 0.5 * sizeMul, 0);
+    group.add(leftPillar);
+    const rightPillar = new Mesh(pillarGeo, mat);
+    rightPillar.position.set(xOffset, 0.5 * sizeMul, 0);
+    group.add(rightPillar);
+
+    // 横棒（板）
+    const barGeo = new BoxGeometry(xOffset * 2 + 0.12, 0.22, 0.08);
+    const bar = new Mesh(barGeo, mat);
+    bar.position.set(0, 1.0 * sizeMul, 0);
+    group.add(bar);
+
+    return group;
   }
 
   /** 仲間エンティティを生成（E-05） */

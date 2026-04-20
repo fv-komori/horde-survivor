@@ -90,6 +90,22 @@ export const GAME_CONFIG = deepFreeze({
     marginX: 160,
   },
 
+  /** Iter6: 武器樽スポーン・当たり判定（EntityFactory.createBarrelItem 用） */
+  barrelSpawn: {
+    speed: 90,               // px/秒（手前方向、Y 正）
+    colliderRadius: 55,      // px（弾 vs 樽）
+    spriteSize: 160,         // px（描画サイズの目安）
+    marginX: 180,
+  },
+
+  /** Iter6: ゲート生成・通過判定（EntityFactory.createGate / GateTriggerSystem 用） */
+  gateSpawn: {
+    speed: 100,              // px/秒
+    widthHalf: 120,          // px（X 幅半値、プレイヤー通過判定）
+    spriteSize: 200,
+    marginX: 200,
+  },
+
   /** 仲間化演出（BR-AL05） */
   allyConversion: {
     shrinkDuration: 0.2,      // 秒: 縮小消滅
@@ -165,8 +181,8 @@ export const GAME_CONFIG = deepFreeze({
       enemyTank: 0.5,
       enemyBoss: 0.7,
       bullet: 0.5,
-      itemBase: 0.3,
-      itemBobAmplitude: 0.1,
+      barrel: 0.3,
+      gate: 0.5,
     },
     // Iter4: Fog
     fog: {

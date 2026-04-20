@@ -43,3 +43,11 @@ export const GATE_SPAWN = deepFreeze({
 
 /** Wave 境目時刻（秒）— 45s=樽 / 90s=ゲート / 180s=樽（components-v6 Wave 境目ボーナス仕様） */
 export const WAVE_BONUS_TIMES = [45, 90, 180] as const;
+
+/** ゲート色分け（FR-04: バフ種別で色分け） */
+export const GATE_COLOR: Record<GateType, number> = {
+  [GateType.ALLY_ADD]: 0x2196f3,   // 青
+  [GateType.ATTACK_UP]: 0xf44336,  // 赤
+  [GateType.SPEED_UP]: 0xfbc02d,   // 黄
+  [GateType.HEAL]: 0x43a047,       // 緑
+};
