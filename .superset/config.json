@@ -1,0 +1,8 @@
+{
+  "setup": [
+    "npm install",
+    "cp $SUPERSET_ROOT_PATH/.mcp.json .mcp.json 2>/dev/null || true"
+  ],
+  "teardown": [],
+  "run": ["npm run dev"]
+}
