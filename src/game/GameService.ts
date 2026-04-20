@@ -219,6 +219,8 @@ export class GameService {
       this.overlayManager.weaponHudPanel,
     );
     this.gateTriggerSystem.setToastQueue(this.overlayManager.toastQueue);
+    this.itemBarrelSpawner.setToastQueue(this.overlayManager.toastQueue);
+    this.gateSpawner.setToastQueue(this.overlayManager.toastQueue);
     const worldLabel = this.overlayManager.worldToScreenLabel;
     this.entityFactory.setWorldToScreenLabel(worldLabel);
     collisionSystem.setWorldToScreenLabel(worldLabel);

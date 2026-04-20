@@ -74,6 +74,7 @@ function createStubElement(tagName: string): StubElement {
     },
     setAttribute(k: string, v: string) { el.attributes[k] = v; },
     getAttribute(k: string) { return el.attributes[k] ?? null; },
+    removeAttribute(k: string) { delete el.attributes[k]; },
     addEventListener() { /* no-op */ },
     removeEventListener() { /* no-op */ },
     querySelector(sel: string) {

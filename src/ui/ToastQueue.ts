@@ -57,8 +57,13 @@ export class ToastQueue {
     this.current.remaining -= dt;
     if (this.current.remaining <= 0) {
       this.current = null;
-      if (this.queue.length > 0) this.advance();
-      else this.root.style.visibility = 'hidden';
+      if (this.queue.length > 0) {
+        this.advance();
+      } else {
+        this.root.style.visibility = 'hidden';
+        this.root.textContent = '';
+        this.root.removeAttribute('data-kind');
+      }
     }
   }
 

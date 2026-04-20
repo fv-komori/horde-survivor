@@ -9,6 +9,8 @@ import { EventLogger } from '../services/EventLogger';
 import { GATE_SPAWN, WAVE_BONUS_TIMES } from '../config/gateConfig';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { GateType } from '../types';
+import type { ToastQueue } from '../ui/ToastQueue';
+import { I18N_TOAST } from '../config/i18nStrings';
 
 const ALL_GATE_TYPES: GateType[] = [
   GateType.ALLY_ADD,
@@ -32,6 +34,7 @@ export class GateSpawner implements System {
   private readonly entityFactory: EntityFactory;
   private readonly waveManager: WaveManager;
   private readonly eventLogger: EventLogger;
+  private toastQueue: ToastQueue | null = null;
 
   constructor(entityFactory: EntityFactory, waveManager: WaveManager) {
     this.entityFactory = entityFactory;
@@ -43,6 +46,11 @@ export class GateSpawner implements System {
     this.elapsedTime = t;
   }
 
+  /** Iter6 Phase 6: Wave 境目ボーナス時の WAVE トースト発火 */
+  setToastQueue(toastQueue: ToastQueue): void {
+    this.toastQueue = toastQueue;
+  }
+
   update(world: World, dt: number): void {
     if (!this.enabled) return;
 
@@ -51,6 +59,11 @@ export class GateSpawner implements System {
     if (this.elapsedTime >= t90 && !this.waveManager.hasBonusFired(t90)) {
       this.spawn(world, this.selectRandomType(), true);
       this.waveManager.markBonusFired(t90);
+      this.toastQueue?.push({
+        kind: 'WAVE',
+        text: I18N_TOAST.waveTransition(3),
+        durationSec: 1.2,
+      });
       this.eventLogger.info('wave_bonus_gate', { t: t90 });
     }
 

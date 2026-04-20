@@ -324,11 +324,12 @@ export const I18nStrings = {
     [WeaponGenre.SHOTGUN]: 'ショットガン',
     [WeaponGenre.MACHINEGUN]: 'マシンガン',
   } as const,
+  // ゲート短縮ラベル（HUD と同スタイルで統一、初見判別性向上、ALLY は英語で統一）
   gate: {
-    [GateType.ALLY_ADD]: '仲間追加',
-    [GateType.ATTACK_UP]: '攻撃UP',
-    [GateType.SPEED_UP]: '移動速UP',
-    [GateType.HEAL]: '回復',
+    [GateType.ALLY_ADD]: 'ALLY',
+    [GateType.ATTACK_UP]: 'ATK',
+    [GateType.SPEED_UP]: 'SPD',
+    [GateType.HEAL]: 'HP',
   } as const,
   max: {
     ally: 'ALLY MAX',
@@ -517,9 +518,10 @@ class EntityFactory {
   // HTMLOverlayManager.registerLabeledEntity() 呼び出し
 
   createGate(world: World, type: GateType, pos: Position, isBonus: boolean = false): EntityId;
-  // アーチ型 procedural geometry（板 + 柱）
+  // 縦型ゲート procedural geometry（台座 + テーパー柱 + 柱頂フィニアル球 +
+  //   柱間エネルギーカーテン[追加合成 Plane] + 下端アクセントライン、上部横棒なし）
   // GateComponent 付与、amount = GATE_EFFECTS[type].amount × (isBonus ? 1.5 : 1)
-  // HTMLOverlayManager.registerLabeledEntity()
+  // HTMLOverlayManager.worldToScreenLabel.acquire() でラベル確保
 
   // 削除
   // createItemDrop()  ← 完全削除

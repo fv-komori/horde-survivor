@@ -10,6 +10,14 @@ import { BARREL_SPAWN } from '../config/barrelConfig';
 import { WAVE_BONUS_TIMES } from '../config/gateConfig';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { BarrelItemType } from '../types';
+import type { ToastQueue } from '../ui/ToastQueue';
+import { I18N_TOAST } from '../config/i18nStrings';
+
+const WAVE_AT: Record<number, number> = {
+  45: 2,
+  90: 3,
+  180: 4,
+};
 
 const ALL_BARREL_TYPES: BarrelItemType[] = [
   BarrelItemType.WEAPON_RIFLE,
@@ -33,6 +41,7 @@ export class ItemBarrelSpawner implements System {
   private readonly entityFactory: EntityFactory;
   private readonly waveManager: WaveManager;
   private readonly eventLogger: EventLogger;
+  private toastQueue: ToastQueue | null = null;
 
   constructor(entityFactory: EntityFactory, waveManager: WaveManager) {
     this.entityFactory = entityFactory;
@@ -44,6 +53,11 @@ export class ItemBarrelSpawner implements System {
     this.elapsedTime = t;
   }
 
+  /** Iter6 Phase 6: Wave 境目ボーナス時の WAVE トースト発火 */
+  setToastQueue(toastQueue: ToastQueue): void {
+    this.toastQueue = toastQueue;
+  }
+
   update(world: World, dt: number): void {
     if (!this.enabled) return;
 
@@ -52,6 +66,11 @@ export class ItemBarrelSpawner implements System {
       if (this.elapsedTime >= t && !this.waveManager.hasBonusFired(t)) {
         this.spawn(world, BarrelItemType.WEAPON_MACHINEGUN, true);
         this.waveManager.markBonusFired(t);
+        this.toastQueue?.push({
+          kind: 'WAVE',
+          text: I18N_TOAST.waveTransition(WAVE_AT[t] ?? 0),
+          durationSec: 1.2,
+        });
         this.eventLogger.info('wave_bonus_barrel', { t, type: 'MACHINEGUN' });
       }
     }

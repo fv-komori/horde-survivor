@@ -9,7 +9,7 @@ export const I18N_WEAPON_LABEL: Record<WeaponGenre, string> = {
 };
 
 export const I18N_GATE_LABEL: Record<GateType, string> = {
-  [GateType.ALLY_ADD]: '仲間',
+  [GateType.ALLY_ADD]: 'ALLY',
   [GateType.ATTACK_UP]: 'ATK',
   [GateType.SPEED_UP]: 'SPD',
   [GateType.HEAL]: 'HP',
@@ -17,7 +17,7 @@ export const I18N_GATE_LABEL: Record<GateType, string> = {
 
 export const I18N_TOAST = {
   weaponAcquired: (genre: WeaponGenre): string => `${I18N_WEAPON_LABEL[genre]} を取得！`,
-  allyGain: (n: number): string => `+${Number(n).toString()} 仲間`,
+  allyGain: (n: number): string => `+${Number(n).toString()} ALLY`,
   allyMax: 'ALLY MAX',
   healGain: (n: number): string => `+${Number(n).toString()} HP`,
   healMax: 'HP MAX',

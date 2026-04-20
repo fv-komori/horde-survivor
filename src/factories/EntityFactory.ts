@@ -1,14 +1,19 @@
 import {
+  AdditiveBlending,
   BackSide,
   BoxGeometry,
   Color,
   CylinderGeometry,
+  DoubleSide,
   Group,
   Mesh,
+  MeshBasicMaterial,
   MeshToonMaterial,
   Object3D,
+  PlaneGeometry,
   ShaderMaterial,
   SkinnedMesh,
+  SphereGeometry,
   AnimationMixer,
   AnimationClip,
 } from 'three';
@@ -38,6 +43,7 @@ import { WEAPON_PARAMS } from '../config/weaponConfig';
 import { BARREL_HP } from '../config/barrelConfig';
 import { GATE_EFFECTS, GATE_COLOR } from '../config/gateConfig';
 import { BONE_ATTACH } from '../config/BoneAttachmentConfig';
+import { I18N_TOAST } from '../config/i18nStrings';
 import { EnemyType, WeaponGenre, BarrelItemType, GateType, EffectType, ColliderType, barrelItemTypeToGenre } from '../types';
 import type { Position, SpriteType } from '../types';
 import type { CharacterKey, GunKey } from '../config/AssetPaths';
@@ -494,10 +500,10 @@ export class EntityFactory {
   private formatGateLabel(type: GateType, amount: number): string {
     const rounded = Math.round(amount);
     switch (type) {
-      case GateType.ALLY_ADD: return `+${rounded}`;
-      case GateType.HEAL:     return `+${rounded}`;
+      case GateType.ALLY_ADD: return I18N_TOAST.allyGain(rounded);
+      case GateType.HEAL:     return I18N_TOAST.healGain(rounded);
       case GateType.ATTACK_UP:
-      case GateType.SPEED_UP: return `+${rounded}%`;
+      case GateType.SPEED_UP: return I18N_TOAST.buffGain(type, rounded);
     }
   }
 
@@ -514,28 +520,75 @@ export class EntityFactory {
     });
   }
 
-  /** ゲートアーチのプロシージャル構築（板＋柱） */
+  /**
+   * ゲートのプロシージャル構築（Last War 風: 柱 + 台座 + エネルギーカーテン、上部なし）
+   * - テーパー柱 + 円形台座で立体感
+   * - 柱間にエネルギーカーテン（追加合成 Plane）で通過ポイント発光
+   * - 下端アクセントライン
+   * - 色は type 対応、isBonus は emissive 強度 + opacity で強調
+   */
   private buildGateMesh(color: number, isBonus: boolean): Group {
     const group = new Group();
     const sizeMul = isBonus ? 1.2 : 1;
-    const mat = new MeshToonMaterial({ color });
-    if (isBonus) (mat as unknown as { emissive?: { set: (v: number) => void } }).emissive?.set(0xffcc00);
-
-    // 左右の柱
-    const pillarGeo = new CylinderGeometry(0.06, 0.06, 1.0 * sizeMul, 8);
+    const pillarHeight = 1.0 * sizeMul;
     const xOffset = 0.9 * sizeMul;
-    const leftPillar = new Mesh(pillarGeo, mat);
-    leftPillar.position.set(-xOffset, 0.5 * sizeMul, 0);
+
+    // ソリッドマテリアル（柱 / 台座）
+    const solidMat = new MeshToonMaterial({ color });
+    const solidEmissive = solidMat as unknown as { emissive?: Color };
+    if (solidEmissive.emissive) {
+      solidEmissive.emissive.copy(new Color(color)).multiplyScalar(isBonus ? 0.6 : 0.25);
+    }
+
+    // 柱（テーパー型: 底太めで立体感）
+    const pillarGeo = new CylinderGeometry(0.05, 0.09, pillarHeight, 10);
+    const leftPillar = new Mesh(pillarGeo, solidMat);
+    leftPillar.position.set(-xOffset, pillarHeight * 0.5, 0);
     group.add(leftPillar);
-    const rightPillar = new Mesh(pillarGeo, mat);
-    rightPillar.position.set(xOffset, 0.5 * sizeMul, 0);
+    const rightPillar = new Mesh(pillarGeo, solidMat);
+    rightPillar.position.set(xOffset, pillarHeight * 0.5, 0);
     group.add(rightPillar);
 
-    // 横棒（板）
-    const barGeo = new BoxGeometry(xOffset * 2 + 0.12, 0.22, 0.08);
-    const bar = new Mesh(barGeo, mat);
-    bar.position.set(0, 1.0 * sizeMul, 0);
-    group.add(bar);
+    // 台座（柱底の厚い円盤）
+    const baseGeo = new CylinderGeometry(0.18, 0.22, 0.08, 12);
+    const leftBase = new Mesh(baseGeo, solidMat);
+    leftBase.position.set(-xOffset, 0.04, 0);
+    group.add(leftBase);
+    const rightBase = new Mesh(baseGeo, solidMat);
+    rightBase.position.set(xOffset, 0.04, 0);
+    group.add(rightBase);
+
+    // 柱頂点のフィニアル（小さな球でソフトに見せる）
+    const capGeo = new SphereGeometry(0.08, 12, 8);
+    const leftCap = new Mesh(capGeo, solidMat);
+    leftCap.position.set(-xOffset, pillarHeight, 0);
+    group.add(leftCap);
+    const rightCap = new Mesh(capGeo, solidMat);
+    rightCap.position.set(xOffset, pillarHeight, 0);
+    group.add(rightCap);
+
+    // エネルギーカーテン（柱間の半透明 Plane、追加合成で発光感）
+    const curtainWidth = xOffset * 2 - 0.04;
+    const curtainHeight = pillarHeight;
+    const curtainGeo = new PlaneGeometry(curtainWidth, curtainHeight);
+    const curtainMat = new MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: isBonus ? 0.38 : 0.28,
+      side: DoubleSide,
+      blending: AdditiveBlending,
+      depthWrite: false,
+    });
+    const curtain = new Mesh(curtainGeo, curtainMat);
+    curtain.position.set(0, pillarHeight * 0.5, 0);
+    group.add(curtain);
+
+    // 下端のアクセント（ground line、太めの線でゲート位置を強調）
+    const lineGeo = new BoxGeometry(curtainWidth, 0.015, 0.02);
+    const lineMat = new MeshBasicMaterial({ color, transparent: true, opacity: 0.8 });
+    const line = new Mesh(lineGeo, lineMat);
+    line.position.set(0, 0.012, 0);
+    group.add(line);
 
     return group;
   }
