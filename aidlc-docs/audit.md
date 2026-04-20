@@ -1467,3 +1467,40 @@ Code Generation に着手。components-v6 / services-v6 / component-methods-v6 /
 
 ### 次アクション
 Phase 2a（旧独立系コード削除）に進む。旧 `ItemType` / `WeaponType` enum 本体は残したまま、参照されていない周辺コードを先に除去する方針（tsc clean 状態を維持しつつ）。
+
+---
+
+## 2026-04-20 — Iter6 Construction Phase 2a 完了（旧独立系コード削除）
+
+### 削除ファイル（5 件、git rm）
+- `src/systems/AllyConversionSystem.ts` — Iter6 例外（NFR-01）、仲間入手は ALLY_ADD ゲートに一本化
+- `src/systems/ItemCollectionSystem.ts` — 既に no-op
+- `src/components/ItemDropComponent.ts` — 旧ジェムアイテム描画用
+- `src/managers/ItemDropManager.ts` — dead code（未使用）
+- `src/config/itemConfig.ts` — POWERUP_DROP_WEIGHTS / WEAPON_DROP_TYPES 定義のみ
+
+### 参照除去（影響ファイル）
+- `src/systems/CollisionSystem.ts` — ItemDropComponent / AllyConversionSystem / itemTypeToBuff / itemTypeToWeapon / ITEM_COLORS / WEAPON_CONFIG / BuffComponent / WeaponComponent / PlayerComponent 依存を削除、敵衝突のみに整理、constructor から allyConversionSystem 除去
+- `src/systems/DefenseLineSystem.ts` — ItemDropComponent による防衛ライン消滅判定ブロックを削除
+- `src/factories/EntityFactory.ts` — createItemDrop メソッド削除、itemPool フィールド/引数削除、ItemDropComponent / ItemType / ITEM_COLORS 依存削除、createEnemy の EnemyComponent コンストラクタ引数から itemDropRate/weaponDropRate/conversionRate 削除
+- `src/managers/SpawnManager.ts` — itemSpawnTimer / ALL_ITEM_TYPES / アイテム降下処理削除、敵スポーン + spawnAlly 保持
+- `src/game/GameService.ts` — AllyConversionSystem / ItemCollectionSystem import と登録削除、CollisionSystem constructor から allyConversionSystem 除去、itemPool フィールド削除、createItemGeometry() メソッド削除、SphereGeometry import 削除
+- `src/config/enemyConfig.ts` — itemDropRate / weaponDropRate / conversionRate フィールド削除、BOSS_CONFIG.bossDropCount 削除
+- `src/components/EnemyComponent.ts` — itemDropRate / weaponDropRate / conversionRate プロパティ削除
+- `src/config/gameConfig.ts` — GAME_CONFIG.itemSpawn 削除
+
+### テスト修正
+- `tests/systems/CollisionSystem.test.ts` — ItemDropComponent / AllyConversionSystem / ItemType / PlayerComponent / BuffComponent / WeaponComponent / WEAPON_CONFIG 依存を削除、アイテム系テストケースと「ally conversion」テストを削除
+- `tests/factories/EntityFactory.test.ts` — createItemDrop セクション削除、createEnemy の itemDropRate/weaponDropRate/conversionRate 検証を breachDamage のみに縮約
+
+### 検証結果
+- tsc / ESLint clean（既存 warning 3 件のみ）
+- Jest 10 suites / 93 tests PASS（100 → 93、削除分 -7）
+- production build OK、gzip 194.89KB（Phase 1 比 -1.1KB、コード削除効果）
+
+### 残存（Phase 2b 対象）
+- `src/types/index.ts`: `ItemType` enum / `WeaponType` enum / `ITEM_COLORS` / `itemTypeToBuff` / `itemTypeToWeapon`
+- `src/systems/WeaponSystem.ts` / `src/components/WeaponComponent.ts` / `src/config/weaponConfig.ts` / `src/ui/HTMLOverlayManager.ts` / `src/factories/EntityFactory.ts` / `src/game/GameService.ts` の旧 WeaponType 依存
+
+### 次アクション
+Phase 2b へ進む。旧 enum 削除 + 新 `WeaponGenre` / `BarrelItemType` / `GateType` 追加 + WeaponSystem/BulletComponent を `WeaponGenre` 参照に置換。完了後に Playwright でゴールデンパス（RIFLE で敵撃破）を目視確認。

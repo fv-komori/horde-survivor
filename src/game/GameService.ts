@@ -8,7 +8,7 @@ import { AssetManager } from '../managers/AssetManager';
 import { InputHandler } from '../input/InputHandler';
 
 // Three.js rendering
-import { BoxGeometry, ConeGeometry, CylinderGeometry, MeshToonMaterial, SphereGeometry, type BufferGeometry } from 'three';
+import { BoxGeometry, ConeGeometry, CylinderGeometry, MeshToonMaterial, type BufferGeometry } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { SceneManager } from '../rendering/SceneManager';
 import { InstancedMeshPool } from '../rendering/InstancedMeshPool';
@@ -27,9 +27,7 @@ import { WeaponSystem } from '../systems/WeaponSystem';
 import { CollisionSystem } from '../systems/CollisionSystem';
 import { DefenseLineSystem } from '../systems/DefenseLineSystem';
 import { HealthSystem } from '../systems/HealthSystem';
-import { ItemCollectionSystem } from '../systems/ItemCollectionSystem';
 import { BuffSystem } from '../systems/BuffSystem';
-import { AllyConversionSystem } from '../systems/AllyConversionSystem';
 import { AllyFireRateSystem } from '../systems/AllyFireRateSystem';
 import { EffectSystem } from '../systems/EffectSystem';
 import { CleanupSystem } from '../systems/CleanupSystem';
@@ -69,7 +67,6 @@ export class GameService {
   private assetManager: AssetManager;
   private inputHandler!: InputHandler;
   private weaponSystem: WeaponSystem;
-  private allyConversionSystem: AllyConversionSystem;
   private allyFireRateSystem: AllyFireRateSystem;
   private audioManager: AudioManager;
   private settingsManager!: SettingsManager;
@@ -90,7 +87,6 @@ export class GameService {
   // InstancedMeshプール
   private bulletPool!: InstancedMeshPool;
   private enemyNormalPool!: InstancedMeshPool;
-  private itemPool!: InstancedMeshPool;
 
   // 設定画面用オーバーレイCanvas
   private overlayCanvas!: HTMLCanvasElement;
@@ -116,7 +112,6 @@ export class GameService {
     this.spawnManager = new SpawnManager(this.entityFactory, this.waveManager, this.audioManager);
     this.assetManager = new AssetManager();
     this.weaponSystem = new WeaponSystem(this.entityFactory, this.audioManager);
-    this.allyConversionSystem = new AllyConversionSystem(this.entityFactory, this.audioManager);
     this.allyFireRateSystem = new AllyFireRateSystem();
     this.metricsProbe = new MetricsProbe();
   }
@@ -179,12 +174,11 @@ export class GameService {
     // Iter5 / S-SVC-07: タイトル画面キャラプレビュー mini-renderer
     this.gameStartScreen = new GameStartScreen(this.assetManager);
 
-    // EntityFactoryにThree.js依存を注入（Iter5: AssetManager 渡し、enemyNormalPool 不要）
+    // EntityFactoryにThree.js依存を注入（Iter6 Phase 2a: itemPool 削除）
     this.entityFactory.initThree(
       this.assetManager,
       this.sceneManager,
       this.bulletPool,
-      this.itemPool,
     );
 
     // CleanupSystemにThree.js依存を注入
@@ -204,15 +198,12 @@ export class GameService {
     this.world.addSystem(new CollisionSystem(
       this.entityFactory,
       this.scoreService,
-      this.allyConversionSystem,
       this.audioManager,
       this.animationSystem,
     ));
     this.world.addSystem(new DefenseLineSystem(this.audioManager, this.animationSystem));
     this.world.addSystem(new HealthSystem(this.gameStateManager, this.animationSystem));
-    this.world.addSystem(new ItemCollectionSystem());
     this.world.addSystem(new BuffSystem());
-    this.world.addSystem(this.allyConversionSystem);
     this.world.addSystem(this.allyFireRateSystem);
     this.world.addSystem(new EffectSystem());
     this.world.addSystem(this.animationSystem);
@@ -251,14 +242,9 @@ export class GameService {
       this.createEnemyNormalMaterial(),
       100, // 未使用 pool（将来削除予定、現状 SceneManager.init シグネチャ互換のため保持）
     );
-    this.itemPool = new InstancedMeshPool(
-      this.createItemGeometry(),
-      this.createBulletMaterial(),
-      GAME_CONFIG.limits.maxItems,
-    );
 
     // シーン初期化（ライト・背景・プール追加）
-    this.sceneManager.init([this.bulletPool, this.enemyNormalPool, this.itemPool]);
+    this.sceneManager.init([this.bulletPool, this.enemyNormalPool]);
 
     // Iter5: 環境GLB配置（AssetManager は init() で先にロード済）
     this.sceneManager.setupEnvironment(this.assetManager);
@@ -361,13 +347,8 @@ export class GameService {
       this.createEnemyNormalMaterial(),
       100,
     );
-    this.itemPool = new InstancedMeshPool(
-      this.createItemGeometry(),
-      this.createBulletMaterial(),
-      GAME_CONFIG.limits.maxItems,
-    );
 
-    this.sceneManager.init([this.bulletPool, this.enemyNormalPool, this.itemPool]);
+    this.sceneManager.init([this.bulletPool, this.enemyNormalPool]);
     this.sceneManager.setupEnvironment(this.assetManager);
     this.qualityManager = new QualityManager(this.sceneManager);
     this.effectManager3D = new EffectManager3D(this.sceneManager, this.qualityManager);
@@ -388,7 +369,6 @@ export class GameService {
       this.assetManager,
       this.sceneManager,
       this.bulletPool,
-      this.itemPool,
     );
 
     // RenderSystemのシーン参照を更新
@@ -672,11 +652,6 @@ export class GameService {
       emissive: 0xd4a94a,
       emissiveIntensity: 0.15,
     });
-  }
-
-  /** アイテム用 Geometry（八面体ジェム） */
-  private createItemGeometry(): BufferGeometry {
-    return new SphereGeometry(0.08, 4, 2);
   }
 
   /** 敵 NORMAL 用 Geometry（簡易 Box、InstancedMesh 用） */

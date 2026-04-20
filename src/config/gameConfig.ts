@@ -38,15 +38,6 @@ export const GAME_CONFIG = deepFreeze({
     maxSimultaneousSpawn: 5,
   },
 
-  /** アイテムスポーン設定（画面上部から降ってくるアイテム） */
-  itemSpawn: {
-    interval: 15,            // 秒: スポーン間隔
-    hitCount: 8,             // 破壊に必要なヒット数
-    speed: 70,               // px/秒: 下方向への移動速度
-    colliderRadius: 20,      // px: 衝突判定半径
-    spriteSize: 36,          // px: 描画サイズ
-  },
-
   /** 防衛ライン（BR-S02） */
   defenseLine: {
     y: 1248, // 画面下端(1280) - 32px

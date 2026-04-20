@@ -23,7 +23,6 @@ import { BulletComponent } from '../components/BulletComponent';
 import { WeaponComponent } from '../components/WeaponComponent';
 import { AllyComponent } from '../components/AllyComponent';
 import { HitCountComponent } from '../components/HitCountComponent';
-import { ItemDropComponent } from '../components/ItemDropComponent';
 import { BuffComponent } from '../components/BuffComponent';
 import { EffectComponent } from '../components/EffectComponent';
 import { AnimationStateComponent } from '../components/AnimationStateComponent';
@@ -31,7 +30,7 @@ import { GAME_CONFIG } from '../config/gameConfig';
 import { ENEMY_CONFIG } from '../config/enemyConfig';
 import { WEAPON_CONFIG } from '../config/weaponConfig';
 import { BONE_ATTACH } from '../config/BoneAttachmentConfig';
-import { EnemyType, WeaponType, EffectType, ItemType, ColliderType, ITEM_COLORS } from '../types';
+import { EnemyType, WeaponType, EffectType, ColliderType } from '../types';
 import type { Position, SpriteType } from '../types';
 import type { CharacterKey, GunKey } from '../config/AssetPaths';
 import type { AssetManager } from '../managers/AssetManager';
@@ -102,19 +101,16 @@ export class EntityFactory {
   private assetManager: AssetManager | null = null;
   private sceneManager: SceneManager | null = null;
   private bulletPool: InstancedMeshPool | null = null;
-  private itemPool: InstancedMeshPool | null = null;
 
   /** Three.js依存を注入（DI） */
   initThree(
     assetManager: AssetManager,
     sceneManager: SceneManager,
     bulletPool: InstancedMeshPool,
-    itemPool: InstancedMeshPool,
   ): void {
     this.assetManager = assetManager;
     this.sceneManager = sceneManager;
     this.bulletPool = bulletPool;
-    this.itemPool = itemPool;
   }
 
   // ---------- GLTF ヘルパー ----------
@@ -288,9 +284,7 @@ export class EntityFactory {
     world.addComponent(id, new VelocityComponent(0, cfg.speed));
     world.addComponent(id, new HitCountComponent(actualHitCount, actualHitCount));
     world.addComponent(id, new ColliderComponent(cfg.colliderRadius, ColliderType.ENEMY));
-    world.addComponent(id, new EnemyComponent(
-      type, cfg.breachDamage, cfg.itemDropRate, cfg.weaponDropRate, cfg.conversionRate,
-    ));
+    world.addComponent(id, new EnemyComponent(type, cfg.breachDamage));
 
     const spriteMap: Record<string, SpriteType> = {
       [EnemyType.NORMAL]: 'enemy_normal',
@@ -349,30 +343,6 @@ export class EntityFactory {
       }));
     } else {
       world.addComponent(id, new MeshComponent('bullet', 16, 16, { baseColor: '#FFEB3B' }));
-    }
-
-    return id;
-  }
-
-  /** アイテムドロップエンティティを生成（E-04） */
-  createItemDrop(world: World, position: Position, itemType: ItemType): EntityId {
-    const id = world.createEntity();
-    const cfg = GAME_CONFIG.itemSpawn;
-
-    world.addComponent(id, new PositionComponent(position.x, position.y));
-    world.addComponent(id, new VelocityComponent(0, cfg.speed));
-    world.addComponent(id, new HitCountComponent(cfg.hitCount, cfg.hitCount));
-    world.addComponent(id, new ItemDropComponent(itemType, Infinity));
-    world.addComponent(id, new ColliderComponent(cfg.colliderRadius, ColliderType.ITEM));
-
-    const color = ITEM_COLORS[itemType] ?? '#FFFFFF';
-    if (this.itemPool) {
-      const instanceId = this.itemPool.acquire(id);
-      world.addComponent(id, new MeshComponent('item_drop', cfg.spriteSize, cfg.spriteSize, {
-        instancePool: this.itemPool, instanceId, baseColor: color,
-      }));
-    } else {
-      world.addComponent(id, new MeshComponent('item_drop', cfg.spriteSize, cfg.spriteSize, { baseColor: color }));
     }
 
     return id;
