@@ -4,8 +4,8 @@
 - **Project Type**: Brownfield
 - **Start Date**: 2026-04-09T00:00:00Z
 - **Original Start**: 2026-04-07T00:00:00Z
-- **Current Stage**: CONSTRUCTION - Build and Test COMPLETED（Iteration 4）
-- **Iteration**: 4（ビジュアルリッチ化ポリッシュ）
+- **Current Stage**: CONSTRUCTION - Iter5 全機能＋ポリッシュ完了、PR 準備 OK
+- **Iteration**: 5（GLTFモデル導入: Toon Shooter Game Kit）
 
 ## Workspace State
 - **Existing Code**: Yes
@@ -84,3 +84,33 @@
 - [x] Infrastructure Design - SKIP（静的ホスティング変更なし）
 - [x] Code Generation - COMPLETED
 - [x] Build and Test - COMPLETED（tsc/ESLint clean, 86テストPASS, Playwright目視確認済み）
+
+### INCEPTION PHASE (Iteration 5 - GLTFモデル導入)
+- **Worktree**: /Users/komori/fv-genai-specialforce/fv-game.worktrees/iter5-gltf
+- **Branch**: iter5-gltf-models
+- **アセットパック配置**: public/models/toon-shooter/ に配置完了（characters×3, guns×3, environment×6, LICENSE.txt）
+- [x] Workspace Detection - COMPLETED（Brownfield継続、Iter4成果物維持）
+- [x] Requirements Analysis - COMPLETED（requirements-v5.md）[AutoReviewed: reviews/inception/requirements-auto-review-v4, PASS（2 iter、全軸≥7）]
+- [x] User Stories - SKIP（技術移行のためユーザー機能追加なし）
+- [x] Workflow Planning - SKIP（1 Unit一括想定、Construction初日PoCで成立確認）
+- [x] Application Design - COMPLETED（components-v5 / services-v5 / component-dependency-v5 / component-methods-v5）[AutoReviewed: reviews/inception/application-design-auto-review-v5, PASS（2 iter、全軸≥7、7.25→7.88）]
+- [x] Units Generation - SKIP（1 Unit一括、運用停止中のためIter3/4同様に分割不要）
+
+### CONSTRUCTION PHASE (Iteration 5 - GLTFモデル導入)
+- [x] Functional Design - SKIP（application-design v5 で実装レベルまで詳述、ビジネスルール追加なし）
+- [x] NFR Requirements - SKIP（要件NFR-01〜09で定義済み）
+- [x] NFR Design - SKIP（design v5で対応）
+- [x] Infrastructure Design - SKIP（静的ホスティング変更なし、NFR-09で対応）
+- [x] Code Generation - COMPLETED（Day 1 + Day 2-1/2/3 + HitReact/Death結線 + 追加ポリッシュ）
+  - HealthSystem/CollisionSystem/DefenseLineSystem → AnimationSystem.playHitReact/playDeath 結線（3324be5）
+  - 環境 GLB 配置（a9bbf55）、MetricsProbe（beb55b0）、webglcontextrestored（98e9afc）、mini-renderer（55db0c0）
+  - ポリッシュ: HitReact 再トリガ閾値制御（ea3e412）、stagger velocity 0.3x（abbe382）、弾丸リアル形状（df88c9a）
+- [x] Build and Test - COMPLETED [build-and-test-summary-v5.md]（tsc/ESLint clean, 10 suites / 100 tests PASS, Playwright 動作確認済み, build 748KB / gzip 195KB）
+- Iter5 完了項目:
+  - [x] 環境 GLB（Barrier_Single / Crate / SackTrench / Fence / Tree_1 / Fence_Long）を SceneManager に配置
+  - [x] GameStartScreen mini-renderer（Soldier GLTF + Idle + 回転プレビュー、Start 押下で detach）
+  - [x] MetricsProbe（heap5min 差分、Chrome 限定、S-SVC-08 / NFR-07）
+  - [x] webglcontextlost/restored: AssetManager.restoreTextures() 追加し ThreeJSRenderSystem.handleContextRestored から呼び出し、Playwright lose→restore で復帰確認
+  - [x] 新規テスト（AssetManager / AnimationSystem / AnimationStateComponent + HitReact throttle）計 14 tests 追加、100 tests PASS
+  - [x] 最終 Playwright 目視確認（タイトル mini-renderer / プレイ中環境GLB+アニメ / Hazmat仲間生成 / HP減少 / GAMEOVER遷移 を4カット撮影、console error なし）
+  - 持ち越し（本PR対象外）: AssetManager 用 LoaderScreen（現状は即ロード完了のため UI 不要）、EntityFactory.gltf 経路テスト（initThree 依存で別途対応）

@@ -8,6 +8,7 @@ import {
   MeshBasicMaterial,
   MeshToonMaterial,
   Object3D,
+  PlaneGeometry,
   PointLight,
   Sprite,
   SpriteMaterial,
@@ -15,7 +16,6 @@ import {
 } from 'three';
 import type { SceneManager } from './SceneManager';
 import type { QualityManager } from './QualityManager';
-import type { ProceduralMeshFactory } from '../factories/ProceduralMeshFactory';
 
 /** 3Dエフェクト情報 */
 interface ActiveEffect {
@@ -44,10 +44,13 @@ export class EffectManager3D {
   /** Iter4: Smoke用共有SpriteMaterialキャッシュ（CanvasTexture含む） */
   private smokeMaterial: SpriteMaterial | null = null;
 
+  /** Iter5: マズルフラッシュ共有 Geometry / Material（Option B 移設、旧ProceduralMeshFactory由来） */
+  private muzzleFlashGeo: PlaneGeometry | null = null;
+  private muzzleFlashMat: MeshBasicMaterial | null = null;
+
   constructor(
     private readonly sceneManager: SceneManager,
     private readonly qualityManager: QualityManager,
-    private readonly meshFactory?: ProceduralMeshFactory,
   ) {}
 
   /** マズルフラッシュ（BR-EF01, Iter4: 平面放射+emissive+Bloom映え） */
@@ -62,17 +65,9 @@ export class EffectManager3D {
       group.add(light);
     }
 
-    // 平面放射メッシュ（Factoryキャッシュ共有）
-    if (this.meshFactory) {
-      const flash = this.meshFactory.createMuzzleFlashMesh();
-      flash.lookAt(new Vector3(worldPos.x, worldPos.y + 10, worldPos.z));
-      group.add(flash);
-    } else {
-      // Fallback: 小さなBox
-      const geo = new BoxGeometry(0.08, 0.08, 0.08);
-      const mat = new MeshBasicMaterial({ color: 0xffee58 });
-      group.add(new Mesh(geo, mat));
-    }
+    const flash = this.createMuzzleFlashMesh();
+    flash.lookAt(new Vector3(worldPos.x, worldPos.y + 10, worldPos.z));
+    group.add(flash);
 
     this.sceneManager.addEntity(group);
     this.activeEffects.push({
@@ -80,8 +75,27 @@ export class EffectManager3D {
       elapsed: 0,
       duration: 0.08,
       type: 'muzzle_flash',
-      skipMeshDispose: this.meshFactory != null, // Factoryキャッシュ共有のためdispose不要
+      skipMeshDispose: true, // 共有 geometry/material のため dispose 不要
     });
+  }
+
+  /** マズルフラッシュメッシュ（Iter5 Option B 移設、共有 geometry+material 使用） */
+  private createMuzzleFlashMesh(): Mesh {
+    if (!this.muzzleFlashGeo) {
+      this.muzzleFlashGeo = new PlaneGeometry(0.25, 0.25);
+    }
+    if (!this.muzzleFlashMat) {
+      this.muzzleFlashMat = new MeshBasicMaterial({
+        color: 0xffee58,
+        transparent: true,
+        opacity: 0.9,
+        depthWrite: false,
+      });
+    }
+    const mesh = new Mesh(this.muzzleFlashGeo, this.muzzleFlashMat);
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
+    return mesh;
   }
 
   /** Iter4: 着弾・撃破時の煙パフ（Sprite + 共有Material、ビルボード自動、LRU運用） */
@@ -296,6 +310,14 @@ export class EffectManager3D {
       if (this.smokeMaterial.map) this.smokeMaterial.map.dispose();
       this.smokeMaterial.dispose();
       this.smokeMaterial = null;
+    }
+    if (this.muzzleFlashGeo) {
+      this.muzzleFlashGeo.dispose();
+      this.muzzleFlashGeo = null;
+    }
+    if (this.muzzleFlashMat) {
+      this.muzzleFlashMat.dispose();
+      this.muzzleFlashMat = null;
     }
   }
 }

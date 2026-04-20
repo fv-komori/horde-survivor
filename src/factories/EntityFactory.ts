@@ -1,3 +1,15 @@
+import {
+  BackSide,
+  Color,
+  Group,
+  Mesh,
+  Object3D,
+  ShaderMaterial,
+  SkinnedMesh,
+  AnimationMixer,
+  AnimationClip,
+} from 'three';
+import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import type { EntityId } from '../ecs/Entity';
 import type { World } from '../ecs/World';
 import { PositionComponent } from '../components/PositionComponent';
@@ -14,41 +26,227 @@ import { HitCountComponent } from '../components/HitCountComponent';
 import { ItemDropComponent } from '../components/ItemDropComponent';
 import { BuffComponent } from '../components/BuffComponent';
 import { EffectComponent } from '../components/EffectComponent';
+import { AnimationStateComponent } from '../components/AnimationStateComponent';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { ENEMY_CONFIG } from '../config/enemyConfig';
 import { WEAPON_CONFIG } from '../config/weaponConfig';
+import { BONE_ATTACH } from '../config/BoneAttachmentConfig';
 import { EnemyType, WeaponType, EffectType, ItemType, ColliderType, ITEM_COLORS } from '../types';
 import type { Position, SpriteType } from '../types';
-import type { ProceduralMeshFactory } from './ProceduralMeshFactory';
+import type { CharacterKey, GunKey } from '../config/AssetPaths';
+import type { AssetManager } from '../managers/AssetManager';
 import type { SceneManager } from '../rendering/SceneManager';
 import type { InstancedMeshPool } from '../rendering/InstancedMeshPool';
 
+const OUTLINE_VERTEX_SHADER = /* glsl */ `
+#include <common>
+#include <skinning_pars_vertex>
+uniform float outlineThickness;
+void main() {
+  #include <skinbase_vertex>
+  #include <begin_vertex>
+  #include <skinning_vertex>
+  vec3 objectNormal = normalize(normal);
+  #include <skinnormal_vertex>
+  vec3 outlineNormal = normalize(normalMatrix * objectNormal);
+  vec4 pos = modelViewMatrix * vec4(transformed, 1.0);
+  pos.xyz += outlineNormal * outlineThickness;
+  gl_Position = projectionMatrix * pos;
+}
+`;
+
+const OUTLINE_FRAGMENT_SHADER = /* glsl */ `
+uniform vec3 outlineColor;
+void main() { gl_FragColor = vec4(outlineColor, 1.0); }
+`;
+
 /**
- * S-SVC-03: エンティティ生成ファクトリ（Iteration 3: Three.js MeshComponent対応）
+ * Iter5: GLTF キャラは実寸 ~1.8m で配置されているが、ゲームの world 座標系では
+ * 旧プロシージャルキャラ（~0.9 unit tall）相当のサイズ感を期待している。
+ * 全キャラに共通で適用する基本スケール（1.0/1.8 ≒ 0.55）。
+ */
+const CHAR_BASE_SCALE = 0.55;
+
+/** 敵 type → (CharacterKey, scale, tint) 変換表（Iter5: 単一モデル + scale/tint方針） */
+const ENEMY_VARIANT: Record<EnemyType, { key: CharacterKey; scale: number; tint: number | null }> = {
+  [EnemyType.NORMAL]: { key: 'ENEMY', scale: 1.0, tint: null },
+  [EnemyType.FAST]: { key: 'ENEMY', scale: 0.85, tint: 0xff9800 },
+  [EnemyType.TANK]: { key: 'ENEMY', scale: 1.3, tint: 0x7b1fa2 },
+  [EnemyType.BOSS]: { key: 'HAZMAT', scale: 1.8, tint: 0xb71c1c },
+};
+
+/**
+ * カメラは -Z 側から +Z 方向を見る（camera (3.6,2.5,-13.5) → lookAt (3.6,0.5,-4)）。
+ * Toon Shooter Kit キャラの GLTF default forward は +Z。
+ * プレイヤー/仲間は +Z（＝奥の敵方向）を向かせる（rotationY = 0）。
+ * 敵は -Z（＝手前のプレイヤー方向）を向かせるため 180° 回転させる。
+ */
+const PLAYER_FACING_Y = 0;
+const ENEMY_FACING_Y = Math.PI;
+
+/**
+ * Toon Shooter Game Kit のキャラ GLTF には複数の武器メッシュ（AK / Pistol / Shotgun / Knife 等）が
+ * あらかじめ各 bone に attach されている。Iter5 では GunKey で指定した武器のみを見せたいため、
+ * 不要な兄弟武器メッシュを非表示化する（削除は skeleton 参照を壊し得るため visible=false に留める）。
+ */
+const KNOWN_GUN_NAMES = new Set([
+  'AK', 'GrenadeLauncher', 'Knife_1', 'Knife_2', 'Pistol', 'Revolver',
+  'Revolver_Small', 'RocketLauncher', 'ShortCannon', 'Shotgun', 'Shovel', 'SMG',
+  'Sniper', 'Sniper_2',
+]);
+
+/**
+ * S-SVC-03: エンティティ生成ファクトリ（Iter5: GLTF テンプレートを SkeletonUtils.clone）
  */
 export class EntityFactory {
-  private meshFactory: ProceduralMeshFactory | null = null;
+  private assetManager: AssetManager | null = null;
   private sceneManager: SceneManager | null = null;
-
-  /** InstancedMeshプール */
   private bulletPool: InstancedMeshPool | null = null;
-  private enemyNormalPool: InstancedMeshPool | null = null;
   private itemPool: InstancedMeshPool | null = null;
 
   /** Three.js依存を注入（DI） */
   initThree(
-    meshFactory: ProceduralMeshFactory,
+    assetManager: AssetManager,
     sceneManager: SceneManager,
     bulletPool: InstancedMeshPool,
-    enemyNormalPool: InstancedMeshPool,
     itemPool: InstancedMeshPool,
   ): void {
-    this.meshFactory = meshFactory;
+    this.assetManager = assetManager;
     this.sceneManager = sceneManager;
     this.bulletPool = bulletPool;
-    this.enemyNormalPool = enemyNormalPool;
     this.itemPool = itemPool;
   }
+
+  // ---------- GLTF ヘルパー ----------
+
+  /** Character テンプレートを per-entity clone（skeleton 含む全depth clone、material 独立化） */
+  private cloneCharacter(key: CharacterKey): { root: Group; mixer: AnimationMixer; anims: Map<string, AnimationClip> } {
+    const tmpl = this.assetManager!.getCharacter(key);
+    const root = skeletonClone(tmpl.scene) as Group;
+
+    // material を entity ごとに独立化（tint / 被弾フラッシュの波及防止）
+    root.traverse((obj) => {
+      const m = obj as Mesh;
+      if (!m.isMesh) return;
+      if (Array.isArray(m.material)) m.material = m.material.map(x => x.clone());
+      else if (m.material) m.material = m.material.clone();
+    });
+
+    const mixer = new AnimationMixer(root);
+    const anims = new Map<string, AnimationClip>();
+    for (const clip of tmpl.animations) anims.set(clip.name, clip);
+    return { root, mixer, anims };
+  }
+
+  /** tint 適用（全 material の color を上書き） */
+  private applyTint(root: Object3D, color: number): void {
+    root.traverse((obj) => {
+      const m = obj as Mesh;
+      if (!m.isMesh || !m.material) return;
+      const materials = Array.isArray(m.material) ? m.material : [m.material];
+      for (const mat of materials) {
+        if ('color' in mat) (mat as { color: Color }).color.set(color);
+      }
+    });
+  }
+
+  /** 反転ハル Outline mesh（FR-06, C-06, PoC 成立方式: geometry clone + skeleton 共有 bind） */
+  private createOutlineMesh(bodyRoot: Object3D): Group {
+    const outlineRoot = new Group();
+    outlineRoot.name = 'outline-root';
+    bodyRoot.traverse((obj) => {
+      const body = obj as SkinnedMesh;
+      if (!body.isSkinnedMesh) return;
+      const clonedGeo = body.geometry.clone();
+      const mat = new ShaderMaterial({
+        vertexShader: OUTLINE_VERTEX_SHADER,
+        fragmentShader: OUTLINE_FRAGMENT_SHADER,
+        side: BackSide,
+        uniforms: {
+          outlineThickness: { value: 0.02 },
+          outlineColor: { value: new Color(0x000000) },
+        },
+      });
+      const outline = new SkinnedMesh(clonedGeo, mat);
+      outline.name = `${body.name}_outline`;
+      outline.bind(body.skeleton, body.bindMatrix);
+      outline.scale.copy(body.scale);
+      outline.position.copy(body.position);
+      outline.quaternion.copy(body.quaternion);
+      body.parent!.add(outline);
+    });
+    return outlineRoot;
+  }
+
+  /** gun を LowerArm.R に attach（Day 1-1 確定 bone、3キャラ共通） */
+  private attachGun(root: Object3D, gunKey: GunKey, charKey: CharacterKey): void {
+    if (!this.assetManager) return;
+    const gunTmpl = this.assetManager.getGun(gunKey);
+    const gunMesh = gunTmpl.scene.clone(true);
+    gunMesh.traverse((obj) => {
+      const m = obj as Mesh;
+      if (!m.isMesh) return;
+      if (Array.isArray(m.material)) m.material = m.material.map(x => x.clone());
+      else if (m.material) m.material = m.material.clone();
+    });
+
+    const cfg = BONE_ATTACH[charKey];
+    // SkeletonUtils.clone で skeleton が再構築された場合、bone は scene tree 内の
+    // Object3D として残るほか、SkinnedMesh.skeleton.bones[] にも参照される。
+    // 両方から検索する。
+    let handBone: Object3D | null = root.getObjectByName(cfg.handBone) ?? null;
+    if (!handBone) {
+      root.traverse((obj) => {
+        if (!handBone && obj.name === cfg.handBone) handBone = obj;
+        const sm = obj as SkinnedMesh;
+        if (!handBone && sm.isSkinnedMesh && sm.skeleton) {
+          for (const b of sm.skeleton.bones) {
+            if (b.name === cfg.handBone) {
+              handBone = b;
+              break;
+            }
+          }
+        }
+      });
+    }
+    if (!handBone) {
+      console.warn(`[EntityFactory] bone not found: ${cfg.handBone} in ${charKey}`);
+      return;
+    }
+    gunMesh.position.copy(cfg.offset);
+    gunMesh.rotation.copy(cfg.rotation);
+    handBone.add(gunMesh);
+  }
+
+  /** キャラ生成共通処理（clone → outline → gun attach → scene 追加） */
+  private buildCharacter(
+    world: World,
+    id: EntityId,
+    charKey: CharacterKey,
+    gunKey: GunKey | null,
+    options: { scale?: number; tint?: number | null; rotationY?: number } = {},
+  ): { root: Group; mixer: AnimationMixer; anims: Map<string, AnimationClip>; outlineMesh: Group } {
+    const { root, mixer, anims } = this.cloneCharacter(charKey);
+    const variantScale = options.scale ?? 1.0;
+    root.scale.setScalar(CHAR_BASE_SCALE * variantScale);
+    if (options.rotationY !== undefined) root.rotation.y = options.rotationY;
+    if (options.tint != null) this.applyTint(root, options.tint);
+    this.hidePreAttachedGuns(root);
+    const outlineMesh = this.createOutlineMesh(root);
+    if (gunKey) this.attachGun(root, gunKey, charKey);
+    this.sceneManager?.addEntity(root);
+    world.addComponent(id, new AnimationStateComponent('Idle'));
+    return { root, mixer, anims, outlineMesh };
+  }
+
+  /** GLTF に元から attach されている兄弟武器メッシュを非表示化（ナイフ等の持ち物も含む） */
+  private hidePreAttachedGuns(root: Object3D): void {
+    root.traverse((obj) => {
+      if (KNOWN_GUN_NAMES.has(obj.name)) obj.visible = false;
+    });
+  }
+
+  // ---------- エンティティ生成 ----------
 
   /** プレイヤーエンティティを生成（E-01） */
   createPlayer(world: World): EntityId {
@@ -61,15 +259,19 @@ export class EntityFactory {
     world.addComponent(id, new PlayerComponent(cfg.baseSpeed));
     world.addComponent(id, new BuffComponent());
 
-    // MeshComponent（Three.js）
-    const object3D = this.meshFactory?.createPlayer(WeaponType.FORWARD) ?? null;
-    if (object3D) this.sceneManager?.addEntity(object3D);
-    world.addComponent(id, new MeshComponent('player', 192, 192, {
-      object3D,
-      baseColor: '#1565C0',
-    }));
+    let mesh: MeshComponent;
+    if (this.assetManager?.hasCharacter('SOLDIER')) {
+      const { root, mixer, anims, outlineMesh } = this.buildCharacter(
+        world, id, 'SOLDIER', 'AK', { rotationY: PLAYER_FACING_Y },
+      );
+      mesh = new MeshComponent('player', 192, 192, {
+        object3D: root, mixer, animations: anims, outlineMesh, baseColor: '#1565C0',
+      });
+    } else {
+      mesh = new MeshComponent('player', 192, 192, { baseColor: '#1565C0' });
+    }
+    world.addComponent(id, mesh);
 
-    // 単一武器: FORWARD（BR-W02）
     const weaponCfg = WEAPON_CONFIG[WeaponType.FORWARD];
     world.addComponent(id, new WeaponComponent(WeaponType.FORWARD, weaponCfg.fireInterval));
 
@@ -106,23 +308,20 @@ export class EntityFactory {
     };
     const baseColor = colors[type] ?? '#F44336';
 
-    // 全敵タイプ: 個別Mesh（詳細キャラクターモデル）
-    {
-      let object3D = null;
-      if (this.meshFactory) {
-        switch (type) {
-          case EnemyType.NORMAL: object3D = this.meshFactory.createEnemyNormal(); break;
-          case EnemyType.FAST: object3D = this.meshFactory.createEnemyFast(); break;
-          case EnemyType.TANK: object3D = this.meshFactory.createEnemyTank(); break;
-          case EnemyType.BOSS: object3D = this.meshFactory.createEnemyBoss(); break;
-        }
-        if (object3D) this.sceneManager?.addEntity(object3D);
-      }
-      world.addComponent(id, new MeshComponent(spriteType, size, size, {
-        object3D,
-        baseColor,
-      }));
+    const variant = ENEMY_VARIANT[type];
+    let mesh: MeshComponent;
+    if (this.assetManager?.hasCharacter(variant.key)) {
+      const { root, mixer, anims, outlineMesh } = this.buildCharacter(
+        world, id, variant.key, 'AK',
+        { scale: variant.scale, tint: variant.tint, rotationY: ENEMY_FACING_Y },
+      );
+      mesh = new MeshComponent(spriteType, size, size, {
+        object3D: root, mixer, animations: anims, outlineMesh, baseColor,
+      });
+    } else {
+      mesh = new MeshComponent(spriteType, size, size, { baseColor });
     }
+    world.addComponent(id, mesh);
 
     return id;
   }
@@ -143,18 +342,13 @@ export class EntityFactory {
     world.addComponent(id, new BulletComponent(hitCountReduction, piercing, ownerId));
     world.addComponent(id, new ColliderComponent(GAME_CONFIG.bullet.colliderRadius, ColliderType.BULLET));
 
-    // InstancedMesh
     if (this.bulletPool) {
       const instanceId = this.bulletPool.acquire(id);
       world.addComponent(id, new MeshComponent('bullet', 16, 16, {
-        instancePool: this.bulletPool,
-        instanceId,
-        baseColor: '#FFEB3B',
+        instancePool: this.bulletPool, instanceId, baseColor: '#FFEB3B',
       }));
     } else {
-      world.addComponent(id, new MeshComponent('bullet', 16, 16, {
-        baseColor: '#FFEB3B',
-      }));
+      world.addComponent(id, new MeshComponent('bullet', 16, 16, { baseColor: '#FFEB3B' }));
     }
 
     return id;
@@ -172,19 +366,13 @@ export class EntityFactory {
     world.addComponent(id, new ColliderComponent(cfg.colliderRadius, ColliderType.ITEM));
 
     const color = ITEM_COLORS[itemType] ?? '#FFFFFF';
-
-    // InstancedMesh
     if (this.itemPool) {
       const instanceId = this.itemPool.acquire(id);
       world.addComponent(id, new MeshComponent('item_drop', cfg.spriteSize, cfg.spriteSize, {
-        instancePool: this.itemPool,
-        instanceId,
-        baseColor: color,
+        instancePool: this.itemPool, instanceId, baseColor: color,
       }));
     } else {
-      world.addComponent(id, new MeshComponent('item_drop', cfg.spriteSize, cfg.spriteSize, {
-        baseColor: color,
-      }));
+      world.addComponent(id, new MeshComponent('item_drop', cfg.spriteSize, cfg.spriteSize, { baseColor: color }));
     }
 
     return id;
@@ -197,14 +385,20 @@ export class EntityFactory {
     world.addComponent(id, new PositionComponent(0, 0));
     world.addComponent(id, new AllyComponent(allyIndex, playerEntity, elapsedTime));
 
-    const object3D = this.meshFactory?.createAlly() ?? null;
-    if (object3D) this.sceneManager?.addEntity(object3D);
-    world.addComponent(id, new MeshComponent('ally', 150, 150, {
-      object3D,
-      baseColor: '#2E7D32',
-    }));
+    let mesh: MeshComponent;
+    if (this.assetManager?.hasCharacter('SOLDIER')) {
+      const { root, mixer, anims, outlineMesh } = this.buildCharacter(
+        world, id, 'SOLDIER', 'AK',
+        { tint: 0x2E7D32, rotationY: PLAYER_FACING_Y }, // 味方は緑tint、プレイヤーと同じ前向き
+      );
+      mesh = new MeshComponent('ally', 150, 150, {
+        object3D: root, mixer, animations: anims, outlineMesh, baseColor: '#2E7D32',
+      });
+    } else {
+      mesh = new MeshComponent('ally', 150, 150, { baseColor: '#2E7D32' });
+    }
+    world.addComponent(id, mesh);
 
-    // 仲間の武器: FORWARD固定（BR-AL03）
     const weaponCfg = WEAPON_CONFIG[WeaponType.FORWARD];
     world.addComponent(id, new WeaponComponent(WeaponType.FORWARD, weaponCfg.fireInterval));
 
@@ -223,41 +417,28 @@ export class EntityFactory {
 
     switch (type) {
       case EffectType.MUZZLE_FLASH:
-        duration = 0.1;
-        totalFrames = 2;
-        spriteType = 'effect_muzzle';
-        size = 16;
-        effectColor = '#FFFF88';
+        duration = 0.1; totalFrames = 2; spriteType = 'effect_muzzle';
+        size = 16; effectColor = '#FFFF88';
         break;
       case EffectType.ENEMY_DESTROY:
-        duration = 0.3;
-        totalFrames = 4;
-        spriteType = 'effect_destroy';
-        size = 32;
-        effectColor = '#FF8800';
+        duration = 0.3; totalFrames = 4; spriteType = 'effect_destroy';
+        size = 32; effectColor = '#FF8800';
         break;
       case EffectType.BUFF_ACTIVATE:
-        duration = GAME_CONFIG.buff.effectDuration;
-        totalFrames = 3;
-        spriteType = 'effect_buff';
-        size = GAME_CONFIG.buff.effectMaxRadius * 2;
-        effectColor = color ?? '#FFFFFF';
+        duration = GAME_CONFIG.buff.effectDuration; totalFrames = 3; spriteType = 'effect_buff';
+        size = GAME_CONFIG.buff.effectMaxRadius * 2; effectColor = color ?? '#FFFFFF';
         break;
       case EffectType.ALLY_CONVERT:
         duration = GAME_CONFIG.allyConversion.shrinkDuration + GAME_CONFIG.allyConversion.appearDuration;
-        totalFrames = 4;
-        spriteType = 'effect_ally_convert';
-        size = 48;
-        effectColor = color ?? '#00CC00';
+        totalFrames = 4; spriteType = 'effect_ally_convert';
+        size = 48; effectColor = color ?? '#00CC00';
         break;
     }
 
     const frameInterval = duration / totalFrames;
     world.addComponent(id, new PositionComponent(position.x, position.y));
     world.addComponent(id, new EffectComponent(type, duration, totalFrames, frameInterval));
-    world.addComponent(id, new MeshComponent(spriteType, size, size, {
-      baseColor: effectColor,
-    }));
+    world.addComponent(id, new MeshComponent(spriteType, size, size, { baseColor: effectColor }));
 
     return id;
   }

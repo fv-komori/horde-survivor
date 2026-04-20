@@ -3,12 +3,16 @@ import type { World } from '../ecs/World';
 import { BulletComponent } from '../components/BulletComponent';
 import { PositionComponent } from '../components/PositionComponent';
 import { MeshComponent } from '../components/MeshComponent';
+import { AnimationStateComponent } from '../components/AnimationStateComponent';
+import { PlayerComponent } from '../components/PlayerComponent';
 import { GAME_CONFIG } from '../config/gameConfig';
+import { Mesh } from 'three';
 import type { SceneManager } from '../rendering/SceneManager';
 
 /**
  * S-11: クリーンアップシステム（優先度98）
  * Iteration 3: MeshComponent保有エンティティのdispose追加（BR-MEM01）
+ * Iter5: GLTF entity clone 対応（mixer停止、outlineMesh dispose、material/geometry dispose chain）
  */
 export class CleanupSystem implements System {
   readonly priority = 98;
@@ -25,6 +29,17 @@ export class CleanupSystem implements System {
     const w = GAME_CONFIG.screen.logicalWidth;
     const h = GAME_CONFIG.screen.logicalHeight;
 
+    // Iter5: Death anim 完了フラグが立ったエンティティを破棄（プレイヤーは GAME_OVER 状態保持のため除外）
+    const animIds = world.query(AnimationStateComponent);
+    for (const id of animIds) {
+      const anim = world.getComponent(id, AnimationStateComponent)!;
+      if (!anim.deathComplete) continue;
+      // プレイヤーは倒れたポーズをゲームオーバー画面中も保持
+      if (world.getComponent(id, PlayerComponent)) continue;
+      this.cleanupMesh(world, id);
+      world.destroyEntity(id);
+    }
+
     // 弾丸: 画面外（マージン50px外）で消滅（BR-W05）
     const bulletIds = world.query(BulletComponent, PositionComponent);
     for (const id of bulletIds) {
@@ -36,7 +51,7 @@ export class CleanupSystem implements System {
     }
   }
 
-  /** エンティティ破棄時のMeshComponent関連リソース解放（BR-MEM01） */
+  /** エンティティ破棄時のMeshComponent関連リソース解放（BR-MEM01, Iter5: GLTF dispose chain） */
   cleanupMesh(world: World, entityId: number): void {
     const mesh = world.getComponent(entityId, MeshComponent);
     if (!mesh) return;
@@ -44,9 +59,34 @@ export class CleanupSystem implements System {
     if (mesh.instancePool) {
       // InstancedMesh: スロット解放のみ
       mesh.instancePool.release(entityId);
-    } else if (mesh.object3D && this.sceneManager) {
-      // 個別Mesh: シーンから除去
+      return;
+    }
+
+    // Iter5: AnimationMixer 停止（mixer は scene tree 外なので明示 stop）
+    if (mesh.mixer) mesh.mixer.stopAllAction();
+
+    // Iter5: outlineMesh のマテリアル/ジオメトリ dispose（entity ごとに独立生成したため）
+    if (mesh.outlineMesh) {
+      this.disposeDeep(mesh.outlineMesh);
+      if (mesh.outlineMesh.parent) mesh.outlineMesh.parent.remove(mesh.outlineMesh);
+    }
+
+    if (mesh.object3D && this.sceneManager) {
+      // 個別 Mesh / GLTF clone root: material/geometry を dispose してからシーンから除去
+      this.disposeDeep(mesh.object3D);
       this.sceneManager.disposeObject(mesh.object3D);
     }
+  }
+
+  /** root 配下の全 Mesh.geometry / material を dispose（Iter5: entity clone 独立リソース用） */
+  private disposeDeep(root: import('three').Object3D): void {
+    root.traverse((obj) => {
+      const m = obj as Mesh;
+      if (!m.isMesh) return;
+      // geometry は clone 済みのため dispose 可
+      m.geometry?.dispose();
+      if (Array.isArray(m.material)) m.material.forEach((mat) => mat.dispose());
+      else if (m.material) m.material.dispose();
+    });
   }
 }

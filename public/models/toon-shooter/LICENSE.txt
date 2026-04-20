@@ -1,0 +1,26 @@
+Toon Shooter Game Kit
+=====================
+
+Author: Quaternius
+License: CC0 1.0 Universal (Public Domain Dedication)
+Source: https://quaternius.com/packs/toonshootergamekit.html
+Pack version: Dec 2022
+
+このパックの3Dモデルは Quaternius により CC0 (Public Domain) として
+公開されており、商用・非商用を問わず自由に利用・改変・再配布可能です。
+クレジット表記は必須ではありませんが、開発者への敬意として
+本LICENSE.txtを保持しています。
+
+Files included in this project:
+  characters/Character_Soldier.glb
+  characters/Character_Enemy.glb
+  characters/Character_Hazmat.glb
+  guns/AK.glb
+  guns/Pistol.glb
+  guns/Shotgun.glb
+  environment/Barrier_Single.glb
+  environment/Crate.glb
+  environment/SackTrench.glb
+  environment/Fence.glb
+  environment/Fence_Long.glb
+  environment/Tree_1.glb
