@@ -4,8 +4,9 @@
 - **Project Type**: Brownfield
 - **Start Date**: 2026-04-09T00:00:00Z
 - **Original Start**: 2026-04-07T00:00:00Z
-- **Current Stage**: CONSTRUCTION - Iter5 全機能＋ポリッシュ完了、PR 準備 OK
-- **Iteration**: 5（GLTFモデル導入: Toon Shooter Game Kit）
+- **Current Stage**: Iter5 クローズ済み（PR #1 main マージ完了）— 次イテレーション入口で待機
+- **Iteration**: 5 完了（GLTFモデル導入: Toon Shooter Game Kit）/ 次 Iter6 未着手
+- **Iter5 クローズ日**: 2026-04-20
 
 ## Workspace State
 - **Existing Code**: Yes
@@ -114,3 +115,5 @@
   - [x] 新規テスト（AssetManager / AnimationSystem / AnimationStateComponent + HitReact throttle）計 14 tests 追加、100 tests PASS
   - [x] 最終 Playwright 目視確認（タイトル mini-renderer / プレイ中環境GLB+アニメ / Hazmat仲間生成 / HP減少 / GAMEOVER遷移 を4カット撮影、console error なし）
   - 持ち越し（本PR対象外）: AssetManager 用 LoaderScreen（現状は即ロード完了のため UI 不要）、EntityFactory.gltf 経路テスト（initThree 依存で別途対応）
+- [x] PR #1 マージ完了（72963f3, 2026-04-20, iter5-gltf-models → main）
+- [x] Iter5 正式クローズ（2026-04-20）— 持ち越し項目は Iter6 以降の入力とする
