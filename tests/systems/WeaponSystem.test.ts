@@ -11,9 +11,9 @@ import { HitCountComponent } from '../../src/components/HitCountComponent';
 import { WeaponComponent } from '../../src/components/WeaponComponent';
 import { AllyComponent } from '../../src/components/AllyComponent';
 import { MeshComponent } from '../../src/components/MeshComponent';
-import { EnemyType, WeaponType, BuffType, ColliderType } from '../../src/types';
+import { EnemyType, WeaponGenre, BuffType, ColliderType } from '../../src/types';
 import { GAME_CONFIG } from '../../src/config/gameConfig';
-import { WEAPON_CONFIG } from '../../src/config/weaponConfig';
+import { WEAPON_PARAMS } from '../../src/config/weaponConfig';
 
 /** AudioManagerモック（テスト用） */
 const mockAudioManager = { playSE: jest.fn(), playBGM: jest.fn(), reset: jest.fn() } as any;
@@ -36,8 +36,8 @@ describe('WeaponSystem', () => {
     world.addComponent(id, new PlayerComponent(200));
     world.addComponent(id, new BuffComponent());
     world.addComponent(id, new MeshComponent('player', 192, 192));
-    const weaponCfg = WEAPON_CONFIG[WeaponType.FORWARD];
-    world.addComponent(id, new WeaponComponent(WeaponType.FORWARD, weaponCfg.fireInterval));
+    const weaponCfg = WEAPON_PARAMS[WeaponGenre.RIFLE];
+    world.addComponent(id, new WeaponComponent(WeaponGenre.RIFLE, weaponCfg.fireInterval));
     return id;
   }
 
@@ -46,7 +46,7 @@ describe('WeaponSystem', () => {
     world.addComponent(id, new PositionComponent(x, y));
     world.addComponent(id, new ColliderComponent(60, ColliderType.ENEMY));
     world.addComponent(id, new HitCountComponent(5, 5));
-    world.addComponent(id, new EnemyComponent(EnemyType.NORMAL, 10, 0.3, 0.05, 0.1));
+    world.addComponent(id, new EnemyComponent(EnemyType.NORMAL, 10));
     return id;
   }
 
@@ -56,7 +56,7 @@ describe('WeaponSystem', () => {
       createEnemy(360, 400);
 
       system.setGameTime(0);
-      system.update(world, 0.2); // FORWARD fireInterval = 0.15
+      system.update(world, 0.2); // RIFLE fireInterval = 0.15
 
       const bullets = world.query(BulletComponent);
       expect(bullets.length).toBeGreaterThanOrEqual(1);
@@ -136,8 +136,8 @@ describe('WeaponSystem', () => {
       system.update(world, 0.2);
 
       const bullets = world.query(BulletComponent);
-      // FORWARD base bulletCount = 1, with BARRAGE = 1 * 3 = 3
-      expect(bullets.length).toBe(WEAPON_CONFIG[WeaponType.FORWARD].bulletCount * GAME_CONFIG.buff.barrageBulletMultiplier);
+      // RIFLE base bulletCount = 1, with BARRAGE = 1 * 3 = 3
+      expect(bullets.length).toBe(WEAPON_PARAMS[WeaponGenre.RIFLE].bulletCount * GAME_CONFIG.buff.barrageBulletMultiplier);
     });
   });
 
@@ -173,8 +173,8 @@ describe('WeaponSystem', () => {
       world.addComponent(allyId, new PositionComponent(392, 1200));
       world.addComponent(allyId, new AllyComponent(0, playerId, 10.0));
       world.addComponent(allyId, new MeshComponent('ally', 150, 150));
-      const weaponCfg = WEAPON_CONFIG[WeaponType.FORWARD];
-      world.addComponent(allyId, new WeaponComponent(WeaponType.FORWARD, weaponCfg.fireInterval));
+      const weaponCfg = WEAPON_PARAMS[WeaponGenre.RIFLE];
+      world.addComponent(allyId, new WeaponComponent(WeaponGenre.RIFLE, weaponCfg.fireInterval));
 
       system.setGameTime(0);
       system.update(world, 0.2);

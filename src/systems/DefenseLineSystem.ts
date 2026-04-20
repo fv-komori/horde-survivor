@@ -1,7 +1,6 @@
 import type { System } from '../ecs/System';
 import type { World } from '../ecs/World';
 import { EnemyComponent } from '../components/EnemyComponent';
-import { ItemDropComponent } from '../components/ItemDropComponent';
 import { PositionComponent } from '../components/PositionComponent';
 import { HealthComponent } from '../components/HealthComponent';
 import { PlayerComponent } from '../components/PlayerComponent';
@@ -12,8 +11,7 @@ import { GAME_CONFIG } from '../config/gameConfig';
 
 /**
  * S-07: 防衛ラインシステム（優先度6）
- * business-logic-model セクション6
- * Iteration 2: 敵は防衛ラインでダメージ、アイテムは消滅のみ（ダメージなし）
+ * Iter6 Phase 2a: 旧アイテムドロップ消滅ロジックを削除（敵のみ判定）
  */
 export class DefenseLineSystem implements System {
   readonly priority = 6;
@@ -52,15 +50,6 @@ export class DefenseLineSystem implements System {
           }
           world.destroyEntity(enemyId);
         }
-      }
-    }
-
-    // アイテムが防衛ラインを超えた場合: ダメージなしで消滅
-    const itemIds = world.query(ItemDropComponent, PositionComponent);
-    for (const itemId of itemIds) {
-      const iPos = world.getComponent(itemId, PositionComponent)!;
-      if (iPos.y >= defenseLineY) {
-        world.destroyEntity(itemId);
       }
     }
   }

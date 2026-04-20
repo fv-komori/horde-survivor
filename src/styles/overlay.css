@@ -121,6 +121,59 @@
   color: #fff;
   font-size: 12px;
   font-weight: bold;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.hud-weapon-name {
+  font-family: monospace;
+}
+
+.hud-weapon-flash {
+  background: rgba(255, 221, 85, 0.45);
+  border-color: #ffdd55;
+  box-shadow: 0 0 12px rgba(255, 221, 85, 0.8);
+}
+
+/* ================================================================
+   中央トースト (Iter6 Phase 5: ToastQueue)
+   ================================================================ */
+
+.hud-toast {
+  position: absolute;
+  top: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid #fff;
+  color: #fff;
+  font-family: monospace;
+  font-size: 16px;
+  font-weight: bold;
+  padding: 8px 18px;
+  pointer-events: none;
+  z-index: 30;
+  white-space: nowrap;
+}
+
+.hud-toast[data-kind='WEAPON'] { border-color: #ffdd55; color: #ffdd55; }
+.hud-toast[data-kind='GAIN']   { border-color: #66ff66; color: #66ff66; }
+.hud-toast[data-kind='BUFF']   { border-color: #ff88ff; color: #ff88ff; }
+.hud-toast[data-kind='MAX']    { border-color: #aaaaaa; color: #aaaaaa; }
+.hud-toast[data-kind='WAVE']   { border-color: #88ccff; color: #88ccff; font-size: 18px; }
+
+/* ================================================================
+   ワールドラベル (Iter6 Phase 5: WorldToScreenLabel、樽HP/ゲート効果量)
+   ================================================================ */
+
+.world-label {
+  color: #fff;
+  font-family: monospace;
+  font-size: 16px;
+  font-weight: bold;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.9), 0 0 8px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 5;
 }
 
 /* ================================================================

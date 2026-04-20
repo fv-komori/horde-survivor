@@ -8,7 +8,7 @@ import { AssetManager } from '../managers/AssetManager';
 import { InputHandler } from '../input/InputHandler';
 
 // Three.js rendering
-import { BoxGeometry, ConeGeometry, CylinderGeometry, MeshToonMaterial, SphereGeometry, type BufferGeometry } from 'three';
+import { BoxGeometry, ConeGeometry, CylinderGeometry, MeshToonMaterial, type BufferGeometry } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { SceneManager } from '../rendering/SceneManager';
 import { InstancedMeshPool } from '../rendering/InstancedMeshPool';
@@ -27,13 +27,15 @@ import { WeaponSystem } from '../systems/WeaponSystem';
 import { CollisionSystem } from '../systems/CollisionSystem';
 import { DefenseLineSystem } from '../systems/DefenseLineSystem';
 import { HealthSystem } from '../systems/HealthSystem';
-import { ItemCollectionSystem } from '../systems/ItemCollectionSystem';
 import { BuffSystem } from '../systems/BuffSystem';
-import { AllyConversionSystem } from '../systems/AllyConversionSystem';
 import { AllyFireRateSystem } from '../systems/AllyFireRateSystem';
 import { EffectSystem } from '../systems/EffectSystem';
 import { CleanupSystem } from '../systems/CleanupSystem';
 import { AnimationSystem } from '../systems/AnimationSystem';
+import { ItemBarrelSpawner } from '../systems/ItemBarrelSpawner';
+import { GateSpawner } from '../systems/GateSpawner';
+import { GateTriggerSystem } from '../systems/GateTriggerSystem';
+import { WeaponSwitchSystem } from '../systems/WeaponSwitchSystem';
 
 // Components
 import { HealthComponent } from '../components/HealthComponent';
@@ -44,9 +46,13 @@ import { AudioManager } from '../audio/AudioManager';
 import { SettingsManager } from './SettingsManager';
 import { SettingsScreen } from '../ui/SettingsScreen';
 import { MetricsProbe } from '../services/MetricsProbe';
+import { EventLogger } from '../services/EventLogger';
+import { DebugConfigLoader } from '../services/DebugConfigLoader';
+import { DeterministicRng } from '../services/DeterministicRng';
+import { ForceSpawnApi } from '../services/ForceSpawnApi';
 import { GameStartScreen } from '../ui/GameStartScreen';
 import { GAME_CONFIG } from '../config/gameConfig';
-import { GameState, WeaponType } from '../types';
+import { GameState, WeaponGenre } from '../types';
 import type { EntityId } from '../ecs/Entity';
 
 const LOG_PREFIX = GAME_CONFIG.logPrefix;
@@ -65,8 +71,12 @@ export class GameService {
   private assetManager: AssetManager;
   private inputHandler!: InputHandler;
   private weaponSystem: WeaponSystem;
-  private allyConversionSystem: AllyConversionSystem;
   private allyFireRateSystem: AllyFireRateSystem;
+  private itemBarrelSpawner!: ItemBarrelSpawner;
+  private gateSpawner!: GateSpawner;
+  private gateTriggerSystem!: GateTriggerSystem;
+  private weaponSwitchSystem!: WeaponSwitchSystem;
+  private buffSystemRef!: BuffSystem;
   private audioManager: AudioManager;
   private settingsManager!: SettingsManager;
   private settingsScreen!: SettingsScreen;
@@ -86,7 +96,6 @@ export class GameService {
   // InstancedMeshプール
   private bulletPool!: InstancedMeshPool;
   private enemyNormalPool!: InstancedMeshPool;
-  private itemPool!: InstancedMeshPool;
 
   // 設定画面用オーバーレイCanvas
   private overlayCanvas!: HTMLCanvasElement;
@@ -112,13 +121,18 @@ export class GameService {
     this.spawnManager = new SpawnManager(this.entityFactory, this.waveManager, this.audioManager);
     this.assetManager = new AssetManager();
     this.weaponSystem = new WeaponSystem(this.entityFactory, this.audioManager);
-    this.allyConversionSystem = new AllyConversionSystem(this.entityFactory, this.audioManager);
     this.allyFireRateSystem = new AllyFireRateSystem();
     this.metricsProbe = new MetricsProbe();
   }
 
   /** 初期化 */
   async init(): Promise<void> {
+    // Iter6: debug 基盤を最優先で初期化（error ログ経路を他より先に確保）
+    EventLogger.init();
+    const debugCfg = DebugConfigLoader.load();
+    DeterministicRng.init(debugCfg.rngSeed);
+    ForceSpawnApi.init({ forcedBarrel: debugCfg.forceNextBarrel, forcedGate: debugCfg.forceNextGate });
+
     this.setupErrorHandlers();
 
     // WebGL2チェック（BL-12）
@@ -169,12 +183,11 @@ export class GameService {
     // Iter5 / S-SVC-07: タイトル画面キャラプレビュー mini-renderer
     this.gameStartScreen = new GameStartScreen(this.assetManager);
 
-    // EntityFactoryにThree.js依存を注入（Iter5: AssetManager 渡し、enemyNormalPool 不要）
+    // EntityFactoryにThree.js依存を注入（Iter6 Phase 2a: itemPool 削除）
     this.entityFactory.initThree(
       this.assetManager,
       this.sceneManager,
       this.bulletPool,
-      this.itemPool,
     );
 
     // CleanupSystemにThree.js依存を注入
@@ -185,24 +198,48 @@ export class GameService {
       this.cleanupSystem.cleanupMesh(this.world, entityId);
     });
 
-    // ECSシステム登録
+    // Iter6: 新 Systems をインスタンス化（相互参照のため先に生成）
+    this.buffSystemRef = new BuffSystem();
+    this.itemBarrelSpawner = new ItemBarrelSpawner(this.entityFactory, this.waveManager);
+    this.gateSpawner = new GateSpawner(this.entityFactory, this.waveManager);
+    this.gateTriggerSystem = new GateTriggerSystem(this.spawnManager, this.buffSystemRef);
+    this.weaponSwitchSystem = new WeaponSwitchSystem(this.assetManager);
+    const collisionSystem = new CollisionSystem(
+      this.entityFactory,
+      this.scoreService,
+      this.audioManager,
+      this.animationSystem,
+    );
+    collisionSystem.setWeaponSwitchSystem(this.weaponSwitchSystem);
+    this.cleanupSystem.setGateTriggerSystem(this.gateTriggerSystem);
+
+    // Iter6 Phase 5: HTMLOverlayManager Facade のサブクラスを Systems に直接 DI
+    this.weaponSwitchSystem.setHudHandles(
+      this.overlayManager.toastQueue,
+      this.overlayManager.weaponHudPanel,
+    );
+    this.gateTriggerSystem.setToastQueue(this.overlayManager.toastQueue);
+    this.itemBarrelSpawner.setToastQueue(this.overlayManager.toastQueue);
+    this.gateSpawner.setToastQueue(this.overlayManager.toastQueue);
+    const worldLabel = this.overlayManager.worldToScreenLabel;
+    this.entityFactory.setWorldToScreenLabel(worldLabel);
+    collisionSystem.setWorldToScreenLabel(worldLabel);
+    this.cleanupSystem.setWorldToScreenLabel(worldLabel);
+
+    // ECSシステム登録（priority 昇順で実行される）
     this.world.addSystem(new InputSystem(this.inputHandler));
     this.world.addSystem(new PlayerMovementSystem());
     this.world.addSystem(new MovementSystem());
     this.world.addSystem(new AllyFollowSystem());
+    this.world.addSystem(this.itemBarrelSpawner);    // priority 3
+    this.world.addSystem(this.gateSpawner);          // priority 4
     this.world.addSystem(this.weaponSystem);
-    this.world.addSystem(new CollisionSystem(
-      this.entityFactory,
-      this.scoreService,
-      this.allyConversionSystem,
-      this.audioManager,
-      this.animationSystem,
-    ));
+    this.world.addSystem(collisionSystem);
+    this.world.addSystem(this.gateTriggerSystem);    // priority 6
+    this.world.addSystem(this.weaponSwitchSystem);   // priority 6
     this.world.addSystem(new DefenseLineSystem(this.audioManager, this.animationSystem));
     this.world.addSystem(new HealthSystem(this.gameStateManager, this.animationSystem));
-    this.world.addSystem(new ItemCollectionSystem());
-    this.world.addSystem(new BuffSystem());
-    this.world.addSystem(this.allyConversionSystem);
+    this.world.addSystem(this.buffSystemRef);
     this.world.addSystem(this.allyFireRateSystem);
     this.world.addSystem(new EffectSystem());
     this.world.addSystem(this.animationSystem);
@@ -241,14 +278,9 @@ export class GameService {
       this.createEnemyNormalMaterial(),
       100, // 未使用 pool（将来削除予定、現状 SceneManager.init シグネチャ互換のため保持）
     );
-    this.itemPool = new InstancedMeshPool(
-      this.createItemGeometry(),
-      this.createBulletMaterial(),
-      GAME_CONFIG.limits.maxItems,
-    );
 
     // シーン初期化（ライト・背景・プール追加）
-    this.sceneManager.init([this.bulletPool, this.enemyNormalPool, this.itemPool]);
+    this.sceneManager.init([this.bulletPool, this.enemyNormalPool]);
 
     // Iter5: 環境GLB配置（AssetManager は init() で先にロード済）
     this.sceneManager.setupEnvironment(this.assetManager);
@@ -330,6 +362,16 @@ export class GameService {
     this.spawnManager.reset();
     this.weaponSystem.reset();
     this.allyFireRateSystem.reset();
+    // Iter6: 新 Systems の state リセット（O-NG-11）
+    this.itemBarrelSpawner.reset();
+    this.gateSpawner.reset();
+    this.gateTriggerSystem.reset();
+    this.weaponSwitchSystem.reset();
+    this.itemBarrelSpawner.enabled = true;
+    this.gateSpawner.enabled = true;
+    this.gateTriggerSystem.enabled = true;
+    this.weaponSwitchSystem.enabled = true;
+    this.buffSystemRef.enabled = true;
     this.inputHandler.reset();
     this.audioManager.reset();
     this.titleBGMStarted = false;
@@ -351,13 +393,8 @@ export class GameService {
       this.createEnemyNormalMaterial(),
       100,
     );
-    this.itemPool = new InstancedMeshPool(
-      this.createItemGeometry(),
-      this.createBulletMaterial(),
-      GAME_CONFIG.limits.maxItems,
-    );
 
-    this.sceneManager.init([this.bulletPool, this.enemyNormalPool, this.itemPool]);
+    this.sceneManager.init([this.bulletPool, this.enemyNormalPool]);
     this.sceneManager.setupEnvironment(this.assetManager);
     this.qualityManager = new QualityManager(this.sceneManager);
     this.effectManager3D = new EffectManager3D(this.sceneManager, this.qualityManager);
@@ -378,7 +415,6 @@ export class GameService {
       this.assetManager,
       this.sceneManager,
       this.bulletPool,
-      this.itemPool,
     );
 
     // RenderSystemのシーン参照を更新
@@ -474,6 +510,11 @@ export class GameService {
         this.waveManager.update(elapsed + dt);
         this.spawnManager.update(this.world, dt, elapsed + dt);
         this.allyFireRateSystem.setElapsedTime(elapsed + dt);
+        // Iter6: elapsedTime 依存の新 Systems に同期
+        this.itemBarrelSpawner.setElapsedTime(elapsed + dt);
+        this.gateSpawner.setElapsedTime(elapsed + dt);
+        this.gateTriggerSystem.setElapsedTime(elapsed + dt);
+        this.weaponSwitchSystem.setElapsedTime(elapsed + dt);
 
         const allyCount = this.world.query(AllyComponent).length;
         this.scoreService.setAllyCount(allyCount);
@@ -493,6 +534,12 @@ export class GameService {
         if (!this.gameOverBGMStarted) {
           this.audioManager.playBGM('gameover');
           this.gameOverBGMStarted = true;
+          // Iter6: GAME_OVER 遷移直後に 1 度だけ Spawner/Trigger/Switch を停止（AC-08）
+          this.itemBarrelSpawner.enabled = false;
+          this.gateSpawner.enabled = false;
+          this.gateTriggerSystem.enabled = false;
+          this.weaponSwitchSystem.enabled = false;
+          this.buffSystemRef.enabled = false;
         }
         // ゲームオーバーUI（初回のみ表示）
         if (!this.gameOverUIShown) {
@@ -532,7 +579,7 @@ export class GameService {
     const buffComp = this.world.getComponent(this.playerId, BuffComponent);
     const activeBuffs = buffComp?.activeBuffs ?? new Map();
     const weaponComp = this.world.getComponent(this.playerId, WeaponComponent);
-    const weaponType = weaponComp?.weaponType ?? WeaponType.FORWARD;
+    const weaponGenre = weaponComp?.weaponGenre ?? WeaponGenre.RIFLE;
     const allyCount = this.world.query(AllyComponent).length;
 
     this.overlayManager.updateHUD({
@@ -544,7 +591,7 @@ export class GameService {
       activeBuffs,
       allyCount,
       maxAllies: GAME_CONFIG.ally.maxCount,
-      weaponType,
+      weaponGenre,
     });
   }
 
@@ -662,11 +709,6 @@ export class GameService {
       emissive: 0xd4a94a,
       emissiveIntensity: 0.15,
     });
-  }
-
-  /** アイテム用 Geometry（八面体ジェム） */
-  private createItemGeometry(): BufferGeometry {
-    return new SphereGeometry(0.08, 4, 2);
   }
 
   /** 敵 NORMAL 用 Geometry（簡易 Box、InstancedMesh 用） */

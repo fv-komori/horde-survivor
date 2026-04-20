@@ -11,13 +11,12 @@ import { BulletComponent } from '../../src/components/BulletComponent';
 import { WeaponComponent } from '../../src/components/WeaponComponent';
 import { AllyComponent } from '../../src/components/AllyComponent';
 import { HitCountComponent } from '../../src/components/HitCountComponent';
-import { ItemDropComponent } from '../../src/components/ItemDropComponent';
 import { BuffComponent } from '../../src/components/BuffComponent';
 import { EffectComponent } from '../../src/components/EffectComponent';
-import { EnemyType, WeaponType, EffectType, ItemType, ColliderType } from '../../src/types';
+import { EnemyType, WeaponGenre, EffectType } from '../../src/types';
 import { GAME_CONFIG } from '../../src/config/gameConfig';
 import { ENEMY_CONFIG } from '../../src/config/enemyConfig';
-import { WEAPON_CONFIG } from '../../src/config/weaponConfig';
+import { WEAPON_PARAMS } from '../../src/config/weaponConfig';
 
 describe('EntityFactory', () => {
   let world: World;
@@ -55,11 +54,11 @@ describe('EntityFactory', () => {
       expect(health.maxHp).toBe(GAME_CONFIG.player.baseHp);
     });
 
-    it('should have FORWARD weapon with correct fire interval', () => {
+    it('should have RIFLE weapon with correct fire interval', () => {
       const id = factory.createPlayer(world);
       const weapon = world.getComponent(id, WeaponComponent)!;
-      expect(weapon.weaponType).toBe(WeaponType.FORWARD);
-      expect(weapon.fireInterval).toBe(WEAPON_CONFIG[WeaponType.FORWARD].fireInterval);
+      expect(weapon.weaponGenre).toBe(WeaponGenre.RIFLE);
+      expect(weapon.fireInterval).toBe(WEAPON_PARAMS[WeaponGenre.RIFLE].fireInterval);
     });
 
     it('should have empty BuffComponent', () => {
@@ -101,14 +100,11 @@ describe('EntityFactory', () => {
       expect(hitCount.currentHits).toBe(Math.ceil(ENEMY_CONFIG.NORMAL.hitCount * 2.0));
     });
 
-    it('should set correct enemy type with drop rates and conversion rate', () => {
+    it('should set correct enemy type and breach damage', () => {
       const id = factory.createEnemy(world, EnemyType.FAST, { x: 100, y: 50 });
       const enemy = world.getComponent(id, EnemyComponent)!;
       expect(enemy.enemyType).toBe(EnemyType.FAST);
       expect(enemy.breachDamage).toBe(ENEMY_CONFIG.FAST.breachDamage);
-      expect(enemy.itemDropRate).toBe(ENEMY_CONFIG.FAST.itemDropRate);
-      expect(enemy.weaponDropRate).toBe(ENEMY_CONFIG.FAST.weaponDropRate);
-      expect(enemy.conversionRate).toBe(ENEMY_CONFIG.FAST.conversionRate);
     });
 
     it('should use larger size for boss', () => {
@@ -159,42 +155,6 @@ describe('EntityFactory', () => {
     });
   });
 
-  describe('createItemDrop', () => {
-    it('should create entity with required components', () => {
-      const id = factory.createItemDrop(world, { x: 300, y: 500 }, ItemType.ATTACK_UP);
-
-      expect(world.getComponent(id, PositionComponent)).toBeDefined();
-      expect(world.getComponent(id, VelocityComponent)).toBeDefined();
-      expect(world.getComponent(id, HitCountComponent)).toBeDefined();
-      expect(world.getComponent(id, ItemDropComponent)).toBeDefined();
-      expect(world.getComponent(id, MeshComponent)).toBeDefined();
-      expect(world.getComponent(id, ColliderComponent)).toBeDefined();
-    });
-
-    it('should set item type correctly', () => {
-      const id = factory.createItemDrop(world, { x: 300, y: 500 }, ItemType.FIRE_RATE_UP);
-      const item = world.getComponent(id, ItemDropComponent)!;
-      expect(item.itemType).toBe(ItemType.FIRE_RATE_UP);
-    });
-
-    it('should have downward velocity and hit count from itemSpawn config', () => {
-      const id = factory.createItemDrop(world, { x: 300, y: 500 }, ItemType.ATTACK_UP);
-      const vel = world.getComponent(id, VelocityComponent)!;
-      expect(vel.vx).toBe(0);
-      expect(vel.vy).toBe(GAME_CONFIG.itemSpawn.speed);
-
-      const hitCount = world.getComponent(id, HitCountComponent)!;
-      expect(hitCount.currentHits).toBe(8);
-      expect(hitCount.maxHits).toBe(8);
-    });
-
-    it('should set remainingTime to Infinity (no lifetime timer)', () => {
-      const id = factory.createItemDrop(world, { x: 300, y: 500 }, ItemType.ATTACK_UP);
-      const item = world.getComponent(id, ItemDropComponent)!;
-      expect(item.remainingTime).toBe(Infinity);
-    });
-  });
-
   describe('createAlly', () => {
     it('should create entity with required components', () => {
       const playerId = factory.createPlayer(world);
@@ -216,13 +176,13 @@ describe('EntityFactory', () => {
       expect(ally.joinTime).toBe(45.0);
     });
 
-    it('should have FORWARD weapon', () => {
+    it('should have RIFLE weapon', () => {
       const playerId = factory.createPlayer(world);
       const id = factory.createAlly(world, playerId, 0, 10.0);
 
       const weapon = world.getComponent(id, WeaponComponent)!;
-      expect(weapon.weaponType).toBe(WeaponType.FORWARD);
-      expect(weapon.fireInterval).toBe(WEAPON_CONFIG[WeaponType.FORWARD].fireInterval);
+      expect(weapon.weaponGenre).toBe(WeaponGenre.RIFLE);
+      expect(weapon.fireInterval).toBe(WEAPON_PARAMS[WeaponGenre.RIFLE].fireInterval);
     });
   });
 

@@ -7,62 +7,59 @@ import { PositionComponent } from '../components/PositionComponent';
 import { VelocityComponent } from '../components/VelocityComponent';
 import { ColliderComponent } from '../components/ColliderComponent';
 import { HitCountComponent } from '../components/HitCountComponent';
-import { ItemDropComponent } from '../components/ItemDropComponent';
-import { PlayerComponent } from '../components/PlayerComponent';
-import { BuffComponent } from '../components/BuffComponent';
-import { WeaponComponent } from '../components/WeaponComponent';
+import { BarrelItemComponent } from '../components/BarrelItemComponent';
 import { EntityFactory } from '../factories/EntityFactory';
-import { AllyConversionSystem } from './AllyConversionSystem';
 import { AnimationSystem } from './AnimationSystem';
+import type { WeaponSwitchSystem } from './WeaponSwitchSystem';
 import { ScoreService } from '../game/ScoreService';
 import { AnimationStateComponent } from '../components/AnimationStateComponent';
 import type { AudioManager } from '../audio/AudioManager';
-import { GAME_CONFIG } from '../config/gameConfig';
-import { WEAPON_CONFIG } from '../config/weaponConfig';
-import { EffectType, itemTypeToBuff, itemTypeToWeapon, ITEM_COLORS } from '../types';
+import { EffectType } from '../types';
+import type { WorldToScreenLabel } from '../ui/WorldToScreenLabel';
 
 /**
- * S-06: 衝突判定システム（優先度5）
- * business-logic-model セクション5
- * Iteration 2: ヒットカウント制・アイテム射撃破壊・仲間化
+ * S-06: 衝突判定システム（priority 5）
+ * Iter6 Phase 4: BULLET↔BARREL 衝突を追加、HP=0 で WeaponSwitchSystem.enqueueSwitch を呼ぶ。
  */
 export class CollisionSystem implements System {
   readonly priority = 5;
-  private entityFactory: EntityFactory;
-  private scoreService: ScoreService;
-  private allyConversionSystem: AllyConversionSystem;
-  private audioManager: AudioManager;
-  private animationSystem: AnimationSystem | null;
+  private readonly entityFactory: EntityFactory;
+  private readonly scoreService: ScoreService;
+  private readonly audioManager: AudioManager;
+  private readonly animationSystem: AnimationSystem | null;
+  private weaponSwitchSystem: WeaponSwitchSystem | null = null;
+  private worldToScreenLabel: WorldToScreenLabel | null = null;
 
   constructor(
     entityFactory: EntityFactory,
     scoreService: ScoreService,
-    allyConversionSystem: AllyConversionSystem,
     audioManager: AudioManager,
     animationSystem: AnimationSystem | null = null,
   ) {
     this.entityFactory = entityFactory;
     this.scoreService = scoreService;
-    this.allyConversionSystem = allyConversionSystem;
     this.audioManager = audioManager;
     this.animationSystem = animationSystem;
+  }
+
+  setWeaponSwitchSystem(ws: WeaponSwitchSystem): void {
+    this.weaponSwitchSystem = ws;
+  }
+
+  /** Iter6 Phase 5: 樽HP変化でラベル文字を更新 */
+  setWorldToScreenLabel(label: WorldToScreenLabel): void {
+    this.worldToScreenLabel = label;
   }
 
   update(world: World, _dt: number): void {
     const bulletIds = world.query(BulletComponent, PositionComponent, ColliderComponent);
     const enemyIds = world.query(EnemyComponent, PositionComponent, ColliderComponent, HitCountComponent);
-    const itemIds = world.query(ItemDropComponent, PositionComponent, ColliderComponent, HitCountComponent);
+    const barrelIds = world.query(BarrelItemComponent, PositionComponent, ColliderComponent);
 
-    // 撃破キュー: 衝突判定後にまとめて処理
     const defeatedEnemies: EntityId[] = [];
     const defeatedSet = new Set<EntityId>();
-
-    // 破壊されたアイテムキュー
-    const destroyedItems: EntityId[] = [];
-    const destroyedItemSet = new Set<EntityId>();
-
-    // 弾丸が破壊済みかのセット
     const destroyedBullets = new Set<EntityId>();
+    const destroyedBarrels = new Set<EntityId>();
 
     for (const bulletId of bulletIds) {
       if (destroyedBullets.has(bulletId)) continue;
@@ -71,11 +68,11 @@ export class CollisionSystem implements System {
       const bPos = world.getComponent(bulletId, PositionComponent)!;
       const bCol = world.getComponent(bulletId, ColliderComponent)!;
 
-      // 弾丸-敵 衝突判定
       let bulletDestroyed = false;
+
+      // --- 弾 vs 敵 ---
       for (const enemyId of enemyIds) {
         if (defeatedSet.has(enemyId)) continue;
-        // Iter5: 既に Death anim 再生中の敵は当たり判定から除外
         const enemyAnim = world.getComponent(enemyId, AnimationStateComponent);
         if (enemyAnim?.current === 'Death') continue;
         if (bullet.isPiercing && bullet.hitEntities.has(enemyId)) continue;
@@ -92,7 +89,6 @@ export class CollisionSystem implements System {
             defeatedEnemies.push(enemyId);
             defeatedSet.add(enemyId);
           } else {
-            // Iter5: 被弾 HitReact ワンショット
             this.animationSystem?.playHitReact(world, enemyId);
           }
 
@@ -107,64 +103,54 @@ export class CollisionSystem implements System {
         }
       }
 
-      // 弾丸-アイテム 衝突判定（弾丸が破壊されていない場合のみ）
-      if (!bulletDestroyed) {
-        for (const itemId of itemIds) {
-          if (destroyedItemSet.has(itemId)) continue;
-          if (bullet.isPiercing && bullet.hitEntities.has(itemId)) continue;
+      if (bulletDestroyed) continue;
 
-          const iPos = world.getComponent(itemId, PositionComponent)!;
-          const iCol = world.getComponent(itemId, ColliderComponent)!;
+      // --- 弾 vs 樽（Iter6） ---
+      for (const barrelId of barrelIds) {
+        if (destroyedBarrels.has(barrelId)) continue;
+        if (bullet.isPiercing && bullet.hitEntities.has(barrelId)) continue;
 
-          if (this.checkCircleCollision(bPos, bCol.radius, iPos, iCol.radius)) {
-            const hitCount = world.getComponent(itemId, HitCountComponent)!;
-            hitCount.currentHits -= bullet.hitCountReduction;
-            hitCount.flashTimer = 0.1;
+        const bpos2 = world.getComponent(barrelId, PositionComponent)!;
+        const bcol2 = world.getComponent(barrelId, ColliderComponent)!;
+        if (!this.checkCircleCollision(bPos, bCol.radius, bpos2, bcol2.radius)) continue;
 
-            if (hitCount.currentHits <= 0) {
-              destroyedItems.push(itemId);
-              destroyedItemSet.add(itemId);
-            }
+        const barrel = world.getComponent(barrelId, BarrelItemComponent)!;
+        const hc = world.getComponent(barrelId, HitCountComponent);
+        barrel.hp -= bullet.hitCountReduction;
+        if (hc) {
+          hc.currentHits = barrel.hp;
+          hc.flashTimer = 0.1;
+        }
 
-            if (bullet.isPiercing) {
-              bullet.hitEntities.add(itemId);
-            } else {
-              world.destroyEntity(bulletId);
-              destroyedBullets.add(bulletId);
-              break;
-            }
-          }
+        if (barrel.hp <= 0) {
+          destroyedBarrels.add(barrelId);
+          this.worldToScreenLabel?.release(barrelId);
+          this.weaponSwitchSystem?.enqueueSwitch(barrelId, barrel.type);
+        } else {
+          this.worldToScreenLabel?.setText(barrelId, `${Math.max(0, barrel.hp)}`);
+        }
+
+        if (bullet.isPiercing) {
+          bullet.hitEntities.add(barrelId);
+        } else {
+          world.destroyEntity(bulletId);
+          destroyedBullets.add(bulletId);
+          break;
         }
       }
     }
 
-    // 撃破キュー消費（敵）
+    // 敵撃破キュー消費
     for (const enemyId of defeatedEnemies) {
       const ePos = world.getComponent(enemyId, PositionComponent);
       const enemy = world.getComponent(enemyId, EnemyComponent);
       if (!ePos || !enemy) continue;
 
       const position = { x: ePos.x, y: ePos.y };
-
-      // 仲間化判定
-      this.allyConversionSystem.tryConvertToAlly(
-        world,
-        enemyId,
-        position,
-        this.scoreService.getElapsedTime(),
-      );
-
-      // スコア加算
       this.scoreService.incrementKills();
-
-      // 敵撃破SE（BR-EV01）
       this.audioManager.playSE('enemy_destroy');
-
-      // 撃破エフェクト
       this.entityFactory.createEffect(world, EffectType.ENEMY_DESTROY, position);
 
-      // Iter5: AnimationStateComponent を持つ敵は Death anim を再生し、
-      //        deathComplete になるまで破棄を CleanupSystem に委ねる
       const hasAnim = world.getComponent(enemyId, AnimationStateComponent) != null;
       if (hasAnim && this.animationSystem) {
         this.animationSystem.playDeath(world, enemyId);
@@ -175,54 +161,9 @@ export class CollisionSystem implements System {
       }
     }
 
-    // 破壊キュー消費（アイテム）— バフ/武器効果を適用
-    if (destroyedItems.length > 0) {
-      const playerIds = world.query(PlayerComponent);
-      if (playerIds.length > 0) {
-        const playerId = playerIds[0];
-        const buff = world.getComponent(playerId, BuffComponent);
-        const weapon = world.getComponent(playerId, WeaponComponent);
-
-        for (const itemId of destroyedItems) {
-          const iPos = world.getComponent(itemId, PositionComponent);
-          const itemDrop = world.getComponent(itemId, ItemDropComponent);
-          if (!iPos || !itemDrop) continue;
-
-          const position = { x: iPos.x, y: iPos.y };
-
-          // アイテム破壊SE（BR-EV01）
-          this.audioManager.playSE('item_destroy');
-
-          // パワーアップアイテム → バフ適用
-          const buffType = itemTypeToBuff(itemDrop.itemType);
-          if (buffType !== null && buff) {
-            buff.applyBuff(buffType, GAME_CONFIG.buff.duration);
-            // バフ発動SE（BR-EV01）
-            this.audioManager.playSE('buff_activate');
-          }
-
-          // 武器アイテム → 武器切り替え
-          const weaponType = itemTypeToWeapon(itemDrop.itemType);
-          if (weaponType !== null && weapon) {
-            const weaponCfg = WEAPON_CONFIG[weaponType];
-            if (weaponCfg) {
-              weapon.weaponType = weaponType;
-              weapon.fireInterval = weaponCfg.fireInterval;
-            }
-          }
-
-          // バフ発動エフェクト
-          const color = ITEM_COLORS[itemDrop.itemType] ?? '#FFFFFF';
-          this.entityFactory.createEffect(world, EffectType.BUFF_ACTIVATE, position, color);
-
-          // アイテムエンティティ破棄
-          world.destroyEntity(itemId);
-        }
-      }
-    }
+    // 樽破壊後の entity 破棄は WeaponSwitchSystem 側に委ねる（transferWeaponMesh が mesh 参照を必要とするため）
   }
 
-  /** 円-円衝突判定（距離二乗比較で最適化） */
   checkCircleCollision(
     a: { x: number; y: number }, aRadius: number,
     b: { x: number; y: number }, bRadius: number,

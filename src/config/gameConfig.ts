@@ -38,15 +38,6 @@ export const GAME_CONFIG = deepFreeze({
     maxSimultaneousSpawn: 5,
   },
 
-  /** アイテムスポーン設定（画面上部から降ってくるアイテム） */
-  itemSpawn: {
-    interval: 15,            // 秒: スポーン間隔
-    hitCount: 8,             // 破壊に必要なヒット数
-    speed: 70,               // px/秒: 下方向への移動速度
-    colliderRadius: 20,      // px: 衝突判定半径
-    spriteSize: 36,          // px: 描画サイズ
-  },
-
   /** 防衛ライン（BR-S02） */
   defenseLine: {
     y: 1248, // 画面下端(1280) - 32px
@@ -72,9 +63,9 @@ export const GAME_CONFIG = deepFreeze({
     speedMultiplier: 1.5,       // 移動速度1.5倍
     barrageBulletMultiplier: 3, // 弾数3倍
     barrageSpread: {
-      FORWARD: 30,  // 度
-      SPREAD: 120,  // 度
-      PIERCING: 20, // 度
+      RIFLE: 30,        // 度
+      SHOTGUN: 120,     // 度
+      MACHINEGUN: 20,   // 度
     } as Record<string, number>,
     effectDuration: 0.3,        // バフ発動エフェクト時間（秒）
     effectMaxRadius: 80,        // バフエフェクト最大半径（px）
@@ -97,6 +88,22 @@ export const GAME_CONFIG = deepFreeze({
     minY: -50,
     maxY: -10,
     marginX: 160,
+  },
+
+  /** Iter6: 武器樽スポーン・当たり判定（EntityFactory.createBarrelItem 用） */
+  barrelSpawn: {
+    speed: 90,               // px/秒（手前方向、Y 正）
+    colliderRadius: 55,      // px（弾 vs 樽）
+    spriteSize: 160,         // px（描画サイズの目安）
+    marginX: 180,
+  },
+
+  /** Iter6: ゲート生成・通過判定（EntityFactory.createGate / GateTriggerSystem 用） */
+  gateSpawn: {
+    speed: 100,              // px/秒
+    widthHalf: 120,          // px（X 幅半値、プレイヤー通過判定）
+    spriteSize: 200,
+    marginX: 200,
   },
 
   /** 仲間化演出（BR-AL05） */
@@ -174,8 +181,8 @@ export const GAME_CONFIG = deepFreeze({
       enemyTank: 0.5,
       enemyBoss: 0.7,
       bullet: 0.5,
-      itemBase: 0.3,
-      itemBobAmplitude: 0.1,
+      barrel: 0.3,
+      gate: 0.5,
     },
     // Iter4: Fog
     fog: {

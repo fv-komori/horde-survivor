@@ -17,6 +17,25 @@
   "rules": {
     "no-console": "off",
     "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
-    "@typescript-eslint/explicit-function-return-type": "off"
+    "@typescript-eslint/explicit-function-return-type": "off",
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "MemberExpression[property.name='innerHTML']",
+        "message": "NFR-05 (F-NG-1): innerHTML is forbidden. Use textContent or document.createElement to avoid XSS."
+      },
+      {
+        "selector": "MemberExpression[property.name='outerHTML']",
+        "message": "NFR-05 (F-NG-1): outerHTML is forbidden. Use textContent or DOM APIs."
+      },
+      {
+        "selector": "CallExpression[callee.property.name='insertAdjacentHTML']",
+        "message": "NFR-05 (F-NG-1): insertAdjacentHTML is forbidden. Use textContent or DOM APIs."
+      },
+      {
+        "selector": "CallExpression[callee.property.name='write']:has(CallExpression[callee.object.name='document'])",
+        "message": "NFR-05 (F-NG-1): document.write is forbidden."
+      }
+    ]
   }
 }

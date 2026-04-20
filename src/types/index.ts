@@ -1,4 +1,4 @@
-/** 共通型定義（Iteration 2: ヒットカウント制・アイテムドロップ・バフ・仲間化） */
+/** 共通型定義（Iter6 Phase 2b: WeaponGenre / BarrelItemType / GateType への置換） */
 
 // --- 基本型 ---
 
@@ -19,10 +19,35 @@ export enum EnemyType {
   BOSS = 'BOSS',
 }
 
-export enum WeaponType {
-  FORWARD = 'FORWARD',
-  SPREAD = 'SPREAD',
-  PIERCING = 'PIERCING',
+/** 武器ジャンル（Iter6: 旧 WeaponType を置換） */
+export enum WeaponGenre {
+  RIFLE = 'RIFLE',
+  SHOTGUN = 'SHOTGUN',
+  MACHINEGUN = 'MACHINEGUN',
+}
+
+/** 武器樽アイテム種別（Iter6: 新規、BarrelItem を撃破してプレイヤーの武器を切替） */
+export enum BarrelItemType {
+  WEAPON_RIFLE = 'WEAPON_RIFLE',
+  WEAPON_SHOTGUN = 'WEAPON_SHOTGUN',
+  WEAPON_MACHINEGUN = 'WEAPON_MACHINEGUN',
+}
+
+/** BarrelItemType → WeaponGenre 変換 */
+export function barrelItemTypeToGenre(type: BarrelItemType): WeaponGenre {
+  switch (type) {
+    case BarrelItemType.WEAPON_RIFLE: return WeaponGenre.RIFLE;
+    case BarrelItemType.WEAPON_SHOTGUN: return WeaponGenre.SHOTGUN;
+    case BarrelItemType.WEAPON_MACHINEGUN: return WeaponGenre.MACHINEGUN;
+  }
+}
+
+/** ゲート効果種別（Iter6: 新規、プレイヤー通過で発動） */
+export enum GateType {
+  ALLY_ADD = 'ALLY_ADD',
+  ATTACK_UP = 'ATTACK_UP',
+  SPEED_UP = 'SPEED_UP',
+  HEAL = 'HEAL',
 }
 
 export enum EffectType {
@@ -39,15 +64,6 @@ export enum BuffType {
   BARRAGE = 'BARRAGE',
 }
 
-export enum ItemType {
-  ATTACK_UP = 'ATTACK_UP',
-  FIRE_RATE_UP = 'FIRE_RATE_UP',
-  SPEED_UP = 'SPEED_UP',
-  BARRAGE = 'BARRAGE',
-  WEAPON_SPREAD = 'WEAPON_SPREAD',
-  WEAPON_PIERCING = 'WEAPON_PIERCING',
-}
-
 export enum ControlType {
   BUTTONS = 'buttons',
   SWIPE = 'swipe',
@@ -56,21 +72,19 @@ export enum ControlType {
 
 // --- 値オブジェクト ---
 
-/** VO-01: 座標 */
 export interface Position {
   x: number;
   y: number;
 }
 
-/** VO-02: 速度ベクトル */
 export interface Velocity {
   vx: number;
   vy: number;
 }
 
-/** VO-03: 武器定義（固定パラメータ、レベルなし） */
+/** VO-03: 武器定義 */
 export interface WeaponParams {
-  weaponType: WeaponType;
+  weaponGenre: WeaponGenre;
   fireInterval: number;
   bulletCount: number;
   bulletSpeed: number;
@@ -78,19 +92,16 @@ export interface WeaponParams {
   isPiercing: boolean;
 }
 
-/** VO-04: バフ状態 */
 export interface BuffState {
   remainingTime: number;
 }
 
-/** VO-05: スコアデータ */
 export interface ScoreData {
   survivalTime: number;
   killCount: number;
   allyCount: number;
 }
 
-/** スポーン設定 */
 export interface SpawnConfig {
   interval: number;
   enemyTypes: string[];
@@ -108,10 +119,9 @@ export interface HUDState {
   activeBuffs: Map<BuffType, BuffState>;
   allyCount: number;
   maxAllies: number;
-  weaponType: WeaponType;
+  weaponGenre: WeaponGenre;
 }
 
-/** コンポーネントタイプ識別子 */
 export type ComponentClass<T = unknown> = new (...args: unknown[]) => T;
 
 /** スプライトタイプ */
@@ -122,39 +132,20 @@ export type SpriteType =
   | 'enemy_tank'
   | 'enemy_boss'
   | 'bullet'
-  | 'item_drop'
   | 'ally'
+  | 'barrel'
+  | 'gate'
   | 'effect_muzzle'
   | 'effect_destroy'
   | 'effect_buff'
   | 'effect_ally_convert';
 
-/** 衝突判定タイプ */
+/** 衝突判定タイプ（Iter6: ITEM 削除、BARREL を追加。ゲートは ColliderComponent 非使用・GateComponent.widthHalf で通過判定） */
 export enum ColliderType {
   BULLET = 'BULLET',
   ENEMY = 'ENEMY',
   PLAYER = 'PLAYER',
-  ITEM = 'ITEM',
-}
-
-/** バフタイプからアイテムタイプへのマッピングヘルパー */
-export function itemTypeToBuff(itemType: ItemType): BuffType | null {
-  switch (itemType) {
-    case ItemType.ATTACK_UP: return BuffType.ATTACK_UP;
-    case ItemType.FIRE_RATE_UP: return BuffType.FIRE_RATE_UP;
-    case ItemType.SPEED_UP: return BuffType.SPEED_UP;
-    case ItemType.BARRAGE: return BuffType.BARRAGE;
-    default: return null;
-  }
-}
-
-/** アイテムタイプから武器タイプへのマッピングヘルパー */
-export function itemTypeToWeapon(itemType: ItemType): WeaponType | null {
-  switch (itemType) {
-    case ItemType.WEAPON_SPREAD: return WeaponType.SPREAD;
-    case ItemType.WEAPON_PIERCING: return WeaponType.PIERCING;
-    default: return null;
-  }
+  BARREL = 'BARREL',
 }
 
 /** バフタイプの色マッピング */
@@ -163,14 +154,4 @@ export const BUFF_COLORS: Record<BuffType, string> = {
   [BuffType.FIRE_RATE_UP]: '#FFFF44',
   [BuffType.SPEED_UP]: '#4444FF',
   [BuffType.BARRAGE]: '#CC44CC',
-};
-
-/** アイテムタイプの色マッピング */
-export const ITEM_COLORS: Record<ItemType, string> = {
-  [ItemType.ATTACK_UP]: '#FF4444',
-  [ItemType.FIRE_RATE_UP]: '#FFFF44',
-  [ItemType.SPEED_UP]: '#4444FF',
-  [ItemType.BARRAGE]: '#CC44CC',
-  [ItemType.WEAPON_SPREAD]: '#88FF88',
-  [ItemType.WEAPON_PIERCING]: '#FF8844',
 };

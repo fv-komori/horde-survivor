@@ -3,26 +3,14 @@ import { HitCountComponent } from '../components/HitCountComponent';
 import { MeshComponent } from '../components/MeshComponent';
 import { PositionComponent } from '../components/PositionComponent';
 import { EnemyComponent } from '../components/EnemyComponent';
-import { GAME_CONFIG } from '../config/gameConfig';
 import { CoordinateMapper } from '../utils/CoordinateMapper';
 import type { World } from '../ecs/World';
-import type { HUDState, ScoreData } from '../types';
-import { BuffType, BUFF_COLORS, WeaponType } from '../types';
-
-/** 武器表示ラベル */
-const WEAPON_LABELS: Record<WeaponType, string> = {
-  [WeaponType.FORWARD]: 'RIFLE',
-  [WeaponType.SPREAD]: 'SHOTGUN',
-  [WeaponType.PIERCING]: 'SNIPER',
-};
-
-/** バフ表示ラベル */
-const BUFF_LABELS: Record<BuffType, string> = {
-  [BuffType.ATTACK_UP]: 'ATK',
-  [BuffType.FIRE_RATE_UP]: 'SPD',
-  [BuffType.SPEED_UP]: 'MOV',
-  [BuffType.BARRAGE]: 'BRG',
-};
+import type { HUDState, ScoreData, BuffState } from '../types';
+import { BuffType } from '../types';
+import { WorldToScreenLabel } from './WorldToScreenLabel';
+import { ActiveBuffIcon, type ActiveBuffView } from './ActiveBuffIcon';
+import { WeaponHudPanel } from './WeaponHudPanel';
+import { ToastQueue } from './ToastQueue';
 
 /** DOMプール要素 */
 interface PooledElement {
@@ -30,9 +18,21 @@ interface PooledElement {
   inUse: boolean;
 }
 
+const THROTTLE_INTERVAL = 1 / 30;
+const BUFF_DISPLAY_ORDER: BuffType[] = [
+  BuffType.ATTACK_UP,
+  BuffType.FIRE_RATE_UP,
+  BuffType.SPEED_UP,
+  BuffType.BARRAGE,
+];
+
 /**
- * HTMLオーバーレイUI管理（FR-07, BL-08, BR-UI01〜04）
- * innerHTML禁止、textContent/DOM APIのみ使用（NFR-06）
+ * Iter6 Phase 5: HTMLオーバーレイ Facade。
+ *
+ * サブクラス (WorldToScreenLabel / ActiveBuffIcon / WeaponHudPanel / ToastQueue) を内包し、
+ * 30Hz ドレイン型スロットリングでワールド→スクリーン系を更新する。
+ * 既存 HUD (HP / Timer / Kills / Wave / Allies) と画面系 (title / gameover / fallback / mobile)
+ * は本体で保持。XSS 対策として textContent のみ使用する (NFR-05 / F-NG-1)。
  */
 export class HTMLOverlayManager {
   private container: HTMLElement;
@@ -41,12 +41,19 @@ export class HTMLOverlayManager {
   private hudContainer: HTMLDivElement | null = null;
   private hpBarFill: HTMLDivElement | null = null;
   private hpText: HTMLSpanElement | null = null;
-  private buffContainer: HTMLDivElement | null = null;
   private timerText: HTMLSpanElement | null = null;
   private killText: HTMLSpanElement | null = null;
   private waveText: HTMLSpanElement | null = null;
   private allyText: HTMLSpanElement | null = null;
-  private weaponText: HTMLSpanElement | null = null;
+
+  // サブクラス (Iter6 Phase 5)
+  private _worldToScreenLabel: WorldToScreenLabel | null = null;
+  private _activeBuffIcon: ActiveBuffIcon | null = null;
+  private _weaponHudPanel: WeaponHudPanel | null = null;
+  private _toastQueue: ToastQueue | null = null;
+
+  // 30Hz ドレイン用アキュムレータ
+  private throttleAcc: number = 0;
 
   // タイトル/ゲームオーバー
   private titleContainer: HTMLDivElement | null = null;
@@ -80,7 +87,7 @@ export class HTMLOverlayManager {
   }
 
   // ================================================================
-  // HUD
+  // HUD (Facade: 基本HUD + サブクラス初期化)
   // ================================================================
 
   /** HUD初期化 */
@@ -99,10 +106,8 @@ export class HTMLOverlayManager {
     hpBar.appendChild(this.hpText);
     this.hudContainer.appendChild(hpBar);
 
-    // バフコンテナ
-    this.buffContainer = document.createElement('div');
-    this.buffContainer.className = 'hud-buff-container';
-    this.hudContainer.appendChild(this.buffContainer);
+    // バフコンテナ (C6-09 ActiveBuffIcon に委譲)
+    this._activeBuffIcon = new ActiveBuffIcon(this.hudContainer);
 
     // 右上情報
     const rightInfo = document.createElement('div');
@@ -126,12 +131,44 @@ export class HTMLOverlayManager {
 
     this.hudContainer.appendChild(rightInfo);
 
-    // 武器インジケータ
-    this.weaponText = document.createElement('span');
-    this.weaponText.className = 'hud-weapon';
-    this.hudContainer.appendChild(this.weaponText);
+    // 武器インジケータ (C6-10 WeaponHudPanel に委譲)
+    this._weaponHudPanel = new WeaponHudPanel(this.hudContainer);
+
+    // トースト (C6-14 ToastQueue)
+    this._toastQueue = new ToastQueue(this.hudContainer);
 
     this.container.appendChild(this.hudContainer);
+
+    // ワールド→スクリーンラベル (C6-08, container 直下で position:absolute)
+    this._worldToScreenLabel = new WorldToScreenLabel(this.container);
+  }
+
+  get worldToScreenLabel(): WorldToScreenLabel {
+    if (!this._worldToScreenLabel) {
+      throw new Error('HTMLOverlayManager: initHUD() must be called before accessing worldToScreenLabel');
+    }
+    return this._worldToScreenLabel;
+  }
+
+  get activeBuffIcon(): ActiveBuffIcon {
+    if (!this._activeBuffIcon) {
+      throw new Error('HTMLOverlayManager: initHUD() must be called before accessing activeBuffIcon');
+    }
+    return this._activeBuffIcon;
+  }
+
+  get weaponHudPanel(): WeaponHudPanel {
+    if (!this._weaponHudPanel) {
+      throw new Error('HTMLOverlayManager: initHUD() must be called before accessing weaponHudPanel');
+    }
+    return this._weaponHudPanel;
+  }
+
+  get toastQueue(): ToastQueue {
+    if (!this._toastQueue) {
+      throw new Error('HTMLOverlayManager: initHUD() must be called before accessing toastQueue');
+    }
+    return this._toastQueue;
   }
 
   /** HUD更新（BR-UI04: 毎フレーム） */
@@ -172,66 +209,38 @@ export class HTMLOverlayManager {
       this.allyText.textContent = `Allies: ${state.allyCount}/${state.maxAllies}`;
     }
 
-    // 武器
-    if (this.weaponText) {
-      this.weaponText.textContent = WEAPON_LABELS[state.weaponType] ?? 'RIFLE';
-    }
+    // 武器 (WeaponHudPanel 委譲、同じ genre なら flash 再発火しない)
+    this._weaponHudPanel?.setGenre(state.weaponGenre);
 
-    // バフ
-    this.updateBuffDisplay(state.activeBuffs);
+    // バフ (ActiveBuffIcon 委譲)
+    this._activeBuffIcon?.setBuffs(this.projectBuffs(state.activeBuffs));
   }
 
-  private updateBuffDisplay(activeBuffs: Map<BuffType, { remainingTime: number }>): void {
-    if (!this.buffContainer) return;
-
-    // 既存の子要素を再利用/更新
-    const existing = this.buffContainer.children;
-    let idx = 0;
-
-    for (const [buffType, state] of activeBuffs) {
-      let item: HTMLDivElement;
-      if (idx < existing.length) {
-        item = existing[idx] as HTMLDivElement;
-      } else {
-        item = document.createElement('div');
-        item.className = 'hud-buff-item';
-        this.buffContainer.appendChild(item);
-      }
-
-      const color = BUFF_COLORS[buffType] ?? '#FFFFFF';
-      const label = BUFF_LABELS[buffType] ?? '?';
-      const ratio = Math.max(0, state.remainingTime / GAME_CONFIG.buff.duration);
-
-      // ラベル
-      if (item.children.length === 0) {
-        const labelEl = document.createElement('span');
-        labelEl.className = 'buff-label';
-        item.appendChild(labelEl);
-        const barBg = document.createElement('div');
-        barBg.className = 'buff-bar-bg';
-        const barFill = document.createElement('div');
-        barFill.className = 'buff-bar-fill';
-        barBg.appendChild(barFill);
-        item.appendChild(barBg);
-      }
-
-      (item.children[0] as HTMLSpanElement).textContent = label;
-      (item.children[0] as HTMLSpanElement).style.color = color;
-      const fill = (item.children[1] as HTMLDivElement).children[0] as HTMLDivElement;
-      fill.style.width = `${ratio * 100}%`;
-      fill.style.backgroundColor = color;
-
-      idx++;
+  private projectBuffs(active: Map<BuffType, BuffState>): ActiveBuffView[] {
+    const views: ActiveBuffView[] = [];
+    for (const type of BUFF_DISPLAY_ORDER) {
+      const s = active.get(type);
+      if (s) views.push({ type, remaining: s.remainingTime });
     }
+    return views;
+  }
 
-    // 余分な要素を非表示
-    while (idx < existing.length) {
-      (existing[idx] as HTMLElement).style.display = 'none';
-      idx++;
-    }
-    // 使用中の要素を表示
-    for (let i = 0; i < activeBuffs.size && i < existing.length; i++) {
-      (existing[i] as HTMLElement).style.display = '';
+  /**
+   * Iter6 Phase 5: 30Hz ドレイン型スケジューリング。
+   * ThreeJSRenderSystem から毎フレーム呼ばれる。
+   * - 30Hz: worldToScreenLabel.update, 敵 HP ラベル updatePositions
+   * - 毎フレーム: toastQueue.tick, weaponHudPanel.updateFlash
+   */
+  updateScheduled(world: World, camera: PerspectiveCamera, dt: number): void {
+    this._toastQueue?.tick(dt);
+    this._weaponHudPanel?.updateFlash(dt);
+
+    this.throttleAcc += dt;
+    if (this.throttleAcc >= THROTTLE_INTERVAL) {
+      // 1フレームに複数回ドレインしない (大 dt spike で連続呼出しを避ける)
+      this.throttleAcc = Math.min(this.throttleAcc - THROTTLE_INTERVAL, THROTTLE_INTERVAL);
+      this._worldToScreenLabel?.update(null, camera);
+      this.updatePositions(world, camera);
     }
   }
 
@@ -244,10 +253,10 @@ export class HTMLOverlayManager {
   }
 
   // ================================================================
-  // 敵HP表示（BR-UI02）
+  // 敵HP表示（BR-UI02）— 個数上限なし、barrels/gates は WorldToScreenLabel が担当
   // ================================================================
 
-  /** 毎フレーム：敵ヒットカウント表示位置を3D→スクリーン座標に投影 */
+  /** 敵ヒットカウント表示位置を3D→スクリーン座標に投影 (30Hz ドレインで呼ばれる) */
   updatePositions(world: World, camera: PerspectiveCamera): void {
     const entities = world.query(HitCountComponent, PositionComponent, EnemyComponent);
     const canvasWidth = this.container.clientWidth;
@@ -309,6 +318,9 @@ export class HTMLOverlayManager {
       label.remove();
     }
     this.hpLabels.clear();
+    this._worldToScreenLabel?.resetAll();
+    this._toastQueue?.reset();
+    this._activeBuffIcon?.reset();
   }
 
   // ================================================================
@@ -389,7 +401,7 @@ export class HTMLOverlayManager {
 
       const controls = document.createElement('p');
       controls.className = 'title-controls';
-      controls.textContent = 'PC: ← → or A/D | Mobile: Tap or Swipe';
+      controls.textContent = 'PC: \u2190 \u2192 or A/D | Mobile: Tap or Swipe';
       this.titleContainer.appendChild(controls);
 
       this.container.appendChild(this.titleContainer);
@@ -502,13 +514,13 @@ export class HTMLOverlayManager {
 
     const leftBtn = document.createElement('button');
     leftBtn.className = 'mobile-btn mobile-btn-left';
-    leftBtn.textContent = '◀';
+    leftBtn.textContent = '\u25C0';
     leftBtn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); this.onLeftDown?.(); }, { passive: false });
     leftBtn.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); this.onMoveUp?.(); }, { passive: false });
 
     const rightBtn = document.createElement('button');
     rightBtn.className = 'mobile-btn mobile-btn-right';
-    rightBtn.textContent = '▶';
+    rightBtn.textContent = '\u25B6';
     rightBtn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); this.onRightDown?.(); }, { passive: false });
     rightBtn.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); this.onMoveUp?.(); }, { passive: false });
 
@@ -541,6 +553,14 @@ export class HTMLOverlayManager {
 
   dispose(): void {
     this.hideAll();
+    this._worldToScreenLabel?.dispose();
+    this._activeBuffIcon?.dispose();
+    this._weaponHudPanel?.dispose();
+    this._toastQueue?.dispose();
+    this._worldToScreenLabel = null;
+    this._activeBuffIcon = null;
+    this._weaponHudPanel = null;
+    this._toastQueue = null;
     if (this.hudContainer) { this.hudContainer.remove(); this.hudContainer = null; }
     if (this.titleContainer) { this.titleContainer.remove(); this.titleContainer = null; }
     if (this.gameOverContainer) { this.gameOverContainer.remove(); this.gameOverContainer = null; }

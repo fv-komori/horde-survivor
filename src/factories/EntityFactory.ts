@@ -1,11 +1,19 @@
 import {
+  AdditiveBlending,
   BackSide,
+  BoxGeometry,
   Color,
+  CylinderGeometry,
+  DoubleSide,
   Group,
   Mesh,
+  MeshBasicMaterial,
+  MeshToonMaterial,
   Object3D,
+  PlaneGeometry,
   ShaderMaterial,
   SkinnedMesh,
+  SphereGeometry,
   AnimationMixer,
   AnimationClip,
 } from 'three';
@@ -23,20 +31,26 @@ import { BulletComponent } from '../components/BulletComponent';
 import { WeaponComponent } from '../components/WeaponComponent';
 import { AllyComponent } from '../components/AllyComponent';
 import { HitCountComponent } from '../components/HitCountComponent';
-import { ItemDropComponent } from '../components/ItemDropComponent';
 import { BuffComponent } from '../components/BuffComponent';
 import { EffectComponent } from '../components/EffectComponent';
 import { AnimationStateComponent } from '../components/AnimationStateComponent';
+import { BarrelItemComponent } from '../components/BarrelItemComponent';
+import { GateComponent } from '../components/GateComponent';
+import { PlayerWeaponComponent } from '../components/PlayerWeaponComponent';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { ENEMY_CONFIG } from '../config/enemyConfig';
-import { WEAPON_CONFIG } from '../config/weaponConfig';
+import { WEAPON_PARAMS } from '../config/weaponConfig';
+import { BARREL_HP } from '../config/barrelConfig';
+import { GATE_EFFECTS, GATE_COLOR } from '../config/gateConfig';
 import { BONE_ATTACH } from '../config/BoneAttachmentConfig';
-import { EnemyType, WeaponType, EffectType, ItemType, ColliderType, ITEM_COLORS } from '../types';
+import { I18N_TOAST } from '../config/i18nStrings';
+import { EnemyType, WeaponGenre, BarrelItemType, GateType, EffectType, ColliderType, barrelItemTypeToGenre } from '../types';
 import type { Position, SpriteType } from '../types';
 import type { CharacterKey, GunKey } from '../config/AssetPaths';
 import type { AssetManager } from '../managers/AssetManager';
 import type { SceneManager } from '../rendering/SceneManager';
 import type { InstancedMeshPool } from '../rendering/InstancedMeshPool';
+import type { WorldToScreenLabel } from '../ui/WorldToScreenLabel';
 
 const OUTLINE_VERTEX_SHADER = /* glsl */ `
 #include <common>
@@ -102,19 +116,22 @@ export class EntityFactory {
   private assetManager: AssetManager | null = null;
   private sceneManager: SceneManager | null = null;
   private bulletPool: InstancedMeshPool | null = null;
-  private itemPool: InstancedMeshPool | null = null;
+  private worldToScreenLabel: WorldToScreenLabel | null = null;
 
   /** Three.js依存を注入（DI） */
   initThree(
     assetManager: AssetManager,
     sceneManager: SceneManager,
     bulletPool: InstancedMeshPool,
-    itemPool: InstancedMeshPool,
   ): void {
     this.assetManager = assetManager;
     this.sceneManager = sceneManager;
     this.bulletPool = bulletPool;
-    this.itemPool = itemPool;
+  }
+
+  /** Iter6 Phase 5: ワールドラベル（樽HP / ゲート効果量）を注入 */
+  setWorldToScreenLabel(label: WorldToScreenLabel): void {
+    this.worldToScreenLabel = label;
   }
 
   // ---------- GLTF ヘルパー ----------
@@ -272,8 +289,9 @@ export class EntityFactory {
     }
     world.addComponent(id, mesh);
 
-    const weaponCfg = WEAPON_CONFIG[WeaponType.FORWARD];
-    world.addComponent(id, new WeaponComponent(WeaponType.FORWARD, weaponCfg.fireInterval));
+    const weaponCfg = WEAPON_PARAMS[WeaponGenre.RIFLE];
+    world.addComponent(id, new WeaponComponent(WeaponGenre.RIFLE, weaponCfg.fireInterval));
+    world.addComponent(id, new PlayerWeaponComponent(WeaponGenre.RIFLE));
 
     return id;
   }
@@ -288,9 +306,7 @@ export class EntityFactory {
     world.addComponent(id, new VelocityComponent(0, cfg.speed));
     world.addComponent(id, new HitCountComponent(actualHitCount, actualHitCount));
     world.addComponent(id, new ColliderComponent(cfg.colliderRadius, ColliderType.ENEMY));
-    world.addComponent(id, new EnemyComponent(
-      type, cfg.breachDamage, cfg.itemDropRate, cfg.weaponDropRate, cfg.conversionRate,
-    ));
+    world.addComponent(id, new EnemyComponent(type, cfg.breachDamage));
 
     const spriteMap: Record<string, SpriteType> = {
       [EnemyType.NORMAL]: 'enemy_normal',
@@ -354,28 +370,227 @@ export class EntityFactory {
     return id;
   }
 
-  /** アイテムドロップエンティティを生成（E-04） */
-  createItemDrop(world: World, position: Position, itemType: ItemType): EntityId {
+  /**
+   * C6-25 / Iter6: 武器樽 entity 生成
+   *
+   * Crate.glb clone + 武器ジャンル対応ガン GLTF を child として attach。
+   * BarrelItemComponent / ColliderComponent / HitCountComponent / MeshComponent を付与する。
+   * 樽は画面奥から手前へ移動（Y 正方向の速度）。
+   */
+  createBarrelItem(
+    world: World,
+    type: BarrelItemType,
+    position: Position,
+    isBonus: boolean = false,
+  ): EntityId {
     const id = world.createEntity();
-    const cfg = GAME_CONFIG.itemSpawn;
+
+    const hpCfg = BARREL_HP[type];
+    const baseHp = Math.max(1, Math.floor(hpCfg.baseHp * (isBonus ? 1.5 : 1)));
 
     world.addComponent(id, new PositionComponent(position.x, position.y));
-    world.addComponent(id, new VelocityComponent(0, cfg.speed));
-    world.addComponent(id, new HitCountComponent(cfg.hitCount, cfg.hitCount));
-    world.addComponent(id, new ItemDropComponent(itemType, Infinity));
-    world.addComponent(id, new ColliderComponent(cfg.colliderRadius, ColliderType.ITEM));
+    world.addComponent(id, new VelocityComponent(0, GAME_CONFIG.barrelSpawn.speed));
+    world.addComponent(id, new ColliderComponent(GAME_CONFIG.barrelSpawn.colliderRadius, ColliderType.BARREL));
+    world.addComponent(id, new HitCountComponent(baseHp, baseHp));
+    world.addComponent(id, new BarrelItemComponent(type, baseHp, baseHp, null, isBonus));
 
-    const color = ITEM_COLORS[itemType] ?? '#FFFFFF';
-    if (this.itemPool) {
-      const instanceId = this.itemPool.acquire(id);
-      world.addComponent(id, new MeshComponent('item_drop', cfg.spriteSize, cfg.spriteSize, {
-        instancePool: this.itemPool, instanceId, baseColor: color,
-      }));
+    const group = new Group();
+    if (this.assetManager) {
+      const crate = this.assetManager.cloneBarrelTemplate();
+      crate.scale.setScalar(0.6);
+      group.add(crate);
+
+      const weapon = this.assetManager.cloneWeaponTemplate(barrelItemTypeToGenre(type));
+      weapon.scale.setScalar(0.55);
+      // 樽の上に載せる
+      weapon.position.set(0, 0.55, 0);
+      weapon.rotation.y = Math.PI * 0.25;
+      weapon.name = 'barrel_weapon_child';
+      group.add(weapon);
+
+      if (isBonus) {
+        this.applyBonusRing(group);
+      }
     } else {
-      world.addComponent(id, new MeshComponent('item_drop', cfg.spriteSize, cfg.spriteSize, { baseColor: color }));
+      // フォールバック（テスト環境など）: 簡易 Box
+      const geo = new BoxGeometry(0.5, 0.5, 0.5);
+      const mat = new MeshToonMaterial({ color: 0x8b5a3c });
+      group.add(new Mesh(geo, mat));
+    }
+
+    this.sceneManager?.addEntity(group);
+    const size = GAME_CONFIG.barrelSpawn.spriteSize;
+    world.addComponent(id, new MeshComponent('barrel', size, size, { object3D: group }));
+
+    // Iter6 Phase 5: ワールドラベル取得 (HP 表示)
+    if (this.worldToScreenLabel) {
+      const acquired = this.worldToScreenLabel.acquire(
+        id,
+        `${baseHp}`,
+        () => ({ x: group.position.x, y: group.position.y + 0.9, z: group.position.z }),
+        isBonus ? 'bonus' : 'normal',
+      );
+      if (acquired) {
+        const comp = world.getComponent(id, BarrelItemComponent);
+        if (comp) comp.labelDomId = String(id);
+      }
     }
 
     return id;
+  }
+
+  /**
+   * C6-25 / Iter6: ゲート entity 生成（プロシージャル、アーチ型）
+   *
+   * 左右の柱 + 横棒をプロシージャル geometry で構築。GateType によって色分けし、
+   * GateComponent / MeshComponent を付与する（ColliderComponent なし、widthHalf で通過判定）。
+   */
+  createGate(
+    world: World,
+    type: GateType,
+    position: Position,
+    isBonus: boolean = false,
+  ): EntityId {
+    const id = world.createEntity();
+
+    const cfg = GATE_EFFECTS[type];
+    const amount = cfg.amount * (isBonus ? 1.5 : 1);
+
+    world.addComponent(id, new PositionComponent(position.x, position.y));
+    world.addComponent(id, new VelocityComponent(0, GAME_CONFIG.gateSpawn.speed));
+    world.addComponent(
+      id,
+      new GateComponent(
+        type,
+        amount,
+        cfg.unit,
+        cfg.durationSec ?? null,
+        GAME_CONFIG.gateSpawn.widthHalf * (isBonus ? 1.2 : 1),
+        false,
+        null,
+        isBonus,
+      ),
+    );
+
+    const color = GATE_COLOR[type];
+    const group = this.buildGateMesh(color, isBonus);
+
+    this.sceneManager?.addEntity(group);
+    const size = GAME_CONFIG.gateSpawn.spriteSize;
+    world.addComponent(id, new MeshComponent('gate', size, size, { object3D: group }));
+
+    // Iter6 Phase 5: ワールドラベル取得 (効果量表示)
+    if (this.worldToScreenLabel) {
+      const labelText = this.formatGateLabel(type, amount);
+      const acquired = this.worldToScreenLabel.acquire(
+        id,
+        labelText,
+        () => ({ x: group.position.x, y: group.position.y + 1.4, z: group.position.z }),
+        isBonus ? 'bonus' : 'normal',
+      );
+      if (acquired) {
+        const comp = world.getComponent(id, GateComponent);
+        if (comp) comp.labelDomId = String(id);
+      }
+    }
+
+    return id;
+  }
+
+  private formatGateLabel(type: GateType, amount: number): string {
+    const rounded = Math.round(amount);
+    switch (type) {
+      case GateType.ALLY_ADD: return I18N_TOAST.allyGain(rounded);
+      case GateType.HEAL:     return I18N_TOAST.healGain(rounded);
+      case GateType.ATTACK_UP:
+      case GateType.SPEED_UP: return I18N_TOAST.buffGain(type, rounded);
+    }
+  }
+
+  /** ボーナス装飾: 発光リング（シンプルに emissive で強調） */
+  private applyBonusRing(root: Object3D): void {
+    root.traverse((obj) => {
+      const m = obj as Mesh;
+      if (!m.isMesh || !m.material) return;
+      const materials = Array.isArray(m.material) ? m.material : [m.material];
+      for (const mat of materials) {
+        const emissive = (mat as unknown as { emissive?: { set: (v: number) => void } }).emissive;
+        if (emissive) emissive.set(0xffcc00);
+      }
+    });
+  }
+
+  /**
+   * ゲートのプロシージャル構築（Last War 風: 柱 + 台座 + エネルギーカーテン、上部なし）
+   * - テーパー柱 + 円形台座で立体感
+   * - 柱間にエネルギーカーテン（追加合成 Plane）で通過ポイント発光
+   * - 下端アクセントライン
+   * - 色は type 対応、isBonus は emissive 強度 + opacity で強調
+   */
+  private buildGateMesh(color: number, isBonus: boolean): Group {
+    const group = new Group();
+    const sizeMul = isBonus ? 1.2 : 1;
+    const pillarHeight = 1.0 * sizeMul;
+    const xOffset = 0.9 * sizeMul;
+
+    // ソリッドマテリアル（柱 / 台座）
+    const solidMat = new MeshToonMaterial({ color });
+    const solidEmissive = solidMat as unknown as { emissive?: Color };
+    if (solidEmissive.emissive) {
+      solidEmissive.emissive.copy(new Color(color)).multiplyScalar(isBonus ? 0.6 : 0.25);
+    }
+
+    // 柱（テーパー型: 底太めで立体感）
+    const pillarGeo = new CylinderGeometry(0.05, 0.09, pillarHeight, 10);
+    const leftPillar = new Mesh(pillarGeo, solidMat);
+    leftPillar.position.set(-xOffset, pillarHeight * 0.5, 0);
+    group.add(leftPillar);
+    const rightPillar = new Mesh(pillarGeo, solidMat);
+    rightPillar.position.set(xOffset, pillarHeight * 0.5, 0);
+    group.add(rightPillar);
+
+    // 台座（柱底の厚い円盤）
+    const baseGeo = new CylinderGeometry(0.18, 0.22, 0.08, 12);
+    const leftBase = new Mesh(baseGeo, solidMat);
+    leftBase.position.set(-xOffset, 0.04, 0);
+    group.add(leftBase);
+    const rightBase = new Mesh(baseGeo, solidMat);
+    rightBase.position.set(xOffset, 0.04, 0);
+    group.add(rightBase);
+
+    // 柱頂点のフィニアル（小さな球でソフトに見せる、旧アイテム球 r=0.08 と衝突しない r=0.09）
+    const capGeo = new SphereGeometry(0.09, 12, 8);
+    const leftCap = new Mesh(capGeo, solidMat);
+    leftCap.position.set(-xOffset, pillarHeight, 0);
+    group.add(leftCap);
+    const rightCap = new Mesh(capGeo, solidMat);
+    rightCap.position.set(xOffset, pillarHeight, 0);
+    group.add(rightCap);
+
+    // エネルギーカーテン（柱間の半透明 Plane、追加合成で発光感）
+    const curtainWidth = xOffset * 2 - 0.04;
+    const curtainHeight = pillarHeight;
+    const curtainGeo = new PlaneGeometry(curtainWidth, curtainHeight);
+    const curtainMat = new MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: isBonus ? 0.38 : 0.28,
+      side: DoubleSide,
+      blending: AdditiveBlending,
+      depthWrite: false,
+    });
+    const curtain = new Mesh(curtainGeo, curtainMat);
+    curtain.position.set(0, pillarHeight * 0.5, 0);
+    group.add(curtain);
+
+    // 下端のアクセント（ground line、太めの線でゲート位置を強調）
+    const lineGeo = new BoxGeometry(curtainWidth, 0.015, 0.02);
+    const lineMat = new MeshBasicMaterial({ color, transparent: true, opacity: 0.8 });
+    const line = new Mesh(lineGeo, lineMat);
+    line.position.set(0, 0.012, 0);
+    group.add(line);
+
+    return group;
   }
 
   /** 仲間エンティティを生成（E-05） */
@@ -399,8 +614,8 @@ export class EntityFactory {
     }
     world.addComponent(id, mesh);
 
-    const weaponCfg = WEAPON_CONFIG[WeaponType.FORWARD];
-    world.addComponent(id, new WeaponComponent(WeaponType.FORWARD, weaponCfg.fireInterval));
+    const weaponCfg = WEAPON_PARAMS[WeaponGenre.RIFLE];
+    world.addComponent(id, new WeaponComponent(WeaponGenre.RIFLE, weaponCfg.fireInterval));
 
     return id;
   }
