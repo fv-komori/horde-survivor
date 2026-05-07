@@ -44,7 +44,7 @@
 ## 2. 永続化ルール
 
 ### BR-PS01: localStorageキー
-- **ルール**: キー名は `'fv-game-settings'` 固定
+- **ルール**: キー名は `'horde-survivor-settings'` 固定
 - **データ形式**: JSON文字列 `{"bgmVolume":70,"seVolume":80,"controlType":"both"}`
 
 ### BR-PS02: 破損データ対処

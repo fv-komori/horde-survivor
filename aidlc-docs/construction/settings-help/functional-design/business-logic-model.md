@@ -10,7 +10,7 @@
 ### 1.1 初期化（起動時のlocalStorage復元）
 ```
 SettingsManager.init()
-  raw = localStorage.getItem('fv-game-settings')
+  raw = localStorage.getItem('horde-survivor-settings')
   IF raw !== null
     TRY
       parsed = JSON.parse(raw)
@@ -59,7 +59,7 @@ SettingsManager.setControlType(type: ControlType)
 ```
 SettingsManager.save()
   data = { bgmVolume, seVolume, controlType }
-  localStorage.setItem('fv-game-settings', JSON.stringify(data))
+  localStorage.setItem('horde-survivor-settings', JSON.stringify(data))
 ```
 
 ### 1.4 設定適用

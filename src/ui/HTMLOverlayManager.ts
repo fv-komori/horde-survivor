@@ -379,7 +379,7 @@ export class HTMLOverlayManager {
 
       const title = document.createElement('h1');
       title.className = 'title-text';
-      title.textContent = 'FV DEFENSE';
+      title.textContent = 'HORDE SURVIVOR';
       this.titleContainer.appendChild(title);
 
       const subtitle = document.createElement('p');

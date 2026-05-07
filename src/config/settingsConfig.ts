@@ -3,7 +3,7 @@
 import { ControlType } from '../types';
 
 /** localStorageキー */
-export const SETTINGS_STORAGE_KEY = 'fv-game-settings';
+export const SETTINGS_STORAGE_KEY = 'horde-survivor-settings';
 
 /** 品質設定タイプ */
 export type QualityPreference = 'auto' | 'high' | 'low';

@@ -93,7 +93,7 @@ src/
 #### 技術要件
 - **アクセス方法**: タイトル画面に「SETTINGS」ボタンを追加
 - **画面遷移**: モーダル方式（GameStateに新状態は追加しない、タイトル画面上にオーバーレイ表示）
-- **永続化**: localStorage（キー: `fv-game-settings`）
+- **永続化**: localStorage（キー: `horde-survivor-settings`）
 - **設定適用**: ゲーム起動時にlocalStorageから復元、AudioManager・InputHandlerに反映
 - **遊び方ヘルプ**: 設定画面内の「遊び方」タブ/ボタンから表示。Canvas 2Dで描画（スクロール対応）
 

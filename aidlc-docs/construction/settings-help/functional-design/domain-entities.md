@@ -52,7 +52,7 @@ interface GameSettings {
 ### SettingsConfig（定数）
 ```
 interface SettingsConfig {
-  localStorageKey: string          // 'fv-game-settings'
+  localStorageKey: string          // 'horde-survivor-settings'
   defaults: GameSettings           // デフォルト値
   slider: SliderConfig             // スライダーUI設定
   controlTypeOptions: ControlTypeOption[]  // 操作タイプ選択肢
@@ -118,7 +118,7 @@ interface HelpPageDef {
 ```
 GameService
   │
-  ├── SettingsManager ←→ localStorage ('fv-game-settings')
+  ├── SettingsManager ←→ localStorage ('horde-survivor-settings')
   │     │
   │     ├── → AudioManager.setBGMVolume() / setSEVolume()
   │     └── → InputHandler.setControlType()
